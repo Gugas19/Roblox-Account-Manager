@@ -10,7 +10,7 @@
 
 ![Roblox Account Manager](Images/main.png)
 
-[Download](#download) · [What's new](#whats-new-in-this-edition) · [Languages](#languages) · [Screenshots](#screenshots) · [Building](#building-from-source) · [FAQ](#frequently-asked-questions)
+[Download](#download) · [Version 4](#version-4-preview) · [What's new](#whats-new-in-this-edition) · [Languages](#languages) · [Screenshots](#screenshots) · [Building](#building-from-source) · [FAQ](#frequently-asked-questions)
 
 </div>
 
@@ -29,7 +29,46 @@ accounts, grinding accounts, with as many Roblox windows open at the same time a
 - Coming from the original app? Copy your `AccountData.json`, `RAMSettings.ini` and `RAMTheme.ini` next to the new
   `RobloxAccountManager.exe`, your accounts and settings carry over.
 
+## Version 4 (preview)
+
+The whole app rewritten in Rust, in [`rust/`](rust). It opens the same `AccountData.json`, `RAMSettings.ini` and
+`RAMTheme.ini` as version 3, so you can switch between them in either direction (just not run both at once).
+It's in testing: for now [build it from source](rust/README.md#build), it will be in the releases once it's been
+tried with real accounts. Version 3 stays available until then.
+
+![Version 4](Images/v4/main.png)
+
+- **New interface** built with [shadcn/ui](https://ui.shadcn.com): command palette (`Ctrl+K`) to find any account
+  or action, undo after removing accounts, double click to edit an alias, paste a game link straight into Place ID,
+  launch progress with cancel, a guided first start, and every setting explained where you change it.
+- **Anti-AFK built in**: keeps your Roblox windows from being kicked after 20 minutes idle without getting in your
+  way. It waits until you stop typing, skips the window you're playing in, rejoins accounts that got disconnected
+  (read from the Roblox log, into the same server), can mute background windows, put them in Windows' efficiency
+  mode, arrange them in a grid, send Discord notifications and keep statistics. It keeps running from the tray icon.
+- **Command line**, `ram-cli.exe`: list, join, follow, close and import accounts, or control Anti-AFK, from a script
+  or a shortcut. When the app is open the command runs inside it.
+
+  ```
+  ram-cli join Main Alt2 --place 920587237
+  ram-cli join --group Farm --place https://www.roblox.com/games/920587237
+  ram-cli follow Alt1 --user Builderman
+  ram-cli list --json
+  ```
+- **Lighter**: one 6 MB exe plus the command line, no .NET Framework or CefSharp, it uses the WebView2 already in
+  Windows 10 and 11.
+- Same five languages, Windows or password encryption (files encrypted by version 3 open as they are), local web API
+  and watcher.
+
+| | |
+| :---: | :---: |
+| ![Anti-AFK](Images/v4/antiafk.png) Anti-AFK | ![Command palette](Images/v4/command-palette.png) Command palette (`Ctrl+K`) |
+
+<img src="Images/v4/main-pt.png" alt="Version 4 in Portuguese" width="560">
+
 ## What's new in this edition
+
+The rest of this page is about version 3, the current release.
+
 
 ### A modern interface
 - Dark design with rounded windows, cards, clear icons and a highlighted main action.
@@ -115,6 +154,8 @@ msbuild "RBX Alt Manager.sln" -restore -p:Configuration=Release -p:Platform=x64
 ```
 
 The app is built into `RBX Alt Manager\bin\x64\Release`.
+
+Version 4 (Rust) builds with `cargo` and `npm`, see [rust/README.md](rust/README.md).
 
 ### Tests
 
@@ -247,12 +288,16 @@ Be careful executing random scripts when having dangerous settings enabled.
 | Automatic Cookie Refresh | Your accounts never become invalidated sitting in the account manager over long periods of time | As long you actively use account manager, your accounts will regularly get new cookies preventing them from being logged out, this does sign you out of other sessions though |
 | Join Group | Easily join groups with multiple accounts | Click the arrow on the right side of the `Open Browser` button, then click `Join Group` |
 | Quick Log In | Easily log in to an account on a different computer using Roblox's Quick Log In feature | Right click an account, then select `Quick Log In` |
+| Anti-AFK (version 4) | Keeps Roblox windows from being kicked for being idle, rejoins disconnected accounts, mutes and arranges windows | Click `Anti-AFK` in the top bar, or `ram-cli antiafk start` |
+| Command Line (version 4) | Join, follow, list, close and import accounts from scripts and shortcuts | `ram-cli help` |
 | AI Captcha Assistance | Assists you in the "Pick the image" captchas using the Nopecha API (Requires a subscription key) | You can enable auto solve, but it is not recommended to use, your best option is to add a captcha solving extension to the browser along with a BrowserConfig to automatically set the key per new browser opened |
 
 # Credits
 
 - [ic3w0lf22](https://github.com/ic3w0lf22/Roblox-Account-Manager), the original Roblox Account Manager, and everyone who contributed to it.
 - [Campionnn](https://github.com/Campionnn/Roblox-Account-Manager), who kept it updated.
+- [Agzes/AntiAFK-RBX](https://github.com/Agzes/AntiAFK-RBX), whose features inspired the Anti-AFK of version 4 (written from scratch).
+- Version 4 interface: [shadcn/ui](https://ui.shadcn.com), [Lucide](https://lucide.dev) icons, [Tauri](https://tauri.app).
 - Icons: [Material Icons](https://fonts.google.com/icons) by Google (Apache License 2.0, see `RBX Alt Manager/Resources/ThirdParty`).
 - Flags: [flagcdn.com](https://flagcdn.com) (public domain).
 
