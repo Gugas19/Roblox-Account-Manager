@@ -5,6 +5,7 @@ using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Reflection;
 using System.Security.Principal;
@@ -12,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using WebSocketSharp;
+using MessageBox = RBX_Alt_Manager.Classes.LocalizedMessageBox;
 
 namespace RBX_Alt_Manager
 {
@@ -54,9 +56,21 @@ namespace RBX_Alt_Manager
         private static readonly Mutex mutex = new Mutex(true, "{93b3858f-3dac-4dc0-99cb-0476efc5adce}");
 #endif
 
+        private const string OldDefaultTheme = "AccountsBG=#1E1F28|AccountsFG=#FFFFFF|ButtonsBG=#292929|ButtonsFG=#FFFFFF|ButtonsBC=#282828|ButtonStyle=Popup|FormsBG=#292929|FormsFG=#FFFFFF|DarkTopBar=True|LightImages=True|LabelsTransparent=True|ShowHeaders=True|TextBoxesBG=#3A3A3A|TextBoxesFG=#FFFFFF|TextBoxesBC=#282828";
+
+        private static bool IsOldDefaultTheme(string Theme)
+        {
+            var Lines = Theme.Split('\n').Select(Line => Line.Trim()).Where(Line => Line.Contains("=")).OrderBy(Line => Line, StringComparer.Ordinal);
+            var Old = OldDefaultTheme.Split('|').OrderBy(Line => Line, StringComparer.Ordinal);
+
+            return Lines.SequenceEqual(Old, StringComparer.OrdinalIgnoreCase);
+        }
+
         [STAThread]
         static void Main(params string[] Arguments)
         {
+            Classes.Lang.Initialize(); // system language until the settings are loaded
+
             int Stupid = 1337;
 
             try
@@ -92,8 +106,10 @@ namespace RBX_Alt_Manager
 
             Application.ApplicationExit += (s, e) => Closed = true;
 
-            if (!File.Exists(Path.Combine(Environment.CurrentDirectory, "RAMTheme.ini")))
-                File.WriteAllText(Path.Combine(Environment.CurrentDirectory, "RAMTheme.ini"), Resources.DefaultTheme);
+            string ThemePath = Path.Combine(Environment.CurrentDirectory, "RAMTheme.ini");
+
+            if (!File.Exists(ThemePath) || IsOldDefaultTheme(File.ReadAllText(ThemePath))) // upgrade untouched old default themes to the new look
+                File.WriteAllText(ThemePath, Resources.DefaultTheme);
 
             if (!(Arguments.Length == 1 && Arguments[0] == "-restart"))
             {

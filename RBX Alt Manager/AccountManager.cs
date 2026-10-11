@@ -1,4 +1,4 @@
-using BrightIdeasSoftware;
+﻿using BrightIdeasSoftware;
 using ICSharpCode.SharpZipLib.Zip;
 using Microsoft.Win32;
 using Microsoft.WindowsAPICodePack.Dialogs;
@@ -28,6 +28,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using WebSocketSharp;
+using MessageBox = RBX_Alt_Manager.Classes.LocalizedMessageBox;
 
 #pragma warning disable CS0618 // parameter warnings
 
@@ -68,7 +69,7 @@ namespace RBX_Alt_Manager
         public static string CurrentVersion;
         public OLVListItem SelectedAccountItem { get; private set; }
         private WebServer AltManagerWS;
-        private string WSPassword { get; set; }
+        private string WSPassword => WebServer.Get("Password") ?? ""; // read every time so a new password works right away
         public System.Timers.Timer AutoCookieRefresh { get; private set; }
 
         public static IniFile IniSettings;
@@ -84,7 +85,6 @@ namespace RBX_Alt_Manager
         public event EventHandler<GameArgs> RecentGameAdded;
 
         private bool IsResettingPassword;
-        private bool IsDownloadingChromium;
         private bool LaunchNext;
         private CancellationTokenSource LauncherToken;
 
@@ -95,8 +95,12 @@ namespace RBX_Alt_Manager
 
         public static void SetDarkBar(IntPtr Handle)
         {
-            if (ThemeEditor.UseDarkTopBar && DwmSetWindowAttribute(Handle, 19, new[] { 1 }, 4) != 0)
-                DwmSetWindowAttribute(Handle, 20, new[] { 1 }, 4);
+            int Dark = ThemeEditor.UseDarkTopBar ? 1 : 0; // also turns it off again, the setting applies right away
+
+            if (DwmSetWindowAttribute(Handle, 19, new[] { Dark }, 4) != 0)
+                DwmSetWindowAttribute(Handle, 20, new[] { Dark }, 4);
+
+            ModernUI.StyleWindow(Handle);
         }
 
         public AccountManager()
@@ -145,18 +149,21 @@ namespace RBX_Alt_Manager
             if (!General.Exists("UseCefSharpBrowser")) General.Set("UseCefSharpBrowser", "false");
 
             if (!Developer.Exists("DevMode")) Developer.Set("DevMode", "false");
-            if (!Developer.Exists("EnableWebServer")) Developer.Set("EnableWebServer", "true");
+            if (!Developer.Exists("EnableWebServer")) Developer.Set("EnableWebServer", "false");
 
             if (!WebServer.Exists("WebServerPort")) WebServer.Set("WebServerPort", "7963");
             if (!WebServer.Exists("AllowGetCookie")) WebServer.Set("AllowGetCookie", "false");
             if (!WebServer.Exists("AllowGetAccounts")) WebServer.Set("AllowGetAccounts", "false");
-            if (!WebServer.Exists("AllowLaunchAccount")) WebServer.Set("AllowLaunchAccount", "true");
+            if (!WebServer.Exists("AllowLaunchAccount")) WebServer.Set("AllowLaunchAccount", "false");
             if (!WebServer.Exists("AllowAccountEditing")) WebServer.Set("AllowAccountEditing", "false");
-            if (!WebServer.Exists("Password")) WebServer.Set("Password", ""); else WSPassword = WebServer.Get("Password");
+            if (!WebServer.Exists("Password")) WebServer.Set("Password", "");
             if (!WebServer.Exists("EveryRequestRequiresPassword")) WebServer.Set("EveryRequestRequiresPassword", "false");
             if (!WebServer.Exists("AllowExternalConnections")) WebServer.Set("AllowExternalConnections", "false");
 
+            Lang.Initialize();
+
             InitializeComponent();
+            ApplyModernLayout();
             this.Rescale();
 
             AccountsList = new List<Account>();
@@ -247,6 +254,9 @@ namespace RBX_Alt_Manager
                     AccountsView.RefreshObject(obj);
                     AccountsView.EnsureModelVisible(obj);
                 }
+
+                UpdateAccountCount(); // BuildList doesn't raise ItemsChanged, so added/removed accounts wouldn't show in the counter
+                UpdateAccountButtons();
             });
         }
 
@@ -349,7 +359,7 @@ namespace RBX_Alt_Manager
 
         public static void SaveAccounts(bool BypassRateLimit = false, bool BypassCountCheck = false)
         {
-            if ((!BypassRateLimit && (DateTime.Now - startTime).Seconds < 2) || (!BypassCountCheck && AccountsList.Count == 0)) return;
+            if ((!BypassRateLimit && (DateTime.Now - startTime).TotalSeconds < 2) || (!BypassCountCheck && AccountsList.Count == 0)) return;
 
             lock (saveLock)
             {
@@ -369,7 +379,7 @@ namespace RBX_Alt_Manager
                     if (File.Exists(Path.Combine(Environment.CurrentDirectory, "NoEncryption.IUnderstandTheRisks.iautamor")))
                         File.WriteAllBytes(SaveFilePath, Encoding.UTF8.GetBytes(SaveData));
                     else
-                        File.WriteAllBytes(SaveFilePath, ProtectedData.Protect(Encoding.UTF8.GetBytes(SaveData), Entropy, DataProtectionScope.LocalMachine));
+                        File.WriteAllBytes(SaveFilePath, ProtectedData.Protect(Encoding.UTF8.GetBytes(SaveData), Entropy, DataProtectionScope.CurrentUser)); // CurrentUser so other users/accounts on this PC can't decrypt it, files saved with LocalMachine still load fine
                 }
             }
         }
@@ -451,7 +461,10 @@ namespace RBX_Alt_Manager
             }
             catch (Exception exception)
             {
-                MessageBox.Show($"Incorrect Password!\n\n{exception.Message}", "Roblox Account Manager", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                if (exception is CryptographicException) // wrong password, the libsodium message isn't useful to the user
+                    MessageBox.Show("Incorrect Password!", "Roblox Account Manager", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                else
+                    MessageBox.Show($"Incorrect Password!\n\n{exception.Message}", "Roblox Account Manager", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally { PasswordTextBox.Text = string.Empty; PasswordTextBox.Focus(); }
         }
@@ -560,6 +573,8 @@ namespace RBX_Alt_Manager
 
         public static Account AddAccount(string SecurityToken, string Password = "", string AccountJSON = null)
         {
+            if (!General.Get<bool>("SavePasswords")) Password = "";
+
             Account account = new Account(SecurityToken, AccountJSON);
 
             if (account.Valid)
@@ -601,13 +616,17 @@ namespace RBX_Alt_Manager
                 Height = big ? 420 : 125,
                 FormBorderStyle = FormBorderStyle.FixedDialog,
                 MaximizeBox = false,
-                Text = caption,
-                StartPosition = FormStartPosition.CenterScreen
+                Text = Lang.T(caption),
+                StartPosition = FormStartPosition.CenterScreen,
+                BackColor = ThemeEditor.FormsBackground,
+                ForeColor = ThemeEditor.FormsForeground
             };
 
-            Label textLabel = new Label() { Left = 15, Top = 10, Text = text, AutoSize = true };
+            SetDarkBar(prompt.Handle);
+
+            Label textLabel = new Label() { Left = 15, Top = 10, Text = Lang.T(text), AutoSize = true, ForeColor = ThemeEditor.LabelForeground };
             Control textBox;
-            Button confirmation = new Button() { Text = "OK", Left = 15, Width = 100, Top = big ? 350 : 50, DialogResult = DialogResult.OK };
+            Button confirmation = new Button() { Text = Lang.T("OK"), Left = 15, Width = 100, Top = big ? 350 : 50, Height = 26, DialogResult = DialogResult.OK };
 
             if (big) textBox = new RichTextBox() { Left = 15, Top = 15 + textLabel.Size.Height, Width = 295, Height = 330 - textLabel.Size.Height, Text = defaultText };
             else textBox = new TextBox() { Left = 15, Top = 25, Width = 295, Text = defaultText };
@@ -618,7 +637,13 @@ namespace RBX_Alt_Manager
             prompt.Controls.Add(textLabel);
             if (!big) prompt.AcceptButton = confirmation;
 
+            textBox.BackColor = ThemeEditor.TextBoxesBackground;
+            textBox.ForeColor = ThemeEditor.TextBoxesForeground;
+
+            if (!big) prompt.Height += 10;
+
             prompt.Rescale();
+            ModernUI.Apply(prompt);
 
             return prompt.ShowDialog() == DialogResult.OK ? textBox.Text : "/UC";
         }
@@ -668,47 +693,14 @@ namespace RBX_Alt_Manager
             PlaceID.Text = General.Exists("SavedPlaceId") ? General.Get("SavedPlaceId") : "5315046213";
             UserID.Text = General.Exists("SavedFollowUser") ? General.Get("SavedFollowUser") : string.Empty;
 
-            if (!Developer.Get<bool>("DevMode"))
-            {
-                AccountsStrip.Items.Remove(viewFieldsToolStripMenuItem);
-                AccountsStrip.Items.Remove(getAuthenticationTicketToolStripMenuItem);
-                AccountsStrip.Items.Remove(copyRbxplayerLinkToolStripMenuItem);
-                AccountsStrip.Items.Remove(copySecurityTokenToolStripMenuItem);
-                AccountsStrip.Items.Remove(copyAppLinkToolStripMenuItem);
-            }
+            ApplyDeveloperMode();
 
             if (General.Get<bool>("HideUsernames"))
                 HideUsernamesCheckbox.Checked = true;
 
-            if (!General.Get<bool>("DisableAgingAlert"))
-                Username.Renderer = new AccountRenderer();
+            Username.Renderer = new AccountRenderer(); // draws the aging alert (when enabled) and the presence dots
 
-            try
-            {
-                if (Developer.Get<bool>("EnableWebServer"))
-                {
-                    string Port = WebServer.Exists("WebServerPort") ? WebServer.Get("WebServerPort") : "7963";
-
-                    List<string> Prefixes = new List<string>() { $"http://localhost:{Port}/" };
-
-                    if (WebServer.Get<bool>("AllowExternalConnections"))
-                        if (Program.Elevated)
-                            Prefixes.Add($"http://*:{Port}/");
-                        else
-                            using (Process proc = new Process() { StartInfo = new ProcessStartInfo(AppDomain.CurrentDomain.FriendlyName, "-adminRequested") { Verb = "runas" } })
-                                try
-                                {
-                                    proc.Start();
-                                    Environment.Exit(1);
-                                }
-                                catch { }
-
-
-                    AltManagerWS = new WebServer(SendResponse, Prefixes.ToArray());
-                    AltManagerWS.Run();
-                }
-            }
-            catch (Exception x) { MessageBox.Show($"Failed to start webserver!\n\n{x}", "Roblox Account Manager", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            RestartWebServer();
 
             Task.Run(() =>
             {
@@ -731,31 +723,8 @@ namespace RBX_Alt_Manager
             if (General.Get<bool>("ShuffleJobId"))
                 ShuffleIcon_Click(null, EventArgs.Empty);
 
-            if (General.Get<bool>("AutoCookieRefresh"))
-            {
-                AutoCookieRefresh = new System.Timers.Timer(60000 * 5) { Enabled = true };
-                AutoCookieRefresh.Elapsed += async (s, e) =>
-                {
-                    int Count = 0;
-
-                    foreach (var Account in AccountsList)
-                    {
-                        if (Account.GetField("NoCookieRefresh") != "true" && (DateTime.Now - Account.LastUse).TotalDays > 20 && (DateTime.Now - Account.LastAttemptedRefresh).TotalDays >= 7)
-                        {
-                            Program.Logger.Info($"Attempting to refresh {Account.Username} | Last Use: {Account.LastUse}");
-
-                            Account.LastAttemptedRefresh = DateTime.Now;
-
-                            if (Account.LogOutOfOtherSessions(true)) Count++;
-
-                            await Task.Delay(5000);
-                        }
-                    };
-                };
-            }
-
-            var PresenceTimer = new System.Timers.Timer(60000 * 2) { Enabled = true };
-            PresenceTimer.Elapsed += (s, e) => AccountsView.InvokeIfRequired(async () => await UpdatePresence());
+            ApplyAutoCookieRefresh();
+            ApplyPresenceRate();
         }
 
         public void ApplyTheme()
@@ -785,6 +754,9 @@ namespace RBX_Alt_Manager
             RGForm.ApplyTheme();
 
             SettingsForm?.ApplyTheme();
+            RBX_Alt_Manager.Classes.ModernUI.Apply(this);
+            UpdateAccountCount();
+            UpdateAccountButtons();
         }
 
         private async void LoadRecentGames()
@@ -862,7 +834,7 @@ namespace RBX_Alt_Manager
                 return Reply("1.0.0", true);
             }
 
-            if ((Method == "GetCookie" || Method == "GetAccounts" || Method == "LaunchAccount" || Method == "KillProcess") && ((WSPassword != null && WSPassword.Length < 6) || (Password != null && Password != WSPassword))) return Reply("Invalid Password, make sure your password contains 6 or more characters", false, 401, "Invalid Password");
+            if ((Method == "GetCookie" || Method == "GetAccounts" || Method == "LaunchAccount" || Method == "FollowUser" || Method == "KillProcess") && (string.IsNullOrEmpty(WSPassword) || WSPassword.Length < 6 || Password != WSPassword)) return Reply("Invalid Password, make sure your password contains 6 or more characters", false, 401, "Invalid Password");
 
             if (Method == "GetAccounts")
             {
@@ -937,7 +909,6 @@ namespace RBX_Alt_Manager
 
             if (Method == "LaunchAccount")
             {
-                Console.WriteLine("hi");
                 if (!WebServer.Get<bool>("AllowLaunchAccount")) return Reply("Method `LaunchAccount` not allowed", false, 401, "Method not allowed");
 
                 bool ValidPlaceId = long.TryParse(request.QueryString["PlaceId"], out long PlaceId); if (!ValidPlaceId) return Reply("Invalid PlaceId provided", false, Raw: "Invalid PlaceId");
@@ -1068,7 +1039,7 @@ namespace RBX_Alt_Manager
             }
             if (Method == "SetDescription" && !string.IsNullOrEmpty(Body))
             {
-                if (!WebServer.Get<bool>("AllowAccountEditing")) Reply("Method `SetDescription` not allowed", false, Raw: "Method not allowed");
+                if (!WebServer.Get<bool>("AllowAccountEditing")) return Reply("Method `SetDescription` not allowed", false, Raw: "Method not allowed");
 
                 account.Description = Body;
                 UpdateAccountView(account);
@@ -1091,104 +1062,61 @@ namespace RBX_Alt_Manager
         private void AccountManager_Shown(object sender, EventArgs e)
         {
             if (!UpdateMultiRoblox() && !General.Get<bool>("HideRbxAlert"))
-                MessageBox.Show("WARNING: Roblox is currently running, multi roblox will not work until you restart the account manager with roblox closed.", "Roblox Account Manager", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("WARNING: Roblox is currently running, multi roblox will only work once every Roblox window is closed.", "Roblox Account Manager", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 
+            ApplyBrowserMode();
+        }
+
+        /// <summary>Picks between the downloaded Chrome and the built in CefSharp browser, can be called again at any time</summary>
+        public void ApplyBrowserMode()
+        {
             int Major = Environment.OSVersion.Version.Major, Minor = Environment.OSVersion.Version.Minor;
 
-            PuppeteerSupported = !(Major < 6 || (Major == 6 && Minor <= 1));
+            PuppeteerSupported = !(Major < 6 || (Major == 6 && Minor <= 1)) && !General.Get<bool>("UseCefSharpBrowser");
 
-            if (General.Get<bool>("UseCefSharpBrowser")) PuppeteerSupported = false;
+            // these need the full browser
+            bulkUserPassToolStripMenuItem.Visible = customURLJSToolStripMenuItem.Visible = URLJSToolStripMenuItem.Visible = joinGroupToolStripMenuItem.Visible = PuppeteerSupported;
 
-            if (!PuppeteerSupported)
-            {
-                AddAccountsStrip.Items.Remove(bulkUserPassToolStripMenuItem);
-                AddAccountsStrip.Items.Remove(customURLJSToolStripMenuItem);
-                OpenBrowserStrip.Items.Remove(URLJSToolStripMenuItem);
-                OpenBrowserStrip.Items.Remove(joinGroupToolStripMenuItem);
-            }
-
-            if (PuppeteerSupported && (!Directory.Exists(AccountBrowser.Fetcher.DownloadsFolder) || Directory.GetDirectories(AccountBrowser.Fetcher.DownloadsFolder).Length == 0))
-            {
-                Add.Visible = false;
-                Remove.Visible = false;
-                DownloadProgressBar.Visible = true;
-                DLChromiumLabel.Visible = true;
-
-                Task.Run(async () =>
-                {
-                    IsDownloadingChromium = true;
-
-                    void DownloadProgressChanged(object s, DownloadProgressChangedEventArgs e) => DownloadProgressBar.InvokeIfRequired(() => { DownloadProgressBar.Value = e.ProgressPercentage; });
-
-                    AccountBrowser.Fetcher.DownloadProgressChanged += DownloadProgressChanged;
-                    await AccountBrowser.Fetcher.DownloadAsync(BrowserFetcher.DefaultChromiumRevision);
-                    AccountBrowser.Fetcher.DownloadProgressChanged -= DownloadProgressChanged;
-
-                    IsDownloadingChromium = false;
-
-                    this.InvokeIfRequired(() =>
-                    {
-                        Add.Visible = true;
-                        Remove.Visible = true;
-                        DownloadProgressBar.Visible = false;
-                        DLChromiumLabel.Visible = false;
-                    });
-                });
-            }
-            else if (!PuppeteerSupported)
-            {
-                FileInfo Cef = new FileInfo(Path.Combine(Environment.CurrentDirectory, "x86", "CefSharp.dll"));
-
-                if (Cef.Exists)
-                {
-                    FileVersionInfo Info = FileVersionInfo.GetVersionInfo(Cef.FullName);
-
-                    if (Info.ProductMajorPart != 109)
-                        try { Directory.GetParent(Cef.FullName).RecursiveDelete(); } catch { }
-                }
-
-                if (!Directory.Exists(Path.Combine(Environment.CurrentDirectory, "x86")))
-                {
-                    var Existing = new DirectoryInfo(Path.Combine(Environment.CurrentDirectory, "x86"));
-
-                    DLChromiumLabel.Text = "Downloading CefSharp...";
-
-                    Add.Visible = false;
-                    Remove.Visible = false;
-                    DownloadProgressBar.Visible = true;
-                    DLChromiumLabel.Visible = true;
-
-                    Task.Run(async () =>
-                    {
-                        IsDownloadingChromium = true;
-
-                        using HttpClient client = new HttpClient();
-
-                        string FileName = Path.GetTempFileName(), DownloadUrl = Resources.CefSharpDownload;
-
-                        var TotalDownloadSize = (await client.SendAsync(new HttpRequestMessage(HttpMethod.Head, DownloadUrl))).Content.Headers.ContentLength.Value;
-                        Progress<float> progress = new Progress<float>(progress => DownloadProgressBar.InvokeIfRequired(() => DownloadProgressBar.Value = (int)(progress * 100)));
-
-                        using (var file = new FileStream(FileName, FileMode.Create, FileAccess.Write, FileShare.None))
-                            await client.DownloadAsync(DownloadUrl, file, progress);
-
-                        if (Existing.Exists) Existing.RecursiveDelete();
-
-                        System.IO.Compression.ZipFile.ExtractToDirectory(FileName, Environment.CurrentDirectory);
-
-                        IsDownloadingChromium = false;
-
-                        this.InvokeIfRequired(() =>
-                        {
-                            Add.Visible = true;
-                            Remove.Visible = true;
-                            DownloadProgressBar.Visible = false;
-                            DLChromiumLabel.Visible = false;
-                        });
-                    });
-                }
-            }
+            if (PuppeteerSupported) StartBrowserDownload();
         }
+
+        private void StartBrowserDownload()
+        {
+            if (AccountBrowser.IsBrowserInstalled && !AccountBrowser.IsDownloading)
+            {
+                _ = AccountBrowser.EnsureBrowserAsync(); // installed already, only gets the path
+
+                return;
+            }
+
+            Add.Visible = false;
+            Remove.Visible = false;
+            DownloadProgressBar.Value = 0;
+            DownloadProgressBar.Visible = true;
+            DLChromiumLabel.Text = Lang.T("Downloading the browser...");
+            DLChromiumLabel.Visible = true;
+
+            AccountBrowser.DownloadProgress -= OnBrowserDownloadProgress;
+            AccountBrowser.DownloadProgress += OnBrowserDownloadProgress;
+
+            AccountBrowser.EnsureBrowserAsync().ContinueWith(Task => this.InvokeIfRequired(() =>
+            {
+                AccountBrowser.DownloadProgress -= OnBrowserDownloadProgress;
+
+                Add.Visible = true;
+                Remove.Visible = true;
+                DownloadProgressBar.Visible = false;
+                DLChromiumLabel.Visible = false;
+
+                if (Task.IsFaulted)
+                {
+                    Program.Logger.Error($"Browser download failed: {Task.Exception}");
+                    MessageBox.Show(Lang.F("Could not download the browser:\n\n{0}", Task.Exception.GetBaseException().Message), "Roblox Account Manager", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }));
+        }
+
+        private void OnBrowserDownloadProgress(float Progress) => DownloadProgressBar.InvokeIfRequired(() => DownloadProgressBar.Value = (int)Math.Max(0, Math.Min(100, Progress * 100)));
 
         public bool UpdateMultiRoblox()
         {
@@ -1247,27 +1175,15 @@ namespace RBX_Alt_Manager
         {
             if (PuppeteerSupported)
             {
-                Add.Enabled = false;
+                Add.Enabled = false; // stops a double click from opening two browsers
 
-                try { await new AccountBrowser().Login(); }
-                catch (Exception x)
-                {
-                    Program.Logger.Error($"[Add_Click] An error was encountered attempting to login: {x}");
+                Task Login = new AccountBrowser().Login(); // errors are shown by the browser itself
 
-                    if (Utilities.YesNoPrompt($"An error was encountered attempting to login", "You may have a corrupted chromium installation", "Would you like to re-install chromium?", false))
-                    {
-                        MessageBox.Show("Roblox Account Manager will now close since it can't delete the folder while it's in use.", "", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                // the login page can take minutes to load on a slow connection, don't keep the button disabled that long
+                try { await Task.WhenAny(Login, Task.Delay(5000)); }
+                finally { Add.Enabled = true; }
 
-                        if (Directory.GetFiles(AccountBrowser.Fetcher.DownloadsFolder).Length <= 1 && Directory.GetDirectories(AccountBrowser.Fetcher.DownloadsFolder).Length <= 1)
-                            Process.Start("cmd.exe", $"/c rmdir /s /q \"{AccountBrowser.Fetcher.DownloadsFolder}\"");
-                        else
-                            Process.Start("explorer.exe", "/select, " + AccountBrowser.Fetcher.DownloadsFolder);
-
-                        Environment.Exit(0);
-                    }
-                }
-
-                Add.Enabled = true;
+                try { await Login; } catch (Exception x) { Program.Logger.Error($"Login browser failed: {x}"); }
             }
             else
                 CefBrowser.Instance.Login();
@@ -1275,48 +1191,8 @@ namespace RBX_Alt_Manager
 
         private void DownloadProgressBar_Click(object sender, EventArgs e)
         {
-            static void ShowManualInstallInstructions()
-            {
-                string Temp = Path.Combine(Path.GetTempPath(), "manual install instructions.html");
-
-                string DownloadLink = PuppeteerSupported ? (string)typeof(BrowserFetcher).GetMethod("GetDownloadURL", BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, new object[] { AccountBrowser.Fetcher.Product, AccountBrowser.Fetcher.Platform, AccountBrowser.Fetcher.DownloadHost, BrowserFetcher.DefaultChromiumRevision }) : Resources.CefSharpDownload;
-                string Directory = PuppeteerSupported ? Path.Combine(AccountBrowser.Fetcher.DownloadsFolder, $"{AccountBrowser.Fetcher.Platform}-{BrowserFetcher.DefaultChromiumRevision}") : Path.Combine(Environment.CurrentDirectory);
-
-                File.WriteAllText(Temp, string.Format(Resources.ManualInstallHTML, PuppeteerSupported ? "Chromium" : "CefSharp", DownloadLink, PuppeteerSupported ? "chrome-win" : "x86", Directory));
-
-                Process.Start(new ProcessStartInfo(Temp) { UseShellExecute = true });
-                Process.Start(new ProcessStartInfo("cmd") { Arguments = $"/c mkdir \"{Directory}\"", CreateNoWindow = true });
-            }
-
-            if (TaskDialog.IsPlatformSupported)
-            {
-                TaskDialog Dialog = new TaskDialog()
-                {
-                    Caption = "Add Account",
-                    InstructionText = $"{(PuppeteerSupported ? "Chromium" : "CefSharp")} is still being downloaded",
-                    Text = "If this is not working for you, you can choose to manually install",
-                    Icon = TaskDialogStandardIcon.Information
-                };
-
-                TaskDialogButton Manual = new TaskDialogButton("Manual", "Download Manually");
-                TaskDialogButton Wait = new TaskDialogButton("Wait", "Wait");
-
-                Wait.Click += (s, e) => Dialog.Close();
-                Manual.Click += (s, e) =>
-                {
-                    Dialog.Close();
-
-                    ShowManualInstallInstructions();
-                };
-
-                Dialog.Controls.Add(Manual);
-                Dialog.Controls.Add(Wait);
-                Wait.Default = true;
-
-                Dialog.Show();
-            }
-            else if (MessageBox.Show($"{(PuppeteerSupported ? "Chromium" : "CefSharp")} is still downloading, you may have to wait a while before adding an account.\n\nNot working? You can choose to manually install by pressing \"Yes\"", "Roblox Account Manager", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Information) == DialogResult.Yes)
-                ShowManualInstallInstructions();
+            if (MessageBox.Show(Lang.F("The browser is still being downloaded ({0}%), accounts can be added once it is done.\n\nOpen the download folder?", DownloadProgressBar.Value), "Roblox Account Manager", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                Process.Start("explorer.exe", $"\"{AccountBrowser.BrowserFolder}\"");
         }
 
         private void DLChromiumLabel_Click(object sender, EventArgs e) => DownloadProgressBar_Click(sender, e);
@@ -1531,7 +1407,7 @@ namespace RBX_Alt_Manager
 
         private void AccountManager_FormClosing(object sender, FormClosingEventArgs e)
         {
-            if (IsDownloadingChromium && !Utilities.YesNoPrompt("Roblox Account Manager", $"{(PuppeteerSupported ? "Chromium" : "CefSharp")} is still being downloaded, exiting may corrupt your chromium installation and prevent account manager from working", "Exit anyways?", false))
+            if (AccountBrowser.IsDownloading && !Utilities.YesNoPrompt("Roblox Account Manager", "The browser is still being downloaded, it will start over next time", "Exit anyways?", false))
             {
                 e.Cancel = true;
 
@@ -2009,28 +1885,36 @@ namespace RBX_Alt_Manager
             {
                 Task.Run(async () =>
                 {
-                    var UserInfo = await Account.GetUserInfo();
-                    double AccountAge = -1;
+                    try
+                    {
+                        var UserInfo = await Account.GetUserInfo();
+                        double AccountAge = -1;
 
-                    if (DateTime.TryParse(UserInfo["created"].Value<string>(), out DateTime CreationTime))
-                        AccountAge = (DateTime.UtcNow - CreationTime).TotalDays;
+                        if (DateTime.TryParse(UserInfo?["created"]?.Value<string>(), out DateTime CreationTime))
+                            AccountAge = (DateTime.UtcNow - CreationTime).TotalDays;
 
-                    StringBuilder builder = new StringBuilder();
+                        StringBuilder builder = new StringBuilder();
 
-                    builder.AppendLine($"Username: {Account.Username}");
-                    builder.AppendLine($"UserId: {Account.UserID}");
-                    builder.AppendLine($"Robux: {await Account.GetRobux()}");
-                    builder.AppendLine($"Account Age: {(AccountAge >= 0 ? $"{AccountAge:F1}" : "UNKNOWN")}");
-                    builder.AppendLine($"Email Status: {await Account.GetEmailJSON()}");
-                    builder.AppendLine($"User Info: {UserInfo}");
-                    builder.AppendLine($"Other: {await Account.GetMobileInfo()}");
-                    builder.AppendLine($"Fields: {JsonConvert.SerializeObject(Account.Fields)}");
+                        builder.AppendLine($"Username: {Account.Username}");
+                        builder.AppendLine($"UserId: {Account.UserID}");
+                        builder.AppendLine($"Robux: {await Account.GetRobux()}");
+                        builder.AppendLine($"Account Age: {(AccountAge >= 0 ? $"{AccountAge:F1}" : "UNKNOWN")}");
+                        builder.AppendLine($"Email Status: {await Account.GetEmailJSON()}");
+                        builder.AppendLine($"User Info: {UserInfo}");
+                        builder.AppendLine($"Other: {await Account.GetMobileInfo()}");
+                        builder.AppendLine($"Fields: {JsonConvert.SerializeObject(Account.Fields)}");
 
-                    string FileName = Path.Combine(Environment.CurrentDirectory, "AccountDumps", Account.Username + ".txt");
+                        string FileName = Path.Combine(Environment.CurrentDirectory, "AccountDumps", Account.Username + ".txt");
 
-                    File.WriteAllText(FileName, builder.ToString());
+                        File.WriteAllText(FileName, builder.ToString());
 
-                    Process.Start(FileName);
+                        Process.Start(FileName);
+                    }
+                    catch (Exception x)
+                    {
+                        Program.Logger.Error($"Couldn't dump the details of {Account.Username}: {x}");
+                        this.InvokeIfRequired(() => MessageBox.Show(Lang.F("Could not get the details of {0}:\n\n{1}", Account.Username, x.Message), "Roblox Account Manager", MessageBoxButtons.OK, MessageBoxIcon.Error));
+                    }
                 });
             }
         }
@@ -2039,8 +1923,9 @@ namespace RBX_Alt_Manager
 
         private void AccountsView_Scroll(object sender, ScrollEventArgs e)
         {
-            if (PresenceCancellationToken != null || !General.Get<bool>("ShowPresence"))
-                PresenceCancellationToken.Cancel();
+            PresenceCancellationToken?.Cancel();
+
+            if (!General.Get<bool>("ShowPresence")) return;
 
             PresenceCancellationToken = new CancellationTokenSource();
             var Token = PresenceCancellationToken.Token;

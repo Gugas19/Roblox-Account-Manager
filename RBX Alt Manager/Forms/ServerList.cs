@@ -20,6 +20,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using static RBX_Alt_Manager.Program;
+using MessageBox = RBX_Alt_Manager.Classes.LocalizedMessageBox;
 
 namespace RBX_Alt_Manager
 {
@@ -30,6 +31,7 @@ namespace RBX_Alt_Manager
             AccountManager.SetDarkBar(Handle);
 
             InitializeComponent();
+            ApplyModernLayout();
             this.Rescale();
 
             if (ThemeEditor.UseDarkTopBar) Icon = Properties.Resources.server_icon_white;
@@ -70,6 +72,8 @@ namespace RBX_Alt_Manager
 
             ApplyTheme(Controls);
             //ApplyTheme(Tabs.TabPages);
+            RBX_Alt_Manager.Classes.ModernUI.Apply(this);
+            FixInlineLayout();
         }
 
         public void ApplyTheme(Control.ControlCollection _Controls)
@@ -159,7 +163,7 @@ namespace RBX_Alt_Manager
             set
             {
                 IsBusy = value;
-                Utilities.InvokeIfRequired(RefreshServers, () => { RefreshServers.Text = value ? "Cancel" : "Refresh"; });
+                Utilities.InvokeIfRequired(RefreshServers, () => { RefreshServers.Text = Classes.Lang.T(value ? "Cancel" : "Refresh"); });
             }
         }
 

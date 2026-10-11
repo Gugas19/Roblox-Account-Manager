@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
+using MessageBox = RBX_Alt_Manager.Classes.LocalizedMessageBox;
 
 namespace RBX_Alt_Manager
 {
@@ -63,6 +64,7 @@ namespace RBX_Alt_Manager
                     control.ForeColor = ThemeEditor.ButtonsForeground;
                 }
             }
+            RBX_Alt_Manager.Classes.ModernUI.Apply(this);
         }
 
         private void AccountFields_FormClosing(object sender, FormClosingEventArgs e)
@@ -93,7 +95,7 @@ namespace RBX_Alt_Manager
 
             FieldsPanel.Controls.Clear();
 
-            AccountName.Text = "Viewing Fields of " + account.Username;
+            AccountName.Text = Classes.Lang.F("Viewing Fields of {0}", account.Username);
 
             foreach (KeyValuePair<string, string> Key in account.Fields) AddField(Key.Key, Key.Value);
 

@@ -332,3 +332,5 @@ __pycache__/
 *.xsd.cs
 
 # OpenCover UI anal
+# test runs
+Tests/.run/

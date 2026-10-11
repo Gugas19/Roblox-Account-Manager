@@ -14,6 +14,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 using System.Windows.Forms;
+using MessageBox = RBX_Alt_Manager.Classes.LocalizedMessageBox;
 
 namespace RBX_Alt_Manager
 {
@@ -311,7 +312,7 @@ namespace RBX_Alt_Manager
 
             if (response.IsSuccessful && response.StatusCode == HttpStatusCode.OK)
             {
-                Password = New;
+                if (AccountManager.General.Get<bool>("SavePasswords")) Password = New;
 
                 var SToken = response.Cookies[".ROBLOSECURITY"];
 
@@ -516,7 +517,7 @@ namespace RBX_Alt_Manager
             if (!GetCSRFToken(out string Token)) return $"ERROR: Account Session Expired, re-add the account or try again. (Invalid X-CSRF-Token)\n{Token}";
 
             if (AccountManager.ShuffleJobID && string.IsNullOrEmpty(JobID))
-                JobID = await Utilities.GetRandomJobId(PlaceID);
+                JobID = await Utilities.GetRandomJobId(PlaceID, AccountManager.General.Get<bool>("ShuffleChoosesLowestServer"));
 
             if (GetAuthTicket(out string Ticket))
             {
@@ -752,7 +753,7 @@ namespace RBX_Alt_Manager
 
         public void SetDisplayName(string DisplayName)
         {
-            if (!GetCSRFToken(out string Token)) return;
+            if (!GetCSRFToken(out string Token)) throw new Exception(Lang.T("Invalid Account Session!")); // used to report success when the session had expired
 
             RestRequest dpRequest = MakeRequest($"/v1/users/{UserID}/display-names", Method.Patch).AddHeader("X-CSRF-TOKEN", Token).AddJsonBody(new { newDisplayName = DisplayName });
 
@@ -819,8 +820,12 @@ namespace RBX_Alt_Manager
             var Response = await API.PostAsync(MakeRequest("auth-token-service/v1/login/enterCode").AddHeader("X-CSRF-TOKEN", Token).AddJsonBody(new { code = Code }));
 
             if (Response.IsSuccessful && Response.Content.TryParseJson(out dynamic Info))
-                if (Utilities.YesNoPrompt("Quick Log In", "Please confirm you are logging in with this device", $"Device: {Info?.deviceInfo ?? "Unknown"}\nLocation: {Info?.location ?? "Unknown"}"))
+            {
+                string Device = (string)Info?.deviceInfo ?? Lang.T("Unknown"), Location = (string)Info?.location ?? Lang.T("Unknown");
+
+                if (Utilities.YesNoPrompt("Quick Log In", "Please confirm you are logging in with this device", $"Device: {Device}\nLocation: {Location}"))
                     return (await API.PostAsync(MakeRequest("auth-token-service/v1/login/validateCode").AddHeader("X-CSRF-TOKEN", Token).AddJsonBody(new { code = Code }))).IsSuccessful;
+            }
 
             return false;
         }

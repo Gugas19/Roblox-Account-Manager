@@ -11,7 +11,7 @@ namespace RBX_Alt_Manager.Classes
 
             Account account = RowObject as Account;
             TimeSpan diff = DateTime.Now - account.LastUse;
-            bool isOld = diff.TotalDays > 20;
+            bool isOld = diff.TotalDays > 20 && !AccountManager.General.Get<bool>("DisableAgingAlert");
 
             if (isOld)
             {

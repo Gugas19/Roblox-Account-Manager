@@ -5,6 +5,7 @@ using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using MessageBox = RBX_Alt_Manager.Classes.LocalizedMessageBox;
 
 namespace RBX_Alt_Manager.Classes
 {
@@ -48,7 +49,7 @@ namespace RBX_Alt_Manager.Classes
             AssetNameLabel.Links.Add(0, AssetName.Length, $"https://www.roblox.com/catalog/{AssetId}/-");
             AssetNameLabel.LinkClicked += (s, e) => Process.Start(e.Link.LinkData as string);
             
-            PriceLabel.Text = Cost == 0 ? "Price: Free" : (Cost > 0 ? $"Price: {Cost}" : "Price: N/A");
+            PriceLabel.Text = Cost == 0 ? Lang.T("Price: Free") : (Cost > 0 ? Lang.F("Price: {0}", Cost) : Lang.T("Price: N/A"));
 
             if (Cost < 0)
             {

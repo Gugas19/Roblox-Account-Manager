@@ -23,7 +23,13 @@ namespace RBX_Alt_Manager
                 _listener.Prefixes.Add(s);
 
             _responderMethod = method ?? throw new ArgumentException("method");
-            _listener.Start();
+
+            try { _listener.Start(); }
+            catch
+            {
+                _listener.Close(); // otherwise the prefixes that did register stay taken and the next try fails with "access denied"
+                throw;
+            }
         }
 
         public WebServer(Func<HttpListenerContext, string> method, params string[] prefixes) : this(prefixes, method) { }

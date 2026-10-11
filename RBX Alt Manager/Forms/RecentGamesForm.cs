@@ -79,6 +79,7 @@ namespace RBX_Alt_Manager.Forms
             ForeColor = ThemeEditor.FormsForeground;
 
             ApplyTheme(Controls);
+            RBX_Alt_Manager.Classes.ModernUI.Apply(this);
         }
 
         public void ApplyTheme(Control.ControlCollection _Controls)

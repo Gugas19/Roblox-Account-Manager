@@ -2,6 +2,7 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
+using MessageBox = RBX_Alt_Manager.Classes.LocalizedMessageBox;
 
 namespace RBX_Alt_Manager
 {
@@ -14,6 +15,7 @@ namespace RBX_Alt_Manager
             AccountManager.SetDarkBar(Handle);
 
             InitializeComponent();
+            ApplyModernLayout();
             this.Rescale();
         }
 
@@ -64,6 +66,7 @@ namespace RBX_Alt_Manager
                     control.ForeColor = ThemeEditor.ButtonsForeground;
                 }
             }
+            RBX_Alt_Manager.Classes.ModernUI.Apply(this);
         }
 
         private void AccountUtils_FormClosing(object sender, FormClosingEventArgs e)
@@ -93,7 +96,15 @@ namespace RBX_Alt_Manager
         {
             if (AccountManager.SelectedAccount == null) return;
 
-            AccountManager.SelectedAccount.UnlockPin(textBox5.Text);
+            UnlockPin();
+        }
+
+        private void UnlockPin()
+        {
+            if (textBox5.Text.Length != 4)
+                MessageBox.Show("The PIN must have 4 digits", "Account Utilities", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            else if (!AccountManager.SelectedAccount.UnlockPin(textBox5.Text))
+                MessageBox.Show("Failed to unlock the PIN, check the PIN and the account session", "Account Utilities", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private void textBox5_KeyPress(object sender, KeyPressEventArgs e)
@@ -102,7 +113,7 @@ namespace RBX_Alt_Manager
 
             if (e.KeyChar == (char)Keys.Enter)
             {
-                AccountManager.SelectedAccount.UnlockPin(textBox5.Text);
+                UnlockPin();
                 button7.Focus();
 
                 return;
@@ -139,11 +150,11 @@ namespace RBX_Alt_Manager
             try
             {
                 if (AccountManager.SelectedAccount.TogglePlayerBlocked(Username.Text, ref WasUnblocked))
-                    MessageBox.Show($"{(WasUnblocked ? "Unb" : "B")}locked {Username.Text}");
+                    MessageBox.Show(WasUnblocked ? $"Unblocked {Username.Text}" : $"Blocked {Username.Text}");
                 else
-                    MessageBox.Show($"Failed to {(WasUnblocked ? "Unb" : "B")}lock {Username.Text}");
+                    MessageBox.Show(WasUnblocked ? $"Failed to unblock {Username.Text}" : $"Failed to block {Username.Text}");
             }
-            catch (Exception x) { MessageBox.Show($"Failed to {(WasUnblocked ? "Unb" : "B")}lock {Username.Text}\n\n{x.Message}"); }
+            catch (Exception x) { MessageBox.Show((WasUnblocked ? $"Failed to unblock {Username.Text}" : $"Failed to block {Username.Text}") + $"\n\n{x.Message}"); }
         }
 
         private void SetDisplayName_Click(object sender, EventArgs e)
@@ -162,7 +173,10 @@ namespace RBX_Alt_Manager
         {
             if (AccountManager.SelectedAccount == null) return;
 
-            AccountManager.SelectedAccount.SendFriendRequest(Username.Text);
+            if (AccountManager.SelectedAccount.SendFriendRequest(Username.Text))
+                MessageBox.Show($"Friend request sent to {Username.Text}", "Account Utilities", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            else
+                MessageBox.Show($"Failed to send a friend request to {Username.Text}", "Account Utilities", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 }

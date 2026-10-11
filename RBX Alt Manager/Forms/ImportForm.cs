@@ -62,6 +62,7 @@ namespace RBX_Alt_Manager
                     control.ForeColor = ThemeEditor.ButtonsForeground;
                 }
             }
+            RBX_Alt_Manager.Classes.ModernUI.Apply(this);
         }
 
         private void ImportForm_FormClosing(object sender, FormClosingEventArgs e)
@@ -78,12 +79,14 @@ namespace RBX_Alt_Manager
 
             foreach (string Token in List)
             {
+                if (string.IsNullOrWhiteSpace(Token)) continue;
+
                 Account NewAccount = AccountManager.AddAccount(Token);
 
                 if (NewAccount != null)
-                    Accounts.Text += $"Added {NewAccount.Username}";
+                    Accounts.AppendText(Classes.Lang.F("Added {0}", NewAccount.Username) + Environment.NewLine);
                 else
-                    Accounts.Text += $"Failed to add {Token}";
+                    Accounts.AppendText(Classes.Lang.F("Failed to add {0}", Token.Trim()) + Environment.NewLine);
             }
         }
     }

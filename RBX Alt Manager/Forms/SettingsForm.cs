@@ -3,8 +3,10 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
+using MessageBox = RBX_Alt_Manager.Classes.LocalizedMessageBox;
 
 namespace RBX_Alt_Manager.Forms
 {
@@ -18,7 +20,78 @@ namespace RBX_Alt_Manager.Forms
             AccountManager.SetDarkBar(Handle);
 
             InitializeComponent();
+            AddLanguageSelector();
+            ClientSize = new Size(ClientSize.Width + 90, ClientSize.Height + 40);
+            MinimumSize = new Size(MinimumSize.Width + 90, MinimumSize.Height + 40);
+            RSLabel.Visible = false; // "some settings require a restart", every setting applies right away now
             this.Rescale();
+        }
+
+        private ComboBox LanguageCB;
+        private bool UpdatingLanguage;
+
+        private void AddLanguageSelector()
+        {
+            Label LanguageLabel = new Label { Text = "Language", AutoSize = true, Margin = new Padding(3, 7, 8, 3), Name = "LanguageLabel" };
+
+            LanguageCB = new ComboBox
+            {
+                Name = "LanguageCB",
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                DrawMode = DrawMode.OwnerDrawFixed,
+                ItemHeight = 22,
+                Width = 200,
+                Margin = new Padding(3, 3, 3, 10)
+            };
+
+            foreach (Classes.Language language in Classes.Lang.Languages)
+                LanguageCB.Items.Add(language);
+
+            LanguageCB.DrawItem += (s, e) =>
+            {
+                if (e.Index < 0) return;
+
+                Classes.Language language = (Classes.Language)LanguageCB.Items[e.Index];
+                bool Highlight = (e.State & DrawItemState.Selected) != 0 && (e.State & DrawItemState.ComboBoxEdit) == 0;
+                Color Back = Highlight ? Classes.ModernUI.Mix(Classes.ModernUI.Accent, ThemeEditor.TextBoxesBackground, 0.35f) : ThemeEditor.TextBoxesBackground;
+
+                using (var Brush = new SolidBrush(Back))
+                    e.Graphics.FillRectangle(Brush, e.Bounds);
+
+                Image Flag = Classes.ModernUI.Flag(language.Flag, Math.Max(10, e.Bounds.Height - 10));
+                int X = e.Bounds.X + 6;
+
+                if (Flag != null)
+                {
+                    e.Graphics.DrawImage(Flag, X, e.Bounds.Y + (e.Bounds.Height - Flag.Height) / 2);
+                    X += Flag.Width + 8;
+                }
+
+                TextRenderer.DrawText(e.Graphics, language.Name, LanguageCB.Font, new Rectangle(X, e.Bounds.Y, e.Bounds.Right - X, e.Bounds.Height), ThemeEditor.TextBoxesForeground, TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.SingleLine);
+            };
+
+            LanguageCB.SelectedIndexChanged += (s, e) =>
+            {
+                if (UpdatingLanguage || !(LanguageCB.SelectedItem is Classes.Language language) || language == Classes.Lang.Current) return;
+
+                Classes.Lang.SetLanguage(language.Code);
+            };
+
+            void SyncSelection()
+            {
+                UpdatingLanguage = true;
+                LanguageCB.SelectedItem = Classes.Lang.Current;
+                UpdatingLanguage = false;
+            }
+
+            SyncSelection();
+            Classes.Lang.LanguageChanged += (s, e) => SyncSelection();
+
+            SettingsLayoutPanel.Controls.Add(LanguageLabel);
+            SettingsLayoutPanel.Controls.Add(LanguageCB);
+            SettingsLayoutPanel.Controls.SetChildIndex(LanguageLabel, 0);
+            SettingsLayoutPanel.Controls.SetChildIndex(LanguageCB, 1);
+            SettingsLayoutPanel.SetFlowBreak(LanguageCB, true);
         }
 
         private void SettingsForm_Load(object sender, EventArgs e)
@@ -46,6 +119,7 @@ namespace RBX_Alt_Manager.Forms
             PortNumber.Value = AccountManager.WebServer.Get<decimal>("WebServerPort");
 
             PresenceCB.Checked = AccountManager.General.Get<bool>("ShowPresence");
+            AutoCookieRefreshCB.Checked = AccountManager.General.Get<bool>("AutoCookieRefresh");
             PresenceUpdateRateNum .Value = AccountManager.General.Get<int>("PresenceUpdateRate");
             UnlockFPSCB.Checked = AccountManager.General.Get<bool>("UnlockFPS");
             MaxFPSValue.Value = AccountManager.General.Get<int>("MaxFPSValue");
@@ -111,6 +185,15 @@ namespace RBX_Alt_Manager.Forms
 
             AccountManager.General.Set("SavePasswords", SavePasswordCB.Checked ? "true" : "false");
             AccountManager.IniSettings.Save("RAMSettings.ini");
+
+            if (!SavePasswordCB.Checked && AccountManager.AccountsList.Any(account => !string.IsNullOrEmpty(account.Password))
+                && Utilities.YesNoPrompt("Settings", "Remove saved passwords?", "Do you also want to remove every password that is already saved?", false))
+            {
+                foreach (Account account in AccountManager.AccountsList)
+                    account.Password = string.Empty;
+
+                AccountManager.SaveAccounts(true);
+            }
         }
 
         private void DisableAgingAlertCB_CheckedChanged(object sender, EventArgs e)
@@ -119,6 +202,7 @@ namespace RBX_Alt_Manager.Forms
 
             AccountManager.General.Set("DisableAgingAlert", DisableAgingAlertCB.Checked ? "true" : "false");
             AccountManager.IniSettings.Save("RAMSettings.ini");
+            AccountManager.Instance.RefreshAccountsView();
         }
 
         private void HideMRobloxCB_CheckedChanged(object sender, EventArgs e)
@@ -160,11 +244,11 @@ namespace RBX_Alt_Manager.Forms
 
         private void AutoCookieRefreshCB_CheckedChanged(object sender, EventArgs e)
         {
+            if (!SettingsLoaded) return;
+
             AccountManager.General.Set("AutoCookieRefresh", AutoCookieRefreshCB.Checked ? "true" : "false");
             AccountManager.IniSettings.Save("RAMSettings.ini");
-
-            if (AccountManager.Instance.AutoCookieRefresh != null)
-                AccountManager.Instance.AutoCookieRefresh.Enabled = AutoCookieRefreshCB.Checked;
+            AccountManager.Instance.ApplyAutoCookieRefresh();
         }
 
         private void StartOnPCStartup_CheckedChanged(object sender, EventArgs e)
@@ -174,7 +258,7 @@ namespace RBX_Alt_Manager.Forms
             if (StartOnPCStartup.Checked)
                 StartupKey?.SetValue(Application.ProductName, Application.ExecutablePath);
             else
-                StartupKey?.DeleteValue(Application.ProductName);
+                StartupKey?.DeleteValue(Application.ProductName, false); // don't crash if it was already removed elsewhere
         }
 
         private void EncryptionSelectionButton_Click(object sender, EventArgs e)
@@ -193,6 +277,7 @@ namespace RBX_Alt_Manager.Forms
 
             AccountManager.Developer.Set("DevMode", EnableDMCB.Checked ? "true" : "false");
             AccountManager.IniSettings.Save("RAMSettings.ini");
+            AccountManager.Instance.ApplyDeveloperMode();
         }
 
         private void EnableWSCB_CheckedChanged(object sender, EventArgs e)
@@ -201,8 +286,7 @@ namespace RBX_Alt_Manager.Forms
 
             AccountManager.Developer.Set("EnableWebServer", EnableWSCB.Checked ? "true" : "false");
             AccountManager.IniSettings.Save("RAMSettings.ini");
-
-            MessageBox.Show("Roblox Account Manager must be restarted to enable this setting", "Roblox Account Manager", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            AccountManager.Instance.RestartWebServer();
         }
 
         private void ERRPCB_CheckedChanged(object sender, EventArgs e)
@@ -251,8 +335,7 @@ namespace RBX_Alt_Manager.Forms
 
             AccountManager.WebServer.Set("AllowExternalConnections", AllowExternalConnectionsCB.Checked ? "true" : "false");
             AccountManager.IniSettings.Save("RAMSettings.ini");
-
-            MessageBox.Show("Roblox Account Manager must be restarted to enable this setting\n\nThis setting requires admin privileges", "Roblox Account Manager", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            AccountManager.Instance.RestartWebServer();
         }
 
         private void PortNumber_ValueChanged(object sender, EventArgs e)
@@ -261,6 +344,7 @@ namespace RBX_Alt_Manager.Forms
 
             AccountManager.WebServer.Set("WebServerPort", PortNumber.Value.ToString());
             AccountManager.IniSettings.Save("RAMSettings.ini");
+            AccountManager.Instance.RestartWebServer();
         }
 
         private void PasswordTextBox_TextChanged(object sender, EventArgs e)
@@ -283,6 +367,7 @@ namespace RBX_Alt_Manager.Forms
 
             AccountManager.General.Set("ShowPresence", PresenceCB.Checked ? "true" : "false");
             AccountManager.IniSettings.Save("RAMSettings.ini");
+            AccountManager.Instance.RefreshAccountsView();
         }
 
         private void PresenceUpdateRateNum_ValueChanged(object sender, EventArgs e)
@@ -291,6 +376,7 @@ namespace RBX_Alt_Manager.Forms
 
             AccountManager.General.Set("PresenceUpdateRate", PresenceUpdateRateNum.Value.ToString());
             AccountManager.IniSettings.Save("RAMSettings.ini");
+            AccountManager.Instance.ApplyPresenceRate();
         }
 
         private void UnlockFPSCB_CheckedChanged(object sender, EventArgs e)
@@ -354,6 +440,7 @@ namespace RBX_Alt_Manager.Forms
             ForeColor = ThemeEditor.FormsForeground;
 
             ApplyTheme(Controls);
+            RBX_Alt_Manager.Classes.ModernUI.Apply(this);
         }
 
         public void ApplyTheme(Control.ControlCollection _Controls)

@@ -279,7 +279,7 @@
             this.MinimumSize = new System.Drawing.Size(534, 202);
             this.Name = "AccountUtils";
             this.ShowIcon = false;
-            this.Text = " Account Utilities";
+            this.Text = "Account Utilities";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.AccountUtils_FormClosing);
             this.ResumeLayout(false);
             this.PerformLayout();

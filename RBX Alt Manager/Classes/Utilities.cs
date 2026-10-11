@@ -21,6 +21,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using MessageBox = RBX_Alt_Manager.Classes.LocalizedMessageBox;
 
 public static class Utilities
 {
@@ -179,6 +180,8 @@ public static Color Lerp(this Color s, Color t, float k)
 
     public static void Rescale(this Form form)
     {
+        ModernUI.PrepareFonts(form);
+
         form.MaximumSize = new Size((int)(form.MaximumSize.Width * Program.Scale), (int)(form.MaximumSize.Height * Program.Scale));
         form.Scale(new SizeF(Program.Scale, Program.Scale));
 
@@ -221,10 +224,10 @@ public static Color Lerp(this Color s, Color t, float k)
 
         TaskDialog Dialog = TaskDialog.IsPlatformSupported == true ? new TaskDialog()
         {
-            Caption = Caption,
-            InstructionText = Instruction,
-            Text = Text,
-            FooterCheckBoxText = CanSave ? "Don't show this again and remember my choice" : null,
+            Caption = Lang.T(Caption),
+            InstructionText = Lang.T(Instruction),
+            Text = Lang.T(Text),
+            FooterCheckBoxText = CanSave ? Lang.T("Don't show this again and remember my choice") : null,
             StandardButtons = TaskDialogStandardButtons.Yes | TaskDialogStandardButtons.No,
         } : null;
 
@@ -239,7 +242,7 @@ public static Color Lerp(this Color s, Color t, float k)
             }
         }
 
-        return DR != null ? DR == TaskDialogResult.Yes : MessageBox.Show($"{Instruction}\n{Text}", Caption, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes;
+        return DR != null ? DR == TaskDialogResult.Yes : MessageBox.Show($"{Lang.T(Instruction)}\n{Lang.T(Text)}", Caption, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes;
     }
 
     public static void ApplyTheme(this Control.ControlCollection Controls)

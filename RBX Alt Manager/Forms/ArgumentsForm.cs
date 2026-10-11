@@ -62,6 +62,7 @@ namespace RBX_Alt_Manager
                     control.ForeColor = ThemeEditor.ButtonsForeground;
                 }
             }
+            RBX_Alt_Manager.Classes.ModernUI.Apply(this);
         }
 
         private void TeleportCB_CheckedChanged(object sender, EventArgs e)

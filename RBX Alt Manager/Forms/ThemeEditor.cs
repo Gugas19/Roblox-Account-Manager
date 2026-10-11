@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using System.Reflection;
 using System.Windows.Forms;
+using MessageBox = RBX_Alt_Manager.Classes.LocalizedMessageBox;
 
 namespace RBX_Alt_Manager.Forms
 {
@@ -31,6 +32,7 @@ namespace RBX_Alt_Manager.Forms
         public static bool LabelTransparent = true;
         
         public static bool LightImages = false;
+        public static Color AccentColor = Color.FromArgb(0x4F, 0x7C, 0xFF);
         // public static bool UseNormalTabControls = false;
 
         public static string ToHexString(Color c) => $"#{c.R:X2}{c.G:X2}{c.B:X2}";
@@ -43,13 +45,34 @@ namespace RBX_Alt_Manager.Forms
             AccountManager.SetDarkBar(Handle);
 
             InitializeComponent();
+
+            foreach (Button button in new[] { SetBG, SetFG, SetBorder, ChangeStyle, HideHeaders, ToggleDarkTopBar, ToggleTransparentBG })
+            {
+                button.Width = 190;
+                button.Height = 28;
+            }
+
+            SetFG.Top = SetBG.Bottom + 8;
+            SetBorder.Top = HideHeaders.Top = ToggleDarkTopBar.Top = ToggleTransparentBG.Top = SetFG.Bottom + 8;
+            ChangeStyle.Top = SetBorder.Bottom + 8;
+            Selection.Height = ChangeStyle.Bottom - Selection.Top;
+            ClientSize = new Size(SetBG.Right + 13, Selection.Bottom + 13);
+
             this.Rescale();
+
+            Selection.Items.Add("Accent");
         }
 
         public void ApplyTheme()
         {
             BackColor = FormsBackground;
             ForeColor = FormsForeground;
+
+            try { ApplyLegacyTheme(); } finally { Classes.ModernUI.Apply(this); }
+        }
+
+        private void ApplyLegacyTheme()
+        {
 
             foreach (Control control in this.Controls)
             {
@@ -129,6 +152,7 @@ namespace RBX_Alt_Manager.Forms
 
             if (!Theme.Exists("LightImages")) Theme.Set("LightImages", FormsBackground.GetBrightness() < 0.5 ? "true" : "false");
             if (bool.TryParse(Theme.Get("LightImages"), out bool bLightImages)) LightImages = bLightImages;
+            if (Theme.Exists("AccentColor")) AccentColor = ColorTranslator.FromHtml(Theme.Get("AccentColor"));
         }
 
         public static void SaveTheme()
@@ -158,6 +182,7 @@ namespace RBX_Alt_Manager.Forms
             Theme.Set("LabelsTransparent", LabelTransparent.ToString());
 
             Theme.Set("LightImages", LightImages.ToString());
+            Theme.Set("AccentColor", ToHexString(AccentColor));
 
             ThemeIni.Save("RAMTheme.ini");
         }
@@ -191,6 +216,10 @@ namespace RBX_Alt_Manager.Forms
 
                     case "Labels":
                         LabelBackground = SelectColor.Color;
+                        break;
+
+                    case "Accent":
+                        AccentColor = SelectColor.Color;
                         break;
                 }
 
@@ -322,7 +351,12 @@ namespace RBX_Alt_Manager.Forms
         {
             UseDarkTopBar = !UseDarkTopBar;
             SaveTheme();
-            MessageBox.Show("This option requires RAM to be restarted.\nThis may not work on older versions of windows.\nEnabled: " + (UseDarkTopBar ? "True" : "false"), "Roblox Account Manager", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+            foreach (Form Open in Application.OpenForms)
+                AccountManager.SetDarkBar(Open.Handle);
+
+            AccountManager.Instance.Icon = UseDarkTopBar ? Properties.Resources.team_KX4_icon_white : Properties.Resources.team_KX4_icon;
+            AccountManager.Instance.ApplyTheme();
         }
     }
 }

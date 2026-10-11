@@ -18,7 +18,7 @@ namespace RBX_Alt_Manager.Forms
         {
             this.account = account;
 
-            Text = $"Missing Assets for {account.Username}";
+            Text = Classes.Lang.F("Missing Assets for {0}", account.Username);
 
             foreach (long ID in Assets)
                 AssetPanel.Controls.Add(new MissingAssetControl(ID));
@@ -34,6 +34,7 @@ namespace RBX_Alt_Manager.Forms
             ForeColor = ThemeEditor.FormsForeground;
 
             ApplyTheme(Controls);
+            RBX_Alt_Manager.Classes.ModernUI.Apply(this);
         }
 
         public void ApplyTheme(Control.ControlCollection _Controls)

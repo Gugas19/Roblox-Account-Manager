@@ -1,9 +1,10 @@
 ﻿using CefSharp;
 using CefSharp.WinForms;
 using Newtonsoft.Json.Linq;
-using PuppeteerExtraSharp;
-using PuppeteerExtraSharp.Plugins.ExtraStealth;
 using PuppeteerSharp;
+using PuppeteerSharp.BrowserData;
+using IBrowser = PuppeteerSharp.IBrowser;
+using IFrame = PuppeteerSharp.IFrame;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -17,12 +18,89 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using WebSocketSharp;
 using Yove.Proxy;
+using MessageBox = RBX_Alt_Manager.Classes.LocalizedMessageBox;
 
 namespace RBX_Alt_Manager.Classes
 {
     internal class AccountBrowser
     {
-        public static BrowserFetcher Fetcher = new BrowserFetcher(Product.Chrome);
+        #region Browser installation
+
+        /// <summary>Folder the up to date Chrome (Chrome for Testing, stable channel) is downloaded to</summary>
+        public static readonly string BrowserFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RobloxAccountManager", "Chrome");
+
+        /// <summary>Download progress from 0 to 1</summary>
+        public static event Action<float> DownloadProgress;
+
+        private static readonly object InstallLock = new object();
+        private static Task<InstalledBrowser> InstallTask;
+
+        public static BrowserFetcher Fetcher => new BrowserFetcher(new BrowserFetcherOptions { Browser = SupportedBrowser.Chrome, Path = BrowserFolder, CustomFileDownload = DownloadWithProgress });
+
+        public static bool IsBrowserInstalled
+        {
+            get
+            {
+                try { return Fetcher.GetInstalledBrowsers().Any(Installed => File.Exists(Installed.GetExecutablePath())); }
+                catch { return false; }
+            }
+        }
+
+        public static bool IsDownloading => InstallTask != null && !InstallTask.IsCompleted;
+
+        /// <summary>Downloads the browser if it isn't installed yet, returns the installed browser</summary>
+        public static Task<InstalledBrowser> EnsureBrowserAsync()
+        {
+            lock (InstallLock)
+            {
+                if (InstallTask == null || InstallTask.IsFaulted || InstallTask.IsCanceled)
+                    InstallTask = Task.Run(async () =>
+                    {
+                        Directory.CreateDirectory(BrowserFolder);
+
+                        InstalledBrowser Installed = await Fetcher.DownloadAsync(); // returns right away when this version is already installed
+
+                        Program.Logger.Info($"Browser ready: Chrome {Installed.BuildId} at {Installed.GetExecutablePath()}");
+
+                        return Installed;
+                    });
+
+                return InstallTask;
+            }
+        }
+
+        private static async Task DownloadWithProgress(string Address, string FileName)
+        {
+            using (HttpClient Client = new HttpClient { Timeout = TimeSpan.FromMinutes(30) })
+            using (var Response = await Client.GetAsync(Address, HttpCompletionOption.ResponseHeadersRead))
+            {
+                Response.EnsureSuccessStatusCode();
+
+                long? Total = Response.Content.Headers.ContentLength;
+
+                using (var Source = await Response.Content.ReadAsStreamAsync())
+                using (var Destination = new FileStream(FileName, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    byte[] Buffer = new byte[81920];
+                    long Read = 0;
+                    int Count;
+
+                    while ((Count = await Source.ReadAsync(Buffer, 0, Buffer.Length)) > 0)
+                    {
+                        await Destination.WriteAsync(Buffer, 0, Count);
+                        Read += Count;
+
+                        if (Total > 0) DownloadProgress?.Invoke((float)Read / Total.Value);
+                    }
+                }
+            }
+
+            DownloadProgress?.Invoke(1f);
+        }
+
+        private static Task<IElementHandle[]> XPathAsync(IFrame Frame, string Expression) => Frame.QuerySelectorAllAsync($"::-p-xpath({Expression})");
+
+        #endregion
 
         private static Dictionary<int, Vector2> ScreenGrid;
 
@@ -31,20 +109,20 @@ namespace RBX_Alt_Manager.Classes
         private ProxyClient Proxy = null;
         private string Password;
 
-        public Browser browser;
-        public Page page;
+        public IBrowser browser;
+        public IPage page;
         public Vector2 Size = new Vector2(880, 740), Position;
         public int Index = -1;
 
         public AccountBrowser() { }
 
-        public AccountBrowser(Account account, string Url = null, string Script = null, Func<Page, Task> PostNavigation = null)
+        public AccountBrowser(Account account, string Url = null, string Script = null, Func<IPage, Task> PostNavigation = null)
         {
             _ = LaunchBrowser(Url ?? string.Empty, Script: Script, PostNavigation: PostNavigation, PostPageCreation: () => page.SetCookieAsync(new CookieParam
             {
                 Name = ".ROBLOSECURITY",
                 Domain = ".roblox.com",
-                Expires = (DateTime.Now.AddYears(1) - DateTime.MinValue).TotalSeconds,
+                Expires = DateTimeOffset.UtcNow.AddYears(1).ToUnixTimeSeconds(),
                 HttpOnly = true,
                 Secure = true,
                 Url = "https://roblox.com",
@@ -52,7 +130,18 @@ namespace RBX_Alt_Manager.Classes
             }));
         }
 
-        public async Task LaunchBrowser(string Url = "https://roblox.com/", Func<Task> PostPageCreation = null, Func<Page, Task> PostNavigation = null, string Script = null, string[] Arguments = null)
+        public async Task LaunchBrowser(string Url = "https://roblox.com/", Func<Task> PostPageCreation = null, Func<IPage, Task> PostNavigation = null, string Script = null, string[] Arguments = null)
+        {
+            try { await Launch(Url, PostPageCreation, PostNavigation, Script, Arguments); }
+            catch (Exception x)
+            {
+                Program.Logger.Error($"Failed to open the browser: {x}");
+
+                AccountManager.Instance?.InvokeIfRequired(() => MessageBox.Show(Lang.F("Could not open the browser:\n\n{0}", x.Message), "Roblox Account Manager", MessageBoxButtons.OK, MessageBoxIcon.Error));
+            }
+        }
+
+        private async Task Launch(string Url, Func<Task> PostPageCreation, Func<IPage, Task> PostNavigation, string Script, string[] Arguments)
         {
             if (string.IsNullOrEmpty(Url)) Url = "https://roblox.com/";
 
@@ -61,7 +150,7 @@ namespace RBX_Alt_Manager.Classes
             else
                 Position = new Vector2(Screen.PrimaryScreen.WorkingArea.Width / 2 - (Size.X / 2), Screen.PrimaryScreen.WorkingArea.Height / 2 - (Size.Y / 2));
 
-            List<string> Args = new List<string>(Arguments ?? new string[] { "--disable-web-security" });
+            List<string> Args = new List<string>(Arguments ?? Array.Empty<string>());
 
             string ExtensionPath = Path.Combine(Environment.CurrentDirectory, "extension");
             string ConfigPath = Path.Combine(Environment.CurrentDirectory, "BrowserConfig.json");
@@ -138,16 +227,25 @@ namespace RBX_Alt_Manager.Classes
                 }
             }
 
-            var Options = new LaunchOptions { Headless = false, DefaultViewport = null, Args = Args.ToArray(), IgnoreHTTPSErrors = true };
+            Args.Add("--disable-blink-features=AutomationControlled"); // don't expose navigator.webdriver, Roblox shows more captchas to automated browsers
 
-            await Fetcher.DownloadAsync(BrowserFetcher.DefaultChromiumRevision);
+            InstalledBrowser Installed = await EnsureBrowserAsync();
 
-            browser = (Browser)await new PuppeteerExtra().Use(new StealthPlugin()).LaunchAsync(Options);
-            page = (Page)(await browser.PagesAsync())[0];
+            var Options = new LaunchOptions
+            {
+                Headless = false,
+                DefaultViewport = null,
+                Args = Args.ToArray(),
+                ExecutablePath = Installed.GetExecutablePath(),
+                IgnoredDefaultArgs = new[] { "--enable-automation" }
+            };
+
+            browser = await Puppeteer.LaunchAsync(Options);
+            page = (await browser.PagesAsync())[0];
 
             if (Proxy != null) browser.Disconnected += (s, e) => Proxy.Dispose();
 
-            await page.SetUserAgentAsync("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36");
+            await page.EvaluateExpressionOnNewDocumentAsync("Object.defineProperty(navigator, 'webdriver', { get: () => undefined })");
 
             if (Config?.PreNavigateActions != null)
                 foreach (var action in Config.PreNavigateActions)
@@ -179,7 +277,7 @@ namespace RBX_Alt_Manager.Classes
 
         public async Task Login(string Username = "", string Password = "", string[] Arguments = null) => await LaunchBrowser("https://roblox.com/login", Arguments: Arguments, PostNavigation: async (page) => await LoginTask(page, Username, Password));
 
-        public async Task LoginTask(Page page, string Username = "", string Password = "")
+        public async Task LoginTask(IPage page, string Username = "", string Password = "")
         {
             page.RequestFinished += Page_RequestFinished;
 
@@ -226,16 +324,16 @@ namespace RBX_Alt_Manager.Classes
                             var VerifyButton = await e.Frame.QuerySelectorAsync("#home_children_button");
                             var RetryButton = await e.Frame.QuerySelectorAsync("#wrong_children_button");
 
-                            if (VerifyButton == null && await e.Frame.XPathAsync("//*[@id=\"root\"]/div/div[1]/button") is IElementHandle[] VB && VB.Length > 0) VerifyButton = VB[0];
+                            if (VerifyButton == null && await XPathAsync(e.Frame, "//*[@id=\"root\"]/div/div[1]/button") is IElementHandle[] VB && VB.Length > 0) VerifyButton = VB[0];
 
                             if (VerifyButton != null) await VerifyButton.ClickAsync();
                             else if (RetryButton != null) await RetryButton.ClickAsync();
 
                             var CaptchaImage = await e.Frame.QuerySelectorAsync("#game_challengeItem_image");
-                            var TaskElement = await e.Frame.XPathAsync("//*[@id=\"game_children_text\"]/h2");
+                            var TaskElement = await XPathAsync(e.Frame, "//*[@id=\"game_children_text\"]/h2");
 
-                            if (CaptchaImage == null && await e.Frame.XPathAsync("//*[@id=\"root\"]/div/div[1]/div/div[3]/div/button[1]") is IElementHandle[] CI && CI.Length > 0) CaptchaImage = CI[0];
-                            if (TaskElement.Length < 1) TaskElement = await e.Frame.XPathAsync("//*[@id=\"root\"]/div/div[1]/div/div[1]/h2");
+                            if (CaptchaImage == null && await XPathAsync(e.Frame, "//*[@id=\"root\"]/div/div[1]/div/div[3]/div/button[1]") is IElementHandle[] CI && CI.Length > 0) CaptchaImage = CI[0];
+                            if (TaskElement.Length < 1) TaskElement = await XPathAsync(e.Frame, "//*[@id=\"root\"]/div/div[1]/div/div[1]/h2");
 
                             if (TaskElement.Length < 1) continue;
 
@@ -259,10 +357,10 @@ namespace RBX_Alt_Manager.Classes
                                     if (Data.ContainsKey("data") && !Data.ContainsKey("error"))
                                     {
                                         int CorrectIndex = Array.IndexOf(Data["data"].ToObject<bool[]>(), true);
-                                        var Correct = await e.Frame.XPathAsync($"//*[@id=\"image{CorrectIndex + 1}\"]/a");
+                                        var Correct = await XPathAsync(e.Frame, $"//*[@id=\"image{CorrectIndex + 1}\"]/a");
 
                                         if (Correct.Length < 1)
-                                            Correct = await e.Frame.XPathAsync($"//*[@id=\"root\"]/div/div[1]/div/div[3]/div/button[{CorrectIndex + 1}]");
+                                            Correct = await XPathAsync(e.Frame, $"//*[@id=\"root\"]/div/div[1]/div/div[3]/div/button[{CorrectIndex + 1}]");
 
                                         if (Correct != null && Correct.Length > 0)
                                         {
@@ -362,8 +460,7 @@ namespace RBX_Alt_Manager.Classes
 
         private CefBrowser(string Url = "https://roblox.com/")
         {
-            if (!Directory.Exists(Path.Combine(Environment.CurrentDirectory, "x86"))) throw new DirectoryNotFoundException("Unable to locate CefSharp dependency folder");
-            if (!File.Exists(Path.Combine(Environment.CurrentDirectory, "x86", "CefSharp.dll"))) throw new FileNotFoundException("Unable to locate CefSharp.dll");
+            if (!File.Exists(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "libcef.dll"))) throw new FileNotFoundException("Unable to locate the built in browser files (libcef.dll)");
 
             Size = new System.Drawing.Size(880, 740);
 

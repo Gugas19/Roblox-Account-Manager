@@ -119,72 +119,37 @@ namespace RBX_Alt_Manager.Classes
         {
             base.OnPaint(e);
 
-            e.Graphics.Clear(BackColor);
-            Rectangle r = ClientRectangle;
+            Color Back = Forms.ThemeEditor.FormsBackground;
+
+            e.Graphics.Clear(Back);
 
             if (TabCount <= 0) return;
 
-            StringFormat sf = new StringFormat();
-            sf.Alignment = StringAlignment.Center;
-            sf.LineAlignment = StringAlignment.Center;
-            r = SelectedTab.Bounds;
-                // new Rectangle(SelectedTab.Bounds.X, SelectedTab.Bounds.Y, (int)(SelectedTab.Bounds.Width * Program.Scale), (int)(SelectedTab.Bounds.Height * Program.Scale));
+            Rectangle Strip = GetTabRect(0);
+            int StripBottom = Strip.Bottom + 1;
 
-            r.Inflate(3, 3);
-
-            TabPage tp = TabPages[SelectedIndex];
-            SolidBrush PaintBrush = new SolidBrush(tp.BackColor);
-
-            e.Graphics.FillRectangle(PaintBrush, r);
-
-            Color br = PaintBrush.Color.GetBrightness() < 0.4 ? ControlPaint.Light(PaintBrush.Color, 0.7f) : ControlPaint.Dark(PaintBrush.Color, 0.7f);
-            ControlPaint.DrawBorder(e.Graphics, r,
-                br, 1, ButtonBorderStyle.Solid,
-                br, 1, ButtonBorderStyle.Solid,
-                br, 1, ButtonBorderStyle.Solid,
-                br, 1, ButtonBorderStyle.Solid);
+            using (var LinePen = new Pen(ModernUI.Border))
+                e.Graphics.DrawLine(LinePen, 0, StripBottom, Width, StripBottom);
 
             for (int index = 0; index <= TabCount - 1; index++)
-                PaintTabButton(index, e, r, PaintBrush, sf);
-
-            PaintBrush.Dispose();
+                PaintTabButton(index, e);
         }
 
-        private void PaintTabButton(int index, PaintEventArgs e, Rectangle r, SolidBrush PaintBrush, StringFormat sf)
+        private void PaintTabButton(int index, PaintEventArgs e)
         {
             TabPage tp = TabPages[index];
-            r = GetTabRect(index);
-            // r = new Rectangle((int)(r.X*Program.Scale), r.Y, (int)(r.Width * Program.Scale), (int)(r.Height * 1f));
+            Rectangle r = GetTabRect(index);
             bool isSelected = index == SelectedIndex;
-            ButtonBorderStyle bs = index == SelectedIndex ? ButtonBorderStyle.Solid : ButtonBorderStyle.Solid;
 
-            PaintBrush.Color = tp.BackColor;
-            e.Graphics.FillRectangle(PaintBrush, r);
+            Color Fore = isSelected ? Forms.ThemeEditor.FormsForeground : ModernUI.Muted;
 
-            Color br = PaintBrush.Color.GetBrightness() < 0.4 ? ControlPaint.Light(PaintBrush.Color, isSelected ? 1f : 0.4f) : ControlPaint.Dark(PaintBrush.Color, isSelected ? 1f : 0.4f);
-            ControlPaint.DrawBorder(e.Graphics, r,
-                br, 1, bs,
-                br, 1, bs,
-                br, 1, bs,
-                br, 1, isSelected ? ButtonBorderStyle.None : bs);
-            PaintBrush.Color = tp.ForeColor;
+            if (!tp.Enabled) Fore = ModernUI.Mix(Fore, Forms.ThemeEditor.FormsBackground, 0.5f);
 
-            if (Alignment == TabAlignment.Left || Alignment == TabAlignment.Right)
-            {
-                float RotateAngle = 90;
-                if (Alignment == TabAlignment.Left) RotateAngle = 270;
-                PointF cp = new PointF(r.Left + (r.Width >> 1), r.Top + (r.Height >> 1));
-                e.Graphics.TranslateTransform(cp.X, cp.Y);
-                e.Graphics.RotateTransform(RotateAngle);
-                r = new Rectangle(-(r.Height >> 1), -(r.Width >> 1), r.Height, r.Width);
-            }
+            TextRenderer.DrawText(e.Graphics, tp.Text, Font, r, Fore, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
 
-            if (tp.Enabled)
-                e.Graphics.DrawString(tp.Text, Font, PaintBrush, (RectangleF)r, sf);
-            else
-                ControlPaint.DrawStringDisabled(e.Graphics, tp.Text, Font, tp.BackColor, (RectangleF)r, sf);
-
-            e.Graphics.ResetTransform();
+            if (isSelected)
+                using (var Brush = new SolidBrush(ModernUI.Accent))
+                    e.Graphics.FillRectangle(Brush, new Rectangle(r.X + 6, r.Bottom - (int)(2 * Program.Scale), r.Width - 12, (int)(2 * Program.Scale)));
         }
 
         [Description("Occurs as a tab is being changed.")]
