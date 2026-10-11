@@ -278,6 +278,11 @@ impl App {
         Ok(account)
     }
 
+    /// English text in the app's language, for what doesn't go through the interface (Discord messages)
+    pub fn tr(&self, text: &str) -> String {
+        crate::core::lang::translate(crate::core::lang::resolve(&self.setting("General", "Language")), text)
+    }
+
     pub fn anti_afk(&self) -> &crate::services::antiafk::State {
         &self.antiafk
     }

@@ -62,16 +62,18 @@ def rust_strings():
     """Messages Rust sends to the interface: errors, toasts, results (format! placeholders become {0}, {1}...)"""
     found = set()
     for folder, _, files in os.walk(RUST):
-        if os.path.relpath(folder, RUST).split(os.sep)[0] == 'cli':
-            continue  # the command line prints English for scripts, nothing there reaches the interface
         for name in files:
             if not name.endswith('.rs'):
                 continue
             text = open(os.path.join(folder, name), encoding='utf-8').read()
+            # text!("...") marks text translated later, anywhere
+            found.update(m.group(1) for m in re.finditer(r'text!\(\s*"((?:[^"\\]|\\.)*)"\s*\)', text))
+            if os.path.relpath(folder, RUST).split(os.sep)[0] == 'cli':
+                continue  # the command line prints English for scripts, nothing else there reaches the interface
             text = re.sub(r'#\[cfg\(test\)\].*', '', text, flags=re.S)
             for m in re.finditer(r'(?:bail!|anyhow!|toast\([^,]+,|Err\(|format!|JoinResult::Error\()\s*\(?\s*"((?:[^"\\]|\\.)*)"', text):
                 s = m.group(1)
-                if not re.search('[A-Za-z]{3}', s) or s.startswith(('http', '{', 'ws:', 'roblox-player', '<roblox')) or name in ('logging.rs',):
+                if not re.search('[A-Za-z]{3}', s) or s.startswith(('http', 'ws:', 'roblox-player', '<roblox')) or name in ('logging.rs',):
                     continue
                 n = iter(range(100))
                 s = re.sub(r'\{[^{}]*\}', lambda _: '{%d}' % next(n), s)
@@ -96,7 +98,7 @@ def is_code(s):
 IGNORE = {
     'Roblox Account Manager', 'Discord', 'URL', 'PID', 'Main', 'Builder', 'Default', 'Ctrl K', 'Anti-AFK', 'proxies.txt', 'Roblox',
     'ABC123', 'Missing Content', 'Missing RAMHeader', 'encryption failed', 'unknown', 'no stable version', 'no win64 download', 'browser error',
-    'script error', 'no version', 'Method `{0}` not allowed',
+    'script error', 'no version', 'Method `{0}` not allowed', '{0}: {1}', '{0} (VIP)',
 }
 
 def check_languages():

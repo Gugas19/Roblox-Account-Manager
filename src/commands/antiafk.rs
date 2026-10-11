@@ -10,7 +10,7 @@ pub fn antiafk_status() -> antiafk::Status {
 
 #[tauri::command]
 pub fn antiafk_start() {
-    antiafk::start(&app(), "Started manually");
+    antiafk::start(&app(), crate::text!("Started manually"));
 }
 
 #[tauri::command]

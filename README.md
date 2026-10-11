@@ -4,7 +4,7 @@
 
 **A modern, translated, Rust rewrite of [ic3w0lf22's Roblox Account Manager](https://github.com/ic3w0lf22/Roblox-Account-Manager), with Anti-AFK and a command line built in**
 
-[![Release](https://img.shields.io/github/v/release/Gugas19/Roblox-Account-Manager?label=Release&style=for-the-badge&logo=windows&color=4F7CFF)](https://github.com/Gugas19/Roblox-Account-Manager/releases)
+[![Download](https://img.shields.io/github/v/release/Gugas19/Roblox-Account-Manager?label=Download&style=for-the-badge&logo=windows&color=4F7CFF)](https://github.com/Gugas19/Roblox-Account-Manager/releases/latest)
 [![License](https://img.shields.io/badge/license-GPLv3-blue?style=for-the-badge)](LICENSE)
 ![Platform](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?style=for-the-badge)
 ![Rust](https://img.shields.io/badge/Rust-Tauri%202-B7410E?style=for-the-badge&logo=rust)
@@ -21,11 +21,11 @@ hours with the built in Anti-AFK, or drive everything from scripts with `ram-cli
 
 ## Download
 
-Version 4 is being tested with real accounts and isn't in the releases yet. Until then,
-[build it](#building-from-source): it takes two commands. The [releases](https://github.com/Gugas19/Roblox-Account-Manager/releases)
-page still has version 3.8.0, the previous C# version.
+1. Download the zip from the [latest release](https://github.com/Gugas19/Roblox-Account-Manager/releases/latest).
+2. Extract it into a folder of its own, for example on your desktop (it won't run from inside the zip).
+3. Run `RobloxAccountManager.exe`.
 
-Once built you get two files. Put them together in a folder of their own:
+In the zip, besides the license:
 
 | File | What it is |
 | --- | --- |

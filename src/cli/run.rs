@@ -216,7 +216,7 @@ fn anti_afk(app: &Arc<App>, rest: &[String], out: &Out, in_app: bool) -> Result<
     match action {
         "status" => {}
         "start" | "stop" | "now" if !in_app => bail!("Anti-AFK runs inside Roblox Account Manager, open it first: ram-cli open"),
-        "start" => antiafk::start(app, "Started from the command line"),
+        "start" => antiafk::start(app, crate::text!("Started from the command line")),
         "stop" => antiafk::stop(app, true),
         "now" if !antiafk::is_running(app) => bail!("Anti-AFK isn't running"),
         "now" => antiafk::run_now(app),

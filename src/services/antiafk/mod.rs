@@ -153,22 +153,24 @@ pub fn reset_stats(app: &App) {
     app.settings.lock().unwrap().save();
 }
 
-/// Sends a webhook message when that kind of event is turned on
+/// Sends a webhook message when that kind of event is turned on, in the app's language
 fn notify(app: &Arc<App>, event: webhook::Event, text: String) {
     let url = app.setting(SECTION, "Webhook");
     if url.is_empty() || (event != webhook::Event::Test && !app.afk_flag(event.setting())) {
         return;
     }
+    let (title, text) = (app.tr(event.title()), app.tr(&text));
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
-        if let Err(e) = webhook::send(&app.api.http, &url, event, &text).await {
+        if let Err(e) = webhook::send(&app.api.http, &url, event, &title, &text).await {
             log::warn!("Webhook failed: {e}");
         }
     });
 }
 
 pub async fn test_webhook(app: &App) -> anyhow::Result<()> {
-    webhook::send(&app.api.http, &app.setting(SECTION, "Webhook"), webhook::Event::Test, "Roblox Account Manager can post here.").await
+    let (title, text) = (app.tr(webhook::Event::Test.title()), app.tr(crate::text!("Roblox Account Manager can post here.")));
+    webhook::send(&app.api.http, &app.setting(SECTION, "Webhook"), webhook::Event::Test, &title, &text).await
 }
 
 pub fn is_running(app: &App) -> bool {
@@ -193,7 +195,7 @@ pub fn start(app: &Arc<App>, reason: &str) {
     }
 
     let count = roblox_windows().len();
-    notify(app, webhook::Event::Started, format!("{reason} · {count} Roblox window(s)"));
+    notify(app, webhook::Event::Started, format!("{reason} · Roblox windows: {count}"));
     app.emit("antiafk-changed", true);
 }
 
@@ -389,8 +391,8 @@ fn rejoin(app: &Arc<App>, pid: u32, account: &str, place: i64, job: Option<Strin
                 app.toast("success", format!("Rejoined {account}"));
                 notify(&app, webhook::Event::Rejoined, format!("{account} rejoined place {place}"));
             }
-            JoinResult::Error(message) => notify(&app, webhook::Event::Error, format!("{account}: {message}")),
-            JoinResult::NeedsPrivacy => notify(&app, webhook::Event::Error, format!("{account}: Could not rejoin")),
+            JoinResult::Error(message) => notify(&app, webhook::Event::Error, format!("{account}: {}", app.tr(&message))),
+            JoinResult::NeedsPrivacy => notify(&app, webhook::Event::Error, format!("{account}: {}", app.tr(crate::text!("Could not rejoin")))),
         }
     });
 }
@@ -502,14 +504,14 @@ fn tick(app: &Arc<App>) {
         let stopped_with = state.stopped_with.lock().unwrap().clone();
         let new_windows = stopped_with.is_empty() || pids.iter().any(|p| !stopped_with.contains(p));
         if app.afk_flag("AutoStart") && new_windows {
-            start(app, "Started automatically");
+            start(app, crate::text!("Started automatically"));
         } else if app.afk_flag("AutoStartIdle") {
             let idle = input::idle_seconds();
             if idle >= ROBLOX_IDLE_KICK - 2 * 60 && !state.reminded.swap(true, Ordering::SeqCst) {
                 app.toast("success", "You've been inactive for 18 minutes, Anti-AFK starts in a minute");
             }
             if idle >= ROBLOX_IDLE_KICK - 60 {
-                start(app, "Started after inactivity");
+                start(app, crate::text!("Started after inactivity"));
             }
             if idle < 60 {
                 state.reminded.store(false, Ordering::SeqCst);

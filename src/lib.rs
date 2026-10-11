@@ -176,7 +176,7 @@ fn tray(tauri_app: &tauri::App, state: Arc<app::App>) -> tauri::Result<()> {
                 if services::antiafk::is_running(&menu_state) {
                     services::antiafk::stop(&menu_state, true);
                 } else {
-                    services::antiafk::start(&menu_state, "Started from the tray");
+                    services::antiafk::start(&menu_state, text!("Started from the tray"));
                 }
             }
             "quit" => {

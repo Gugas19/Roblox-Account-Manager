@@ -25,15 +25,16 @@ impl Event {
         }
     }
 
-    fn title(self) -> &'static str {
+    /// In English, translated before sending
+    pub fn title(self) -> &'static str {
         match self {
-            Event::Started => "Anti-AFK started",
-            Event::Stopped => "Anti-AFK stopped",
-            Event::Action => "Anti-AFK cycle done",
-            Event::Disconnected => "Account disconnected",
-            Event::Rejoined => "Account rejoined",
-            Event::Error => "Anti-AFK error",
-            Event::Test => "Test message",
+            Event::Started => crate::text!("Anti-AFK started"),
+            Event::Stopped => crate::text!("Anti-AFK stopped"),
+            Event::Action => crate::text!("Anti-AFK cycle done"),
+            Event::Disconnected => crate::text!("Account disconnected"),
+            Event::Rejoined => crate::text!("Account rejoined"),
+            Event::Error => crate::text!("Anti-AFK error"),
+            Event::Test => crate::text!("Test message"),
         }
     }
 
@@ -54,7 +55,8 @@ pub fn is_webhook(url: &str) -> bool {
     ["https://discord.com/api/webhooks/", "https://discordapp.com/api/webhooks/", "https://ptb.discord.com/api/webhooks/", "https://canary.discord.com/api/webhooks/"].iter().any(|p| url.starts_with(p))
 }
 
-pub async fn send(http: &reqwest::Client, url: &str, event: Event, text: &str) -> anyhow::Result<()> {
+/// `title` and `text` are already in the app's language
+pub async fn send(http: &reqwest::Client, url: &str, event: Event, title: &str, text: &str) -> anyhow::Result<()> {
     if !is_webhook(url) {
         anyhow::bail!("That isn't a Discord webhook link");
     }
@@ -62,7 +64,7 @@ pub async fn send(http: &reqwest::Client, url: &str, event: Event, text: &str) -
     let body = json!({
         "username": "Roblox Account Manager",
         "embeds": [{
-            "title": event.title(),
+            "title": title,
             "description": text,
             "color": event.color(),
             "timestamp": chrono::Utc::now().to_rfc3339(),
