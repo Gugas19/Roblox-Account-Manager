@@ -550,9 +550,11 @@ namespace RAM.UnitTests
                 RBX_Alt_Manager.Forms.ThemeEditor.TextBoxesForeground = Color.White;
 
                 using (var Form = new System.Windows.Forms.Form { BackColor = Color.FromArgb(24, 26, 34), ForeColor = Color.White })
+                using (var Panel = new System.Windows.Forms.FlowLayoutPanel { BackColor = Color.Transparent, Dock = System.Windows.Forms.DockStyle.Fill }) // like the Developer tab
                 using (var Check = new System.Windows.Forms.CheckBox { Text = "Enable Developer Mode", AutoSize = true, BackColor = Color.Transparent, ForeColor = Color.White })
                 {
-                    Form.Controls.Add(Check);
+                    Panel.Controls.Add(Check);
+                    Form.Controls.Add(Panel);
                     ModernUI.Apply(Form);
 
                     Color BoxCenter(bool Checked)
@@ -568,8 +570,37 @@ namespace RAM.UnitTests
 
                     Color Off = BoxCenter(false), On = BoxCenter(true);
 
+                    Check.Checked = false;
+                    using (var Picture = new Bitmap(Check.Width, Check.Height))
+                    {
+                        Check.DrawToBitmap(Picture, new Rectangle(0, 0, Check.Width, Check.Height));
+
+                        for (int y = 0; y < Check.Height; y++)
+                            Assert(Picture.GetPixel(0, y).GetBrightness() < 0.5f, $"bright leftover of the old box at the left edge (y {y})");
+                    }
+
                     Assert(Off.GetBrightness() < 0.4f, $"unchecked box is bright ({Off}), the white tick wouldn't be visible");
                     Assert(Math.Abs(On.B - ModernUI.Accent.B) < 30 && Math.Abs(On.R - ModernUI.Accent.R) < 30, $"checked box isn't accent colored ({On})");
+                }
+            });
+
+            Test("drop down lists are dark, also with nothing selected", () =>
+            {
+                using (var Form = new System.Windows.Forms.Form { BackColor = Color.FromArgb(24, 26, 34) })
+                using (var Combo = new System.Windows.Forms.ComboBox { Width = 200, DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList })
+                {
+                    Combo.Items.AddRange(new object[] { "Everyone", "Friends" });
+                    Form.Controls.Add(Combo);
+                    ModernUI.Apply(Form);
+                    Form.CreateControl(); Combo.CreateControl();
+
+                    using (var Picture = new Bitmap(Combo.Width, Combo.Height))
+                    {
+                        Combo.DrawToBitmap(Picture, new Rectangle(0, 0, Combo.Width, Combo.Height));
+                        Color Inside = Picture.GetPixel(Combo.Width / 3, Combo.Height / 2);
+
+                        Assert(Inside.GetBrightness() < 0.4f, $"empty drop down list is light ({Inside})");
+                    }
                 }
             });
         }

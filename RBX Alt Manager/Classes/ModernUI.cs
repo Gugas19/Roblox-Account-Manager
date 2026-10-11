@@ -1,4 +1,4 @@
-using BrightIdeasSoftware;
+﻿using BrightIdeasSoftware;
 using RBX_Alt_Manager.Forms;
 using System;
 using System.Collections.Generic;
@@ -311,7 +311,10 @@ namespace RBX_Alt_Manager.Classes
 
             if (Check.CheckAlign == ContentAlignment.TopLeft) Box.Y = Check.Padding.Top + 1;
 
-            Color Back = Check.BackColor.A == 255 ? Check.BackColor : (Check.Parent?.BackColor ?? ThemeEditor.FormsBackground);
+            Color Back = ThemeEditor.FormsBackground;
+
+            for (Control Owner = Check; Owner != null; Owner = Owner.Parent) // transparent panels report a transparent color, use the first solid one
+                if (Owner.BackColor.A == 255) { Back = Owner.BackColor; break; }
             bool On = Check.CheckState != CheckState.Unchecked;
             Color Fill = On ? Accent : ThemeEditor.TextBoxesBackground;
             Color Edge = On ? Accent : InputBorder;
@@ -346,6 +349,21 @@ namespace RBX_Alt_Manager.Classes
                     e.Graphics.FillRectangle(Brush, Box.X + Size * 0.28f, Box.Y + Size * 0.45f, Size * 0.44f, Math.Max(2, Size * 0.12f));
         }
 
+        private static void DrawComboItem(object sender, DrawItemEventArgs e)
+        {
+            var Combo = (ComboBox)sender;
+            bool Highlight = (e.State & DrawItemState.Selected) != 0 && (e.State & DrawItemState.ComboBoxEdit) == 0;
+            Color Back = Highlight ? Mix(Accent, ThemeEditor.TextBoxesBackground, 0.35f) : ThemeEditor.TextBoxesBackground;
+            Color Fore = Combo.Enabled ? ThemeEditor.TextBoxesForeground : Mix(ThemeEditor.TextBoxesForeground, Back, 0.5f);
+
+            using (var Brush = new SolidBrush(Back))
+                e.Graphics.FillRectangle(Brush, e.Bounds);
+
+            if (e.Index >= 0 && e.Index < Combo.Items.Count)
+                TextRenderer.DrawText(e.Graphics, Combo.GetItemText(Combo.Items[e.Index]), Combo.Font, Rectangle.Inflate(e.Bounds, -3, 0), Fore,
+                    TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+        }
+
         private static void StyleTree(Control control)
         {
             if (control is Label && control.RightToLeft == RightToLeft.Yes) // used in the designer to right-align, but it moves punctuation like "(min)" or "max." around
@@ -372,10 +390,20 @@ namespace RBX_Alt_Manager.Classes
                     break;
 
                 case ComboBox Combo:
-                    Combo.FlatStyle = FlatStyle.Flat;
+                    // the flat style paints an empty drop down list white over everything, the native style follows the dark theme set below
+                    Combo.FlatStyle = Combo.DropDownStyle == ComboBoxStyle.DropDownList ? FlatStyle.Standard : FlatStyle.Flat;
                     Combo.BackColor = ThemeEditor.TextBoxesBackground;
                     Combo.ForeColor = ThemeEditor.TextBoxesForeground;
-                    DarkScrollbars(Combo);
+                    DarkComboBox(Combo);
+
+                    if (Combo.DrawMode == DrawMode.Normal && !WatchedContainers.TryGetValue(Combo, out _)) // a drop down list ignores BackColor and stays light
+                    {
+                        WatchedContainers.Add(Combo, null);
+                        Combo.DrawMode = DrawMode.OwnerDrawFixed;
+                        Combo.ItemHeight = Math.Max(Combo.ItemHeight, (int)(17 * Program.Scale));
+                        Combo.DrawItem += DrawComboItem;
+
+                    }
                     break;
 
                 case NumericUpDown Number:
@@ -532,6 +560,22 @@ namespace RBX_Alt_Manager.Classes
                 }
             }
         }
+
+        /// <summary>Windows' own dark combo box look, otherwise a drop down list stays light (with nothing selected it ignores BackColor and owner drawing)</summary>
+        private static void DarkComboBox(ComboBox Combo)
+        {
+            if (Combo.IsHandleCreated) SetComboTheme(Combo);
+
+            if (!ThemedCombos.TryGetValue(Combo, out _))
+            {
+                ThemedCombos.Add(Combo, null);
+                Combo.HandleCreated += (s, e) => SetComboTheme(Combo); // changing DropDownStyle recreates the handle
+            }
+        }
+
+        private static readonly ConditionalWeakTable<ComboBox, object> ThemedCombos = new ConditionalWeakTable<ComboBox, object>();
+
+        private static void SetComboTheme(ComboBox Combo) => SetWindowTheme(Combo.Handle, IsDark ? "DarkMode_CFD" : "Explorer", null);
 
         private static void DarkScrollbars(Control control)
         {
