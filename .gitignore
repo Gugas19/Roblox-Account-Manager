@@ -2,9 +2,8 @@
 target/
 gen/
 
-# version 3 (C#) build folders
-/RBX Alt Manager/
-/packages/
+# the app you use, with your accounts and settings: never commit it
+/app/
 
 # accounts and settings of a copy run from here: never commit them
 AccountData.json*
