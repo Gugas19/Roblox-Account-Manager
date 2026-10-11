@@ -2,133 +2,138 @@
 
 # Roblox Account Manager
 
-**A modern, translated and faster-to-use edition of [ic3w0lf22's Roblox Account Manager](https://github.com/ic3w0lf22/Roblox-Account-Manager)**
+**A modern, translated, Rust rewrite of [ic3w0lf22's Roblox Account Manager](https://github.com/ic3w0lf22/Roblox-Account-Manager), with Anti-AFK and a command line built in**
 
-[![Download](https://img.shields.io/github/v/release/Gugas19/Roblox-Account-Manager?label=Download&style=for-the-badge&logo=windows&color=4F7CFF)](https://github.com/Gugas19/Roblox-Account-Manager/releases/latest)
+[![Release](https://img.shields.io/github/v/release/Gugas19/Roblox-Account-Manager?label=Release&style=for-the-badge&logo=windows&color=4F7CFF)](https://github.com/Gugas19/Roblox-Account-Manager/releases)
 [![License](https://img.shields.io/badge/license-GPLv3-blue?style=for-the-badge)](LICENSE)
 ![Platform](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?style=for-the-badge)
+![Rust](https://img.shields.io/badge/Rust-Tauri%202-B7410E?style=for-the-badge&logo=rust)
 
 ![Roblox Account Manager](Images/main.png)
 
-[Download](#download) · [Version 4](#version-4-preview) · [What's new](#whats-new-in-this-edition) · [Languages](#languages) · [Screenshots](#screenshots) · [Building](#building-from-source) · [FAQ](#frequently-asked-questions)
+[Download](#download) · [Highlights](#highlights) · [Command line](#command-line) · [Languages](#languages) · [Screenshots](#screenshots) · [Building](#building-from-source) · [FAQ](#frequently-asked-questions)
 
 </div>
 
 Keep all your Roblox accounts in one place and join games with any of them in one click: alt accounts, storage
-accounts, grinding accounts, with as many Roblox windows open at the same time as you like.
+accounts, grinding accounts, with as many Roblox windows open at the same time as you like. Leave them in game for
+hours with the built in Anti-AFK, or drive everything from scripts with `ram-cli`.
 
 ## Download
 
-1. Download the zip from the [latest release](https://github.com/Gugas19/Roblox-Account-Manager/releases/latest).
-2. Extract it into a folder of its own, for example on your desktop (it won't run from inside the zip or the Temp folder).
-3. Run `RobloxAccountManager.exe`.
+Version 4 is being tested with real accounts and isn't in the releases yet. Until then,
+[build it](#building-from-source): it takes two commands. The [releases](https://github.com/Gugas19/Roblox-Account-Manager/releases)
+page still has version 3.8.0, the previous C# version.
 
+Once built you get two files. Put them together in a folder of their own:
+
+| File | What it is |
+| --- | --- |
+| `RobloxAccountManager.exe` | the app, about 6 MB |
+| `ram-cli.exe` | the [command line](#command-line) |
+
+- It uses the WebView2 runtime that comes with Windows 10 and 11. Nothing else to install: no .NET, and no bundled browser engine.
 - The browser used to add accounts (Chrome for Testing) is downloaded automatically the first time you need it, into
   `%LOCALAPPDATA%\RobloxAccountManager\Chrome`. A progress bar shows while it downloads.
-- Needs the .NET Framework 4.7.2 or later, already included in Windows 10 and 11.
-- Coming from the original app? Copy your `AccountData.json`, `RAMSettings.ini` and `RAMTheme.ini` next to the new
-  `RobloxAccountManager.exe`, your accounts and settings carry over.
 
-## Version 4 (preview)
+### Coming from version 3 or the original app
 
-The whole app rewritten in Rust, in [`rust/`](rust). It opens the same `AccountData.json`, `RAMSettings.ini` and
-`RAMTheme.ini` as version 3, so you can switch between them in either direction (just not run both at once).
-It's in testing: for now [build it from source](rust/README.md#build), it will be in the releases once it's been
-tried with real accounts. Version 3 stays available until then.
+Copy your `AccountData.json`, `RAMSettings.ini` and `RAMTheme.ini` next to `RobloxAccountManager.exe`.
+Your accounts, groups, aliases, settings and theme carry over as they are. That includes password-protected files,
+which open with the same password, and the local web API, which answers the same requests (so
+[`RAMAccount.lua`](RAMAccount.lua) and other scripts keep working). Don't run both versions on the same files at
+the same time: they refuse to start while the other is open.
 
-![Version 4](Images/v4/main.png)
-
-- **New interface** built with [shadcn/ui](https://ui.shadcn.com): command palette (`Ctrl+K`) to find any account
-  or action, undo after removing accounts, double click to edit an alias, paste a game link straight into Place ID,
-  launch progress with cancel, a guided first start, and every setting explained where you change it.
-- **Anti-AFK built in**: keeps your Roblox windows from being kicked after 20 minutes idle without getting in your
-  way. It waits until you stop typing, skips the window you're playing in, rejoins accounts that got disconnected
-  (read from the Roblox log, into the same server), can mute background windows, put them in Windows' efficiency
-  mode, arrange them in a grid, send Discord notifications and keep statistics. It keeps running from the tray icon.
-- **Command line**, `ram-cli.exe`: list, join, follow, close and import accounts, or control Anti-AFK, from a script
-  or a shortcut. When the app is open the command runs inside it.
-
-  ```
-  ram-cli join Main Alt2 --place 920587237
-  ram-cli join --group Farm --place https://www.roblox.com/games/920587237
-  ram-cli follow Alt1 --user Builderman
-  ram-cli list --json
-  ```
-- **Lighter**: one 6 MB exe plus the command line, no .NET Framework or CefSharp, it uses the WebView2 already in
-  Windows 10 and 11.
-- Same five languages, Windows or password encryption (files encrypted by version 3 open as they are), local web API
-  and watcher.
-
-| | |
-| :---: | :---: |
-| ![Anti-AFK](Images/v4/antiafk.png) Anti-AFK | ![Command palette](Images/v4/command-palette.png) Command palette (`Ctrl+K`) |
-
-<img src="Images/v4/main-pt.png" alt="Version 4 in Portuguese" width="560">
-
-## What's new in this edition
-
-The rest of this page is about version 3, the current release.
-
+## Highlights
 
 ### A modern interface
-- Dark design with rounded windows, cards, clear icons and a highlighted main action.
-- Search your accounts (`Ctrl+F`), see how many are shown and selected, friendly empty states.
-- Buttons that need an account are disabled until one is selected, `Delete` removes the selection (after asking).
-- Readable check boxes and drop down lists on the dark theme, an accent color you can change in the theme editor.
+- Built with [shadcn/ui](https://ui.shadcn.com): dark by default, with Midnight, Forest and Light themes and an accent color of your choice.
+- **Command palette** (`Ctrl+K`): find any account or action and run it from the keyboard.
+- Search (`Ctrl+F`), select all (`Ctrl+A`), join with `Enter` or a double click, remove with `Delete`.
+- **Undo** after removing accounts, and double click an alias to edit it in place.
+- Paste a game link straight into Place ID. Recent games are one click away.
+- A progress bar with a cancel button while several accounts launch.
+- A guided first start, and every setting explained where you change it. Changes apply instantly, no restart.
+
+### Anti-AFK built in
+Roblox kicks you after 20 minutes without input. Anti-AFK keeps every Roblox window active, without getting in your way:
+- **It doesn't interrupt you**: it waits until you stop typing and moving the mouse, skips the window you're playing in,
+  and puts your window back in front afterwards.
+- **Rejoins disconnected accounts**: it reads the Roblox log, closes the disconnected window and launches that account
+  into the same game again, into the same server if you want.
+- Choice of key (jump, walk, turn the camera, zoom), interval, presses per window, and resetting the character every round.
+- Mute the windows you're not looking at, put background windows in Windows' efficiency mode (less CPU and fan noise),
+  arrange them in a grid, hide them or make them see-through.
+- Discord notifications when it starts, stops, an account disconnects or something fails.
+- Statistics, starts on its own when Roblox opens or when you're away, keeps the PC awake, keeps running in the tray.
+
+### Command line
+`ram-cli.exe` joins, follows, lists, closes and imports accounts, and controls Anti-AFK, from scripts, shortcuts or a
+scheduled task. When the app is open the command runs inside it, so the window updates live. See [Command line](#command-line).
 
 ### Every window in your language
-- English, Português (Portugal), Español, Français and Deutsch, see [Languages](#languages).
-- Switch at any time with the flag button in the top right, the whole app changes instantly.
-
-### Settings apply instantly
-- No more "restart the program": the web server, its port and password, developer mode, account presence,
-  automatic cookie refresh, the aging alert, the dark title bar, Multi Roblox and every other setting take effect
-  the moment you change them.
+English, Português (Portugal), Español, Français and Deutsch. Switch at any time with the flag button in the top
+right, and the whole app changes instantly.
 
 ### Security
-- Your accounts file is protected for your Windows user only (not for anyone using the PC).
-- The local web server refuses protected requests without the password once one is set.
-- Accepting web server connections from other devices asks Windows for a one time permission instead of having to run
-  the whole app as administrator. If you say no, it keeps working for this PC.
+- Your accounts file is encrypted for your Windows user, or with a password if you choose one.
+  A password-protected file works on any PC.
+- The local web API refuses protected requests without its password, and only listens to this PC unless you allow other devices.
+- The command line only talks to an app run by the same Windows user, and never prints cookies.
 
-### Fixes
-- Account changes (alias, description, groups...) were silently not saved during 2 seconds of every minute.
-- Scrolling the account list could crash the app with account presence turned off.
-- The account counter didn't update after removing accounts.
-- After a failed start the web server kept its port, so trying again failed with "access denied".
-- Account Utilities reported success, or nothing at all, with an expired session.
-- "Dump Details", "Run on Windows Startup" and other options no longer fail silently or crash.
+## Command line
 
-### Under the hood
-- The built in browser runs the latest Chrome for Testing (PuppeteerSharp 25).
-- Builds with a plain `msbuild -restore` (NuGet PackageReference), no extra setup.
-- Automated tests, see [Tests](#tests).
+```
+ram-cli list [--group <name>] [--json]
+ram-cli join <accounts> [--place <id or game link>] [--job <job id or VIP link>]
+ram-cli follow <accounts> --user <username>
+ram-cli close <accounts> | --all
+ram-cli import [file]
+ram-cli antiafk [start|stop|now|status]
+ram-cli status
+ram-cli open
+```
+
+Accounts are named by username, user id or alias (any case). `--all` picks every account, `--group <name>` a group.
+
+```
+ram-cli join Main Alt2 --place 920587237
+ram-cli join --group Farm --place https://www.roblox.com/games/920587237
+ram-cli join --group Farm                     # each account goes to its saved place
+ram-cli follow Alt1 --user Builderman
+ram-cli list --json
+```
+
+- With the app open, the command runs inside it.
+- With the app closed, `ram-cli` opens the accounts file itself, without a window. A password-protected file asks
+  for the password, or reads it from the `RAM_PASSWORD` environment variable. Anti-AFK needs the app open.
+- Exit codes: `0` done, `1` failed, `2` wrong command line. `ram-cli help` explains each command.
 
 ## Languages
 
-| | Language | |
-| :---: | :--- | :--- |
-| <img src="RBX%20Alt%20Manager/Resources/Flags/gb.png" width="24"> | English | default |
-| <img src="RBX%20Alt%20Manager/Resources/Flags/pt.png" width="24"> | Português (Portugal) | complete |
-| <img src="RBX%20Alt%20Manager/Resources/Flags/es.png" width="24"> | Español | complete |
-| <img src="RBX%20Alt%20Manager/Resources/Flags/fr.png" width="24"> | Français | complete |
-| <img src="RBX%20Alt%20Manager/Resources/Flags/de.png" width="24"> | Deutsch | complete |
+| | Language |
+| :---: | :--- |
+| <img src="ui/public/flags/gb.png" width="24"> | English |
+| <img src="ui/public/flags/pt.png" width="24"> | Português (Portugal) |
+| <img src="ui/public/flags/es.png" width="24"> | Español |
+| <img src="ui/public/flags/fr.png" width="24"> | Français |
+| <img src="ui/public/flags/de.png" width="24"> | Deutsch |
 
-The app starts in your Windows language when it's one of these, otherwise in English. Change it with the flag
-button or in `Settings` > `General` > `Language`.
+The app starts in your Windows language when it's one of these, otherwise in English.
 
-<img src="Images/language-menu.png" alt="Language menu" width="420">
-
-![The app in every language](Images/languages.png)
+| | |
+| :---: | :---: |
+| ![Português](Images/main-pt.png) | ![Español](Images/main-es.png) |
+| ![Français](Images/main-fr.png) | ![Deutsch](Images/main-de.png) |
 
 <details>
 <summary>Adding or improving a translation</summary>
 
-Translations live in [`RBX Alt Manager/Resources/Lang`](RBX%20Alt%20Manager/Resources/Lang), one JSON file per
-language where the key is the English text and the value its translation (`{0}`, `{1}` are values filled in by the
-app and must be kept). To add a language, create `<code>.json` with the same keys as `pt-PT.json`, add a 48x36 flag
-to `Resources/Flags` and add the language to `Lang.Languages` in `Classes/Lang.cs`. The unit tests check that every
-text of the app is translated and that no `{0}` is lost.
+Translations live in [`lang/`](lang), one JSON file per language. The key is the English text and the value is its
+translation. `{0}`, `{1}` are values filled in by the app and must be kept. To add a language, create `<code>.json`
+with the same keys as `pt-PT.json`, add a flag to `ui/public/flags` and add the language to `LANGUAGES` in
+[`src/core/lang.rs`](src/core/lang.rs). `python tools/strings.py` lists any text without a translation and checks
+that every language has the same keys and placeholders.
 
 </details>
 
@@ -136,95 +141,120 @@ text of the app is translated and that no `{0}` is lost.
 
 | | |
 | :---: | :---: |
-| ![Search](Images/search.png) Search accounts | ![Account menu](Images/account-menu.png) Account menu |
-| ![Utilities](Images/utilities.png) Utilities: servers, games, favorites, universes, outfits, watcher | ![Account utilities](Images/account-utilities.png) Account utilities |
-| ![Theme editor](Images/theme-editor.png) Theme editor | |
+| ![Anti-AFK](Images/antiafk.png) Anti-AFK | ![Anti-AFK rejoin](Images/antiafk-rejoin.png) Anti-AFK: rejoin and extras |
+| ![Command palette](Images/command-palette.png) Command palette (`Ctrl+K`) | ![Search](Images/search.png) Search |
+| ![Account menu](Images/account-menu.png) Account menu | ![Account utilities](Images/account-utilities.png) Account utilities |
+| ![Utilities](Images/utilities.png) Utilities: servers, games, favorites, universes, outfits, watcher | ![Theme editor](Images/theme.png) Theme editor |
 
 ![Settings](Images/settings.png)
 
-The screenshots use made-up demo accounts and are generated by [`Tools/Update-Screenshots.ps1`](Tools/Update-Screenshots.ps1).
+The screenshots use made-up demo accounts and are taken by the interface tests (see [Tests](#tests)).
 
 ## Building from source
 
-Requirements: Windows, [Visual Studio 2022](https://visualstudio.microsoft.com/) or its free Build Tools with the
-.NET desktop workload.
+Requirements: Windows 10 or 11, [Rust](https://rustup.rs) and [Node.js](https://nodejs.org) 20 or later.
 
 ```powershell
-msbuild "RBX Alt Manager.sln" -restore -p:Configuration=Release -p:Platform=x64
+npm --prefix ui install
+npm --prefix ui run build
+cargo build --release
 ```
 
-The app is built into `RBX Alt Manager\bin\x64\Release`.
+`RobloxAccountManager.exe` and `ram-cli.exe` end up in `target\release`. While working on the interface,
+`npm --prefix ui run dev` serves it with hot reload at localhost:1420, and a debug build (`cargo build`) uses it.
 
-Version 4 (Rust) builds with `cargo` and `npm`, see [rust/README.md](rust/README.md).
+### Layout
+
+```
+src/
+  app.rs        state shared by everything
+  core/         files: settings, accounts, encryption, languages (same formats as version 3)
+  roblox/       the Roblox web APIs
+  platform/     Windows: processes, windows, mutexes, ping, log file
+  services/     launching Roblox, browser, local web API, watcher, Anti-AFK
+  commands/     what the interface can ask for, one file per part of the interface
+  cli/          ram-cli: options, commands, the pipe to the open app
+ui/src/
+  components/   one folder per part of the interface (shadcn/ui underneath)
+  hooks/ lib/   actions, store, translations, theme
+lang/           translations
+tests/          interface and command line tests, fixtures
+tools/          strings.py, the translation check
+```
 
 ### Tests
 
 ```powershell
-pwsh -File Tests\Run-AllTests.ps1           # build + tests that don't open the app
-pwsh -File Tests\Run-AllTests.ps1 -WithUI   # also click through every window of a copy with demo accounts
+cargo test --lib                    # file formats, encryption (including a file encrypted by version 3), settings, dates
+node tests/cli.mjs [--release]      # the command line, on its own and through an open app
+node tests/ui.mjs  [--release]      # the interface, clicking through every window over WebView2's DevTools protocol
+python tools/strings.py             # every text translated
 ```
 
-See [Tests/README.md](Tests/README.md) for what they cover.
+The interface and command line tests run a copy of the app in `target\test-run` with demo accounts. They never
+launch Roblox, close it or press keys, so your own accounts and a game you have open are left alone.
 
 ### Updating the screenshots
 
-After changing the interface, run the following and commit the `Images` folder, the README picks the new images up:
+After changing the interface, run the following and commit the `Images` folder. The README picks up the new images.
 
 ```powershell
-pwsh -File Tools\Update-Screenshots.ps1
+node tests/ui.mjs --readme
 ```
 
-It opens a copy of the app with demo accounts (your own accounts and settings are never used) and takes about a minute.
-
 # Warning
-If someone asks you to generate an "rbx-player link", **DO NOT** do it, they can use these to join any game using your account, or even launch roblox studio with one of your games. They can do many things in game such as spend your robux or even do things that can get your account terminated. **USE THESE FEATURES AT YOUR OWN RISK**
+If someone asks you to generate an "rbx-player link", **DO NOT** do it. They can use it to join any game with your account, or even launch Roblox Studio with one of your games. They can do many things in game, such as spend your Robux or do things that get your account terminated. **USE THESE FEATURES AT YOUR OWN RISK**
 
 # Extra Features
 Extra features can be enabled in `Settings` > `Developer` > `Enable Developer Mode`.
-Beware of the risks that you are taking if you accidentally send something to someone.
+Beware of the risks you are taking if you accidentally send something to someone.
 
-If you ever want a friend to join a game using your account, make sure you have the PlaceId and JobId correctly entered, then right click an account, and click "Copy rbx-player link", DO NOT do this if someone asks you for it.
+If you ever want a friend to join a game using your account, make sure the Place ID and Job ID are entered correctly, then right click the account and click "Copy rbx-player Link". DO NOT do this if someone asks you for it.
 
 # Developer API
-To view the documentation, [click here](https://ic3w0lf22.gitbook.io/roblox-account-manager/).
-Change the webserver port if you are planning on using any dangerous functions!
-Be careful executing random scripts when having dangerous settings enabled.
+Enable it in `Settings` > `Developer` > `Enable Web Server`. It answers the same requests as the original app, see the [documentation](https://ic3w0lf22.gitbook.io/roblox-account-manager/), and [`RAMAccount.lua`](RAMAccount.lua) is a ready-made client for it.
+Set a password and change the port if you plan on enabling any dangerous method, and be careful running random scripts with those enabled.
 
 # Frequently Asked Questions
 ## **Q:** Why is this program detected as a virus?
 
-**A:** Open source programs such as this program are commonly detected as viruses because actual malware may be using the same libaries as this one. If you'd like, you can download [visual studio](https://visualstudio.microsoft.com/downloads/) yourself (it's free) and [compile this program on your own](#building-from-source), you may even get the same virus detections as the public release.
+**A:** Tools that launch games and manage logins often get flagged because real malware uses similar techniques. The whole source is here: you can [build it yourself](#building-from-source) and compare.
 
 
 ## **Q:** How do I enable multi-roblox?
 
-**A:** Open the settings by clicking the gear icon in the top right, in the `General` tab, check `Multi Roblox`. It works as soon as every Roblox window is closed, no restart needed.
+**A:** Open the settings with the gear icon in the top right and, in the `General` tab, turn on `Multi Roblox`. It works as soon as every Roblox window is closed, no restart needed.
 
 
-## **Q:** Why was multi-roblox disabled by default?
+## **Q:** Why is multi-roblox disabled by default?
 
-**A:** A byfron developer has stated that using multiple clients may be considered as malicious behavior, so multi-roblox is disabled by default and users can enable the option manually at their own risk.
+**A:** A Byfron developer has stated that using multiple clients may be considered malicious behavior, so multi-roblox is disabled by default and you can turn it on at your own risk.
 ![2023-05-06 23_58_33-Clipboard](https://user-images.githubusercontent.com/11778654/236662271-ce6bc2c8-7690-436a-97d0-1cfea56b541f.png)
+
+
+## **Q:** Will Anti-AFK get my accounts banned?
+
+**A:** It only presses keys in the Roblox windows, like you would. Some games have their own rules against being AFK, so check the rules of the game you play.
 
 
 ## **Q:** Why do my accounts have yellow/red dots on them?
 
-**A:** The yellow-red dots that appear on an account means that account hasn't been used in over 20 days, as that day counter goes up, the dot appears more red. You can get rid of this dot by joining a game or enabling developer mode and clicking "Get Authentication Ticket" when you right click an account (works with multiple). You can also turn the alert off in `Settings` > `General` > `Disable Aging Alert`.
+**A:** The dot means the account hasn't been used in over 20 days, and it turns redder as the days go up. Joining a game with the account removes it. You can also turn the alert off in `Settings` > `General` > `Disable Aging Alert`, or turn on `Auto Refresh Cookies` so unused accounts don't get logged out.
 
 
-## **Q:** How do I backup my accounts file?
+## **Q:** How do I back up my accounts file?
 
-**A:** Download [RAMDecrypt](https://github.com/ic3w0lf22/RAMDecrypt) and follow the instructions provided, then you can save the fully decrypted file in google drive, on a flash drive, or where ever you'd like. This does **NOT** work on files that didn't originate from your PC. Accounts protected with a password (`Reset Encryption Method` > `Password protected`) can be moved to another PC as they are.
-
-
-## **Q:** How do I prevent Windows Defender from deleting alt manager files?
-
-**A:** Add an exclusion for the Roblox Account Manager folder, here's a video on how to add an exclusion: https://youtu.be/1r93NtwZt4o
+**A:** Protect it with a password (`Settings` > `General` > `Change Encryption Method` > password). A password-protected `AccountData.json` can be copied to Google Drive, a flash drive or another PC, and opens anywhere with that password. A file with the default encryption only opens on this PC with this Windows user.
 
 
-## **Q:** Can I join vip servers using alt manager?
+## **Q:** How do I prevent Windows Defender from deleting the app's files?
 
-**A:** Yes you can, just make sure the place id is the same as the game you're trying to join, then paste the whole vip server link into the Job ID box and press Join Server
+**A:** Add an exclusion for the Roblox Account Manager folder. Here's a video on how to add one: https://youtu.be/1r93NtwZt4o
+
+
+## **Q:** Can I join VIP servers with it?
+
+**A:** Yes. Make sure the Place ID matches the game, paste the whole VIP server link into the Job ID box and press Join Server.
 
 
 ## **Q:** Can you use this on Mac?
@@ -232,85 +262,78 @@ Be careful executing random scripts when having dangerous settings enabled.
 **A:** No, it only runs on Windows.
 
 
-## **Q:** I’ve encountered a bug/issue on this software
+## **Q:** I’ve encountered a bug/issue
 
-**A:** Open an [issue](https://github.com/Gugas19/Roblox-Account-Manager/issues) with screenshots (if possible) and a descriptive explanation of what happened. The app writes a `log.txt` next to it that helps too (check it doesn't contain anything private before sharing it).
+**A:** Open an [issue](https://github.com/Gugas19/Roblox-Account-Manager/issues) with screenshots (if possible) and a description of what happened. The app writes a `log.txt` next to it that helps too (check it doesn't contain anything private before sharing it).
 
 
 ## **Q:** I can’t launch multiple accounts repeatedly.
 
-**A:** This is due to Roblox’s rate limiting
+**A:** That's Roblox's rate limiting. Raise `Launch Delay` in the settings.
 
 
 ## **Q:** Can you get banned for using this?
 
-**A:** No, you cannot get banned for using this as this does not break Roblox T.O.S although some games may disallow you from having alt accounts so please do your research if you are unsure.
+**A:** It doesn't break the Roblox Terms of Service, but some games don't allow alt accounts, so check the rules of the game you play if you're unsure.
 
 ## **Q:** My AccountData file gets corrupted often
-**A:** This is due to ProtectedData failing sometimes. You can disable encryption by creating a file called `NoEncryption.IUnderstandTheRisks.iautamor`. Do this at your own risk, nobody except yourself is responsible for your accounts!
+**A:** Use password protection instead of the default encryption, it doesn't depend on Windows. As a last resort you can turn encryption off by creating a file called `NoEncryption.IUnderstandTheRisks.iautamor` next to the app. Do this at your own risk: anyone who gets that file gets your accounts.
 
 # Features
 | Feature | Description | How to |
 | :--- | :---: | ---: |
-| Account Encryption | All your account data is locally encrypted for your Windows user, meaning if someone else gets a hold of your account data, they will **NOT** be able to decrypt it | **DO NOT SHARE YOUR `AccountData.json` FILE AT ALL** |
-| Password Encryption | Use a password to encrypt your data | This is recommended as it allows you store your data safely in google drive/similar and won't get corrupted due to you switching computers |
-| [Multi Roblox](#q-how-do-i-enable-multi-roblox) | [DISABLED BY DEFAULT, READ FAQ] RAM comes with a built-in multi Roblox allowing multiple Roblox clients to be open at once | **If this doesn't work for you, make sure no Roblox processes are running in the background by checking in task manager** |
+| Account Encryption | Your account data is encrypted for your Windows user, so someone who gets the file can't read it | **DO NOT SHARE YOUR `AccountData.json` FILE AT ALL** |
+| Password Encryption | Encrypt your data with a password | Recommended: the file can be stored in Google Drive or moved to another computer |
+| [Multi Roblox](#q-how-do-i-enable-multi-roblox) | [DISABLED BY DEFAULT, READ FAQ] Several Roblox clients open at once | **If it doesn't work, make sure no Roblox process is running in the background (Task Manager)** |
+| Anti-AFK | Keeps Roblox windows from being kicked for being idle, rejoins disconnected accounts, mutes and arranges windows | Click `Anti-AFK` in the top bar, or `ram-cli antiafk start` |
+| Command Line | Join, follow, list, close and import accounts from scripts and shortcuts | `ram-cli help` |
+| Command Palette | Any account or action from the keyboard | `Ctrl+K` |
 | Languages | English, Português (Portugal), Español, Français, Deutsch | Click the flag button in the top right |
 | Account Search | Find an account by username, alias, description or group | Type in the search box above the list, or press `Ctrl+F` |
-| Load Region | See where a server is located and get an accurate ping reading | Right click a server in the `Server List`, then click `Load Region` **(Requires a valid account to be selected in the main window)** |
-| Server List | See a game's servers, including the servers' data such as player count and server ping | Click `Utilities` in the main window |
-| [Join Small Servers](https://youtu.be/Red66cV6vVI) | Easily join small servers in games that use lobby starter places to teleport you to another game | Insert the actual game's PlaceId into the text box next to `Refresh` in the `Server List`, click `Refresh`, then right click a server and click `Join Game`, you will hear a beep if successful, once you hear that beep, you can join the main game |
-| Account Utilities | Easily change your account password, email, follow privacy, etc | Click `Account Utilities` in the main window **(Requires a valid account to be selected in the main window)** |
-| Account Sorting | Sort your accounts easily | Simply drag and drop an account on the list |
-| Account Grouping | Sort your accounts by groups, you can also drag and drop accounts into other groups | Right click an account, hover over `Groups`, then click `Move account to` |
-| Group Sorting | Sort groups from top to bottom by assigning numbers to them | When creating a group, you can put a number from 0-999 (ex. `1Main`, `007 Bank`, `67 Dead`, ...), sorted from smallest to largest, the numbers will be hidden afterwards |
-| Games List | Browse through thousands of games you normally wouldn't see on the front page | Click `Utilities`, then `Games` |
-| Favorite Games | Add your favorite games to a list you can easily navigate to | Click `Utilities`, then `Favorites` |
-| Recent Games | Saves your recently played games into the `PlaceId` text box | After joining a game, that game will be added to the recent games list, which you can then quickly load up by hovering over the clock icon above the `PlaceId` text box or by typing the game's name into the `PlaceId` text box in the main window |
-| Open Browser | Open a browser window using the selected account, allowing you to various settings | Click `Open Browser` in the main window while having an account selected |
-| Join VIP Servers |  | Simply place your entire VIP server link into the `PlaceId` text box and RAM will handle the rest |
-| Shuffle JobId | Selects a random JobId for every account everytime you press "Join Server" unless you have a JobId set | Click the shuffle icon to toggle JobId Shuffler |
-| Save PlaceId & JobId | Save specific `PlaceId`s and/or `JobId`s to specific accounts | Once you enter your desired PlaceId and/or VIP links, click the `Save` icon next to the `JobId` text box |
-| Player Finder | Find a player even if their follows are off as long as you know what game they are in | In the `Server List` window, put a player's username into the `Username` text box, then click search. **This may take a while to load and may be patched in the near future** |
-| Universe Viewer | View a game's universe | Open `Utilities`, then click `Universe` |
-| Outfit Viewer | View other player's outfits and even wear their outfits | Open `Utilities`, then click `Outfits` |
-| Sort Account by Usage Date | View the last time you used an account | Make sure to enable headers in the Theme Editor, right click the header and enable `Last Used`, then right click an account, hover `Groups`, and press `Toggle`. You can now click on `Last Used` in the header to sort the accounts. |
-| Close Roblox Beta | Detects if the Roblox Beta Home Menu is open and terminates the process if so | Open `Utilities`, then click `Watcher` to modify settings |
-| Prevent Duplicate Instances | Automatically shuts down old instances when you launch an account | Account Manager automatically assigns a number called `BrowserTrackerID` to each account allowing it to know if there is an active instance of that specific account running, then proceeds to close it preventing instances of the same account opening more than once |
-| Save Passwords | Upon logging into an account, RAM will automatically save that accounts password which can then be copied by right clicking the account, then selecting `Copy Password` | This can be disabled by clicking the settings button (gear cog in top-right corner), the unchecking `Save Passwords` |
-| Themes | Customize RAM to your liking, including the accent color | Click the palette button in the top right |
-| Developer Mode | Enable hidden features not available to normal users for safety reasons | Click the settings button (gear cog in top-right corner), click `Developer`, then check the `Enable Developer Mode` box |
-| Local Web API | Easily use many RAM features by making a simple http request | [Documentation](https://ic3w0lf22.gitbook.io/roblox-account-manager/) |
-| Import Cookies | Import accounts using their .ROBLOSECURITY cookies | You can drag and drop one or multiple cookies directly into the program, or click the arrow next to `Add Account` and select `Cookie(s)` |
-| FPS Unlocker | Unlocks the Roblox client's FPS using Roblox's ClientAppSettings.json | Settings can be found by clicking the settings cog, then miscellaneous |
-| Bulk User Importing | Easily import your accounts by their username & password combos, or by cookies | Click the arrow on the right side of the `Add Account` button, then select user:pass/cookies |
-| Automatic Connection Loss Detection | Closes instances that are not connected to a server for a certain amount of time | To enable this, go to `Utilities`->`Watcher`, and make sure `Enable Roblox Watcher` is checked as well as `Exit if No Connection to Server` |
-| Automatic Cookie Refresh | Your accounts never become invalidated sitting in the account manager over long periods of time | As long you actively use account manager, your accounts will regularly get new cookies preventing them from being logged out, this does sign you out of other sessions though |
-| Join Group | Easily join groups with multiple accounts | Click the arrow on the right side of the `Open Browser` button, then click `Join Group` |
-| Quick Log In | Easily log in to an account on a different computer using Roblox's Quick Log In feature | Right click an account, then select `Quick Log In` |
-| Anti-AFK (version 4) | Keeps Roblox windows from being kicked for being idle, rejoins disconnected accounts, mutes and arranges windows | Click `Anti-AFK` in the top bar, or `ram-cli antiafk start` |
-| Command Line (version 4) | Join, follow, list, close and import accounts from scripts and shortcuts | `ram-cli help` |
-| AI Captcha Assistance | Assists you in the "Pick the image" captchas using the Nopecha API (Requires a subscription key) | You can enable auto solve, but it is not recommended to use, your best option is to add a captcha solving extension to the browser along with a BrowserConfig to automatically set the key per new browser opened |
+| Undo | Bring back accounts you just removed | Click `Undo` on the message that shows after removing |
+| Server List | See a game's servers with their player count and ping | Click `Utilities` in the main window |
+| Load Region | See where a server is and get an accurate ping | Right click a server in the server list, then click `Load Region` **(requires a valid account to be selected)** |
+| [Join Small Servers](https://youtu.be/Red66cV6vVI) | Join small servers in games that use a lobby place to teleport you | Put the real game's Place ID next to `Refresh` in the server list, refresh, then right click a server and click `Join Game` |
+| Player Finder | Find a player even with their follows off, as long as you know their game | In the server list, type the username and click search |
+| Account Utilities | Change an account's password, email, display name, follow privacy, add friends, block, sign out other sessions | Click `Account Utilities` **(requires a valid account to be selected)** |
+| Account Sorting | Order accounts the way you like | Drag and drop an account in the list, or `Sort Alphabetically` |
+| Account Grouping | Put accounts in groups, drag them between groups | Right click an account, `Groups`, `Move Account To` |
+| Group Sorting | Order groups by giving them a number | Name a group with a number from 0-999 in front (ex. `1Main`, `007 Bank`), the number is hidden afterwards |
+| Games List | Search Roblox games | `Utilities` > `Games` |
+| Favorite Games | Keep the games you play close | `Utilities` > `Favorites` |
+| Recent Games | The games you joined last | The clock icon above `Place ID`, or type the game's name into `Place ID` |
+| Game Links | Paste a game or VIP server link into `Place ID` | The Place ID (and the VIP server) is taken from the link |
+| Open Browser | A browser logged in as the selected account | Click `Open Browser` with an account selected |
+| Join Group | Join a group with several accounts | The arrow next to `Open Browser` > `Join Group` |
+| Custom URL & Javascript | Open a page and run a script in several browsers | The arrow next to `Open Browser` |
+| Shuffle Job ID | A random server every time you press Join, unless a Job ID is set | Click the shuffle icon above `Job ID` |
+| Save Place ID & Job ID | Save a place and server to specific accounts, they join it every time | Enter them, then click the save icon next to `Job ID` |
+| Universe Viewer | Every place of a game | `Utilities` > `Universe` |
+| Outfit Viewer | See other players' outfits and wear them, buy what's missing | `Utilities` > `Outfits` |
+| Roblox Watcher | Close Roblox on the beta home menu, without connection, with too little memory or the wrong window title | `Utilities` > `Watcher` |
+| Prevent Duplicate Instances | Closes the account's previous Roblox when you launch it again | Each account gets a `BrowserTrackerID` so the app knows which Roblox is whose |
+| Save Window Positions | Each account's Roblox opens where it was last time | `Utilities` > `Watcher` |
+| Save Passwords | The password you type when logging in is saved, to copy it later | Right click the account > `Copy Password`. Turn it off in `Settings` > `General` |
+| Themes | Dark, Midnight, Forest, Light, and your own colors | The palette button in the top right |
+| Developer Mode | Extra account menu items: fields, authentication tickets, cookies and launch links | `Settings` > `Developer` > `Enable Developer Mode` |
+| Local Web API | Use the app from scripts with plain http requests | [Documentation](https://ic3w0lf22.gitbook.io/roblox-account-manager/), [`RAMAccount.lua`](RAMAccount.lua) |
+| Import Cookies | Add accounts from their .ROBLOSECURITY cookies | Drop cookies onto the app, the arrow next to `Add Account` > `Cookie(s)`, or `ram-cli import` |
+| Bulk User Importing | Add accounts from username:password lines | The arrow next to `Add Account` > `User:Pass` |
+| FPS Unlocker | Raise Roblox's FPS cap, or use your own ClientAppSettings.json | `Settings` > `Miscellaneous` |
+| Proxies | Browsers use a random proxy from `proxies.txt` | `Settings` > `Miscellaneous` > `Use proxies` |
+| Account Presence | A dot when an account is online, in game or in Studio | `Settings` > `Miscellaneous` |
+| Automatic Cookie Refresh | Unused accounts get new cookies so they don't get logged out | `Settings` > `General` > `Auto Refresh Cookies` (signs out other sessions) |
+| Quick Log In | Log in to an account on another device with Roblox's Quick Log In | Right click an account > `Quick Log In` |
+| Tray | Keep the app, Anti-AFK and the web API running with the window closed | Anti-AFK settings |
 
 # Credits
 
 - [ic3w0lf22](https://github.com/ic3w0lf22/Roblox-Account-Manager), the original Roblox Account Manager, and everyone who contributed to it.
 - [Campionnn](https://github.com/Campionnn/Roblox-Account-Manager), who kept it updated.
-- [Agzes/AntiAFK-RBX](https://github.com/Agzes/AntiAFK-RBX), whose features inspired the Anti-AFK of version 4 (written from scratch).
-- Version 4 interface: [shadcn/ui](https://ui.shadcn.com), [Lucide](https://lucide.dev) icons, [Tauri](https://tauri.app).
-- Icons: [Material Icons](https://fonts.google.com/icons) by Google (Apache License 2.0, see `RBX Alt Manager/Resources/ThirdParty`).
+- [Agzes/AntiAFK-RBX](https://github.com/Agzes/AntiAFK-RBX), whose features inspired the Anti-AFK (written from scratch here).
+- [Tauri](https://tauri.app), [shadcn/ui](https://ui.shadcn.com), [Lucide](https://lucide.dev) icons.
 - Flags: [flagcdn.com](https://flagcdn.com) (public domain).
 
 # License
 
 [GNU General Public License v3.0](LICENSE), like the original project.
-
-<details>
-<summary>Older previews (original app)</summary>
-
-![Version 3.4](Images/Image4.png)
-![Version 3.1](Images/Image3.png)
-![Version 2.6](Images/image2.png)
-![Old](Images/Image1.png)
-
-</details>

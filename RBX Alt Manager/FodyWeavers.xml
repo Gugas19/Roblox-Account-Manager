@@ -1,4 +1,0 @@
-﻿<Weavers xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="FodyWeavers.xsd">
-  <!-- native browser files and CefSharp have to stay next to the exe -->
-  <Costura IncludeRuntimeReferences="false" ExcludeAssemblies="CefSharp|CefSharp.Core|CefSharp.WinForms|CefSharp.Core.Runtime|libcef|chrome_elf|d3dcompiler_47|dxcompiler|dxil|vk_swiftshader|vulkan-1|libEGL|libGLESv2" />
-</Weavers>
