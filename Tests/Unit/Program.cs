@@ -32,6 +32,9 @@ namespace RAM.UnitTests
         private static int Main(string[] Args)
         {
             Console.OutputEncoding = Encoding.UTF8;
+
+            if (Args.Length == 4 && Args[0] == "--fixture") return WriteFixture(Args[1], Args[2], Args[3]);
+
             RepoRoot = Args.Length > 0 ? Args[0] : FindRepoRoot();
 
             // the app saves next to its working folder, keep everything the tests write in a temporary one
@@ -57,6 +60,22 @@ namespace RAM.UnitTests
                 Console.WriteLine("  FAILED " + Failure);
 
             return Failed == 0 ? 0 : 1;
+        }
+
+        /// <summary>Writes an accounts file encrypted by the app's own code, the Rust version's tests open it</summary>
+        private static int WriteFixture(string Path, string Password, string Content)
+        {
+            Type Cryptography = App.GetType("RBX_Alt_Manager.Classes.Cryptography");
+            Type CryptoHash = Type.GetType("Sodium.CryptoHash, Sodium", true);
+
+            byte[] Hash = (byte[])CryptoHash.GetMethod("Hash", new[] { typeof(string) }).Invoke(null, new object[] { Password });
+
+            using (var Sha = System.Security.Cryptography.SHA512.Create())
+                Console.WriteLine("CryptoHash.Hash is SHA-512: " + Sha.ComputeHash(Encoding.UTF8.GetBytes(Password)).SequenceEqual(Hash));
+
+            File.WriteAllBytes(Path, (byte[])Cryptography.GetMethod("Encrypt").Invoke(null, new object[] { Content, Hash }));
+
+            return 0;
         }
 
         #region Mini framework
