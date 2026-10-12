@@ -110,6 +110,10 @@ await test('password protected accounts', () => {
   const wrong = cli(locked, ['list'], { RAM_PASSWORD: 'wrong-password' })
   if (wrong.code !== 1) throw new Error(wrong.out + wrong.err)
   expect(cli(locked, ['list'], { RAM_PASSWORD: 'teste1234' }), 0, 'NightFalcon_07')
+  // updating never needs the accounts, so it doesn't ask for their password (and test copies don't update)
+  const update = cli(locked, ['update'])
+  expect(update, 1, 'development build')
+  if ((update.out + update.err).includes('RAM_PASSWORD')) throw new Error('update asked for the password')
 })
 
 console.log('Through the open app')

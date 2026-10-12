@@ -206,12 +206,15 @@ async fn without_app(request: Request, out: &Out) -> i32 {
 
     crate::platform::logging::init(&dir, false);
     let app = app::init(dir);
-    if let Err(e) = open_accounts(&app, &request.args[0]) {
-        out.error(e);
-        return 1;
+    // updating doesn't need the accounts, so it never asks for their password
+    if request.args[0] != "update" {
+        if let Err(e) = open_accounts(&app, &request.args[0]) {
+            out.error(e);
+            return 1;
+        }
+        app.ready.store(true, std::sync::atomic::Ordering::SeqCst);
+        app.update_multi_roblox();
     }
-    app.ready.store(true, std::sync::atomic::Ordering::SeqCst);
-    app.update_multi_roblox();
 
     run::execute(&app, request, out, false).await
 }
