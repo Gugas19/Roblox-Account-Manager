@@ -30,7 +30,18 @@ pub fn run() {
     let dir = std::env::current_exe().ok().and_then(|p| p.parent().map(|p| p.to_path_buf())).unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
     let _ = std::env::set_current_dir(&dir);
 
-    let _instance = match NamedMutex::acquire(INSTANCE_MUTEX) {
+    // started by an update: the previous version is quitting, give it a moment to let go of the lock
+    let after_update = std::env::args().any(|a| a == "--updated");
+    let mut instance = NamedMutex::acquire(INSTANCE_MUTEX);
+    for _ in 0..if after_update { 50 } else { 0 } {
+        if matches!(instance, Ok((_, true))) {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        instance = NamedMutex::acquire(INSTANCE_MUTEX);
+    }
+
+    let _instance = match instance {
         Ok((mutex, true)) => mutex,
         _ => {
             // opened twice: show the window that's already open instead of an error
@@ -44,8 +55,17 @@ pub fn run() {
         }
     };
 
-    platform::logging::init(&dir);
+    platform::logging::init(&dir, after_update);
     log::info!("Roblox Account Manager {} started in {}", env!("CARGO_PKG_VERSION"), dir.display());
+    if after_update {
+        log::info!("Started after an update");
+    }
+
+    // an update downloaded earlier (and verified again now) replaces this version before anything starts
+    if services::updater::install_staged(&dir) {
+        return;
+    }
+    services::updater::clean_old(dir.clone());
 
     let state = app::init(dir);
     win::fix_startup_path();
@@ -56,6 +76,7 @@ pub fn run() {
     services::watcher::apply(state.clone());
     services::antiafk::spawn(state.clone());
     cli::pipe::serve(state.clone());
+    services::updater::spawn(state.clone());
 
     let setup_state = state.clone();
     let close_state = state.clone();
@@ -158,6 +179,9 @@ pub fn run() {
             commands::settings::pick_file,
             commands::settings::open_target,
             commands::settings::watcher_enable,
+            commands::updates::update_status,
+            commands::updates::update_check,
+            commands::updates::update_restart,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Roblox Account Manager");

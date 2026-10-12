@@ -39,6 +39,7 @@ Commands:
   antiafk [start|stop|now|status]    Anti-AFK (start, stop and now need the app open)
   status                             the app, accounts, Roblox and Anti-AFK at a glance
   open                               show the app window, starting it if needed
+  update                             download a new version (signed), installed on the next start
   help, version
 
 When Roblox Account Manager is open, commands run inside it. Otherwise ram-cli
@@ -203,7 +204,7 @@ async fn without_app(request: Request, out: &Out) -> i32 {
         }
     };
 
-    crate::platform::logging::init(&dir);
+    crate::platform::logging::init(&dir, false);
     let app = app::init(dir);
     if let Err(e) = open_accounts(&app, &request.args[0]) {
         out.error(e);

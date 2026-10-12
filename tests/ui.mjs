@@ -170,6 +170,21 @@ async function until(check, message, ms = 2500) {
   throw new Error(message)
 }
 
+/** Every visible enabled control shows the hand cursor, every disabled one the "not allowed" cursor */
+async function checkCursors(selector) {
+  const wrong = await evaluate(`(() => [...document.querySelectorAll(${JSON.stringify(selector)})]
+    .filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 })
+    .map((e) => {
+      const data = e.getAttribute('data-disabled')
+      const disabled = e.disabled || e.getAttribute('aria-disabled') === 'true' || (data !== null && data !== 'false')
+      const cursor = getComputedStyle(e).cursor
+      const want = disabled ? 'not-allowed' : 'pointer'
+      return cursor === want ? null : (e.innerText || e.getAttribute('aria-label') || e.tagName).trim().split('\\n')[0] + ': ' + cursor + ', expected ' + want
+    })
+    .filter(Boolean))()`)
+  assert(wrong.length === 0, `wrong cursor: ${wrong.join(' | ')}`)
+}
+
 function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
@@ -195,7 +210,9 @@ async function main() {
     })
 
     await test('selecting enables the account buttons', async () => {
+      await checkCursors('button, [role=row]')
       await click('NightFalcon_07', '[role=row]')
+      await checkCursors('button, [role=row]')
       const disabled = await evaluate(`[...document.querySelectorAll('button')].find(b => b.innerText.includes('Remove')).disabled`)
       assert(!disabled, 'Remove still disabled')
       assert((await evaluate(`document.querySelector('input[placeholder="Alias"]').value`)) === 'Main', 'alias box')
@@ -213,6 +230,7 @@ async function main() {
       await click('GrindBot_A', '[role=row]', 'right')
       const t = await text()
       for (const item of ['Copy', 'Groups', 'Sort Alphabetically', 'Dump Details']) assert(t.includes(item), `menu misses ${item}`)
+      await checkCursors('[role=menuitem]')
       await shot('account-menu')
       await key('Escape')
     })
@@ -230,6 +248,8 @@ async function main() {
     await test('command palette (Ctrl+K)', async () => {
       await key('k', 2)
       assert((await text()).includes('Search accounts and actions') || (await find('Join Server', '[role=option]')), 'palette not open')
+      // account actions follow the selection, and the cursor says which items are usable
+      await checkCursors('[role=option]')
       await shot('palette')
       await key('Escape')
     })

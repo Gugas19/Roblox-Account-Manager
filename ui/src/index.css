@@ -132,7 +132,7 @@
     }
 }
 /* Everything clickable shows the hand cursor. Outside the layers on purpose: it wins over the components'
-   own cursor-default classes. Disabled things keep the normal cursor. */
+   own cursor-default classes. */
 button:not(:disabled),
 a[href],
 summary,
@@ -141,14 +141,14 @@ label:has(input:not(:disabled), button:not(:disabled), [role="checkbox"], [role=
 input[type="color"],
 input[type="checkbox"],
 [role="button"]:not([aria-disabled="true"]),
-[role="menuitem"]:not([data-disabled]),
-[role="menuitemcheckbox"]:not([data-disabled]),
-[role="menuitemradio"]:not([data-disabled]),
-[role="option"]:not([data-disabled]),
-[role="tab"]:not([data-disabled]),
-[role="checkbox"]:not([data-disabled]),
-[role="switch"]:not([data-disabled]),
-[role="combobox"]:not([data-disabled]),
+[role="menuitem"],
+[role="menuitemcheckbox"],
+[role="menuitemradio"],
+[role="option"],
+[role="tab"],
+[role="checkbox"],
+[role="switch"],
+[role="combobox"],
 [role="row"][aria-selected],
 [data-slot="select-trigger"],
 [data-slot="context-menu-sub-trigger"],
@@ -156,8 +156,11 @@ input[type="checkbox"],
   cursor: pointer;
 }
 
-[data-disabled],
-:disabled {
+/* Disabled things. The command palette marks every item data-disabled="false", that one is enabled.
+   More specific than the rules above, so it wins over them. */
+[data-disabled]:not([data-disabled="false"]),
+[aria-disabled="true"]:not([data-disabled="false"]),
+:disabled:not([data-disabled="false"]) {
   cursor: not-allowed;
 }
 

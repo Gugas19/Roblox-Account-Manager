@@ -110,3 +110,10 @@ export interface AntiAfkStatus {
   /** waiting for the user to stop typing and moving the mouse, or pressing keys right now */
   phase: 'waiting' | 'acting' | null
 }
+
+/** The auto updater (src/services/updater.rs) */
+export type UpdateStatus =
+  | { state: 'idle' | 'checking' | 'upToDate' | 'disabled' }
+  | { state: 'available' | 'ready'; version: string }
+  | { state: 'downloading'; version: string; progress: number }
+  | { state: 'error'; message: string }

@@ -40,6 +40,7 @@ async fn command(app: &Arc<App>, request: Request, out: &Out, in_app: bool) -> R
         "import" => import(app, request.input.unwrap_or_default(), out).await,
         "antiafk" | "anti-afk" => anti_afk(app, rest, out, in_app),
         "status" => status(app, out, in_app),
+        "update" => update(app, out).await,
         "open" | "show" => {
             if let Some(handle) = app.handle.get() {
                 crate::show_main(handle);
@@ -241,6 +242,19 @@ fn anti_afk(app: &Arc<App>, rest: &[String], out: &Out, in_app: bool) -> Result<
             w["state"].as_str().unwrap_or(""),
             if w["included"].as_bool().unwrap_or(true) { "" } else { ", left alone" }
         ));
+    }
+    Ok(())
+}
+
+/// Checks for a new version and downloads it (verified), it's installed when the app starts the next time
+async fn update(app: &Arc<App>, out: &Out) -> Result<()> {
+    use crate::services::updater::{check, Status};
+    match check(app, true).await {
+        Status::UpToDate => out.line(format!("Roblox Account Manager {} is up to date", env!("CARGO_PKG_VERSION"))),
+        Status::Ready { version } => out.line(format!("Version {version} is downloaded and verified, it's installed when Roblox Account Manager starts the next time")),
+        Status::Disabled => bail!("This is a development build, it doesn't update itself"),
+        Status::Error { message } => bail!("{message}"),
+        other => out.line(format!("{other:?}")),
     }
     Ok(())
 }

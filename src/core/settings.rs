@@ -58,6 +58,10 @@ impl Settings {
             w.set_default(key, value);
         }
 
+        let updates = self.ini.section_mut("Updates");
+        updates.set_default("Check", "true");
+        updates.set_default("AutoInstall", "true");
+
         let afk = self.ini.section_mut("AntiAFK");
         for (key, value) in ANTI_AFK_DEFAULTS {
             afk.set_default(key, value);

@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Flag } from '@/components/common/Flag'
 import { NumberSetting, SettingRow, TextSetting, Toggle } from '@/components/common/SettingRow'
+import { UpdatesSection } from './UpdatesSection'
 import { useDialogs } from '@/components/dialogs/DialogHost'
 import { api } from '@/lib/api'
 import { useI18n } from '@/lib/i18n'
@@ -120,6 +121,7 @@ export function SettingsDialog() {
               <SettingRow title="Account protection" hint="Windows encryption or a password.">
                 <Button variant="secondary" onClick={changeProtection}><Lock /> {t('Change Encryption Method')}</Button>
               </SettingRow>
+              <UpdatesSection />
             </TabsContent>
 
             <TabsContent value="developer" className="divide-y">

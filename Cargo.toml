@@ -39,6 +39,7 @@ md-5 = "0.10"
 argon2 = "0.5"
 crypto_secretbox = "0.1"
 base64 = "0.22"
+ed25519-dalek = "2"
 urlencoding = "2"
 tiny_http = "0.12"
 zip = { version = "2", default-features = false, features = ["deflate"] }

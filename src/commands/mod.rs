@@ -11,6 +11,7 @@ pub mod avatar;
 pub mod account_utils;
 pub mod browsing;
 pub mod settings;
+pub mod updates;
 
 
 use crate::app::{app, AccountView, App};

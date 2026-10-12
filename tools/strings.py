@@ -99,6 +99,8 @@ IGNORE = {
     'Roblox Account Manager', 'Discord', 'URL', 'PID', 'Main', 'Builder', 'Default', 'Ctrl K', 'Anti-AFK', 'proxies.txt', 'Roblox',
     'ABC123', 'Missing Content', 'Missing RAMHeader', 'encryption failed', 'unknown', 'no stable version', 'no win64 download', 'browser error',
     'script error', 'no version', 'Method `{0}` not allowed', '{0}: {1}', '{0} (VIP)',
+    # what the release key signs (never translated) and an internal error
+    'RobloxAccountManager {0}\n', 'bad public key',
 }
 
 def check_languages():

@@ -51,6 +51,7 @@ pub struct App {
     pub antiafk: crate::services::antiafk::State,
     /// the accounts are loaded (false while the window asks for the password)
     pub ready: AtomicBool,
+    pub update: Mutex<crate::services::updater::Status>,
     pub handle: OnceCell<AppHandle>,
 }
 
@@ -83,6 +84,7 @@ pub fn init(dir: PathBuf) -> Arc<App> {
         watcher: crate::services::watcher::State::default(),
         antiafk: crate::services::antiafk::State::default(),
         ready: AtomicBool::new(false),
+        update: Mutex::new(Default::default()),
         handle: OnceCell::new(),
         dir,
     });

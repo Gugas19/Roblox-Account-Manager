@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { AntiAfkPill } from '@/components/antiafk/AntiAfkPill'
+import { UpdatePill } from './UpdatePill'
 import { LanguageMenu } from '@/components/layout/LanguageMenu'
 import { useActions } from '@/hooks/useActions'
 import { api } from '@/lib/api'
@@ -97,6 +98,7 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
             <TooltipContent>{t('Accounts can be added once it is done')}</TooltipContent>
           </Tooltip>
         )}
+        <UpdatePill />
         <AntiAfkPill />
         <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground" onClick={onPalette}>
           <Command className="size-3.5" /> <kbd className="text-xs">Ctrl K</kbd>

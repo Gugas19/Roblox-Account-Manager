@@ -33,6 +33,7 @@ In the zip, besides the license:
 | `ram-cli.exe` | the [command line](#command-line) |
 
 - It uses the WebView2 runtime that comes with Windows 10 and 11. Nothing else to install: no .NET, and no bundled browser engine.
+- From version 4.0.1 on it [updates itself](#automatic-updates). Version 4.0.0 has to be replaced by hand once.
 - The browser used to add accounts (Chrome for Testing) is downloaded automatically the first time you need it, into
   `%LOCALAPPDATA%\RobloxAccountManager\Chrome`. A progress bar shows while it downloads.
 
@@ -75,11 +76,24 @@ scheduled task. When the app is open the command runs inside it, so the window u
 English, Português (Portugal), Español, Français and Deutsch. Switch at any time with the flag button in the top
 right, and the whole app changes instantly.
 
+### Automatic updates
+The app checks the [releases](https://github.com/Gugas19/Roblox-Account-Manager/releases) when it starts and every
+6 hours, downloads a new version in the background, and installs it the next time it starts (or right away with
+`Restart to update` in the top bar). It never restarts by itself while you use it.
+- Every release is signed with the developer's private key, and the app checks that signature before it keeps a
+  download and again before it installs it. A changed download, or a release not signed with that key, is refused,
+  even if it comes from this repository.
+- The version is part of what's signed, so an old release can't be published again as a newer one, and only newer
+  versions are installed.
+- Only the two exes are taken from the download, and your accounts and settings are never touched.
+- Turn it off, or check by hand, in `Settings` > `General`. `ram-cli update` downloads it from the command line.
+
 ### Security
 - Your accounts file is encrypted for your Windows user, or with a password if you choose one.
   A password-protected file works on any PC.
 - The local web API refuses protected requests without its password, and only listens to this PC unless you allow other devices.
-- The command line only talks to an app run by the same Windows user, and never prints cookies.
+- The command line only talks to the app in its own folder, run by the same Windows user, and never prints cookies.
+- Updates are installed only when they're signed with the developer's key (see [Automatic updates](#automatic-updates)).
 
 ## Command line
 
@@ -92,6 +106,7 @@ ram-cli import [file]
 ram-cli antiafk [start|stop|now|status]
 ram-cli status
 ram-cli open
+ram-cli update
 ```
 
 Accounts are named by username, user id or alias (any case). `--all` picks every account, `--group <name>` a group.
@@ -171,15 +186,16 @@ src/
   core/         files: settings, accounts, encryption, languages (same formats as version 3)
   roblox/       the Roblox web APIs
   platform/     Windows: processes, windows, mutexes, ping, log file
-  services/     launching Roblox, browser, local web API, watcher, Anti-AFK
+  services/     launching Roblox, browser, local web API, watcher, Anti-AFK, updater
   commands/     what the interface can ask for, one file per part of the interface
   cli/          ram-cli: options, commands, the pipe to the open app
 ui/src/
   components/   one folder per part of the interface (shadcn/ui underneath)
   hooks/ lib/   actions, store, translations, theme
 lang/           translations
-tests/          interface and command line tests, fixtures
-tools/          strings.py, the translation check
+tests/          interface, command line and updater tests, fixtures
+tools/          strings.py (translation check), release.ps1
+examples/       sign-release.rs, signs a release for the updater
 ```
 
 ### Tests
@@ -188,11 +204,22 @@ tools/          strings.py, the translation check
 cargo test --lib                    # file formats, encryption (including a file encrypted by version 3), settings, dates
 node tests/cli.mjs [--release]      # the command line, on its own and through an open app
 node tests/ui.mjs  [--release]      # the interface, clicking through every window over WebView2's DevTools protocol
+node tests/update.mjs               # the updater: a signed update installs, a changed or relabelled one is refused
 python tools/strings.py             # every text translated
 ```
 
-The interface and command line tests run a copy of the app in `target\test-run` with demo accounts. They never
-launch Roblox, close it or press keys, so your own accounts and a game you have open are left alone.
+The tests run copies of the app with demo accounts. They never launch Roblox, close it or press keys, and they
+refuse to run while your own Roblox Account Manager is open, so your accounts and a game you have open are left alone.
+
+### Releasing
+
+```powershell
+cargo run --example sign-release -- new-key   # once: makes the signing key (keep a backup of it)
+pwsh -File tools\release.ps1                  # builds, tests, zips and signs target\dist\RobloxAccountManager-<version>.zip
+```
+
+Upload the zip and its `.sig` to a GitHub release tagged `v<version>`. The private key stays in
+`%USERPROFILE%\.roblox-account-manager\`, never in the repository; installed apps only accept updates signed with it.
 
 ### Updating the screenshots
 
@@ -325,6 +352,7 @@ Set a password and change the port if you plan on enabling any dangerous method,
 | Automatic Cookie Refresh | Unused accounts get new cookies so they don't get logged out | `Settings` > `General` > `Auto Refresh Cookies` (signs out other sessions) |
 | Quick Log In | Log in to an account on another device with Roblox's Quick Log In | Right click an account > `Quick Log In` |
 | Tray | Keep the app, Anti-AFK and the web API running with the window closed | Anti-AFK settings |
+| Automatic Updates | New versions download by themselves and install on the next start, only when signed by the developer | `Settings` > `General` |
 
 # Credits
 
