@@ -33,7 +33,13 @@ pub fn run() {
     let _instance = match NamedMutex::acquire(INSTANCE_MUTEX) {
         Ok((mutex, true)) => mutex,
         _ => {
-            win::message_box("Roblox Account Manager is already running!", "Roblox Account Manager");
+            // opened twice: show the window that's already open instead of an error
+            if !cli::pipe::show_existing() {
+                win::message_box(
+                    "Roblox Account Manager is already open, maybe a copy from another folder or the old version. Close it first.",
+                    "Roblox Account Manager",
+                );
+            }
             return;
         }
     };

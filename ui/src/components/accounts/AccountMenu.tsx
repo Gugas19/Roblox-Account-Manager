@@ -11,8 +11,9 @@ export function AccountMenu({ showGroups, toggleGroups }: { showGroups: boolean;
   const t = useT()
   const actions = useActions()
   const dialogs = useDialogs()
-  const { devMode, selected } = useStore()
+  const { devMode, selected, selectedAccounts } = useStore()
   const none = selected.length === 0
+  const noPassword = !selectedAccounts.some((a) => a.hasPassword)
 
   return (
     <ContextMenuContent className="w-60">
@@ -23,8 +24,8 @@ export function AccountMenu({ showGroups, toggleGroups }: { showGroups: boolean;
         <ContextMenuSubTrigger disabled={none}><ClipboardCopy /> {t('Copy')}</ContextMenuSubTrigger>
         <ContextMenuSubContent>
           <ContextMenuItem onClick={() => actions.copy('username')}>{t('Copy Username')}</ContextMenuItem>
-          <ContextMenuItem onClick={() => actions.copy('password')}>{t('Copy Password')}</ContextMenuItem>
-          <ContextMenuItem onClick={() => actions.copy('combo')}>{t('Copy User:Pass Combo')}</ContextMenuItem>
+          <ContextMenuItem disabled={noPassword} onClick={() => actions.copy('password')}>{t('Copy Password')}</ContextMenuItem>
+          <ContextMenuItem disabled={noPassword} onClick={() => actions.copy('combo')}>{t('Copy User:Pass Combo')}</ContextMenuItem>
           <ContextMenuItem onClick={() => actions.copy('profile')}>{t('Copy Profile')}</ContextMenuItem>
           <ContextMenuItem onClick={() => actions.copy('userId')}>{t('Copy UserId')}</ContextMenuItem>
         </ContextMenuSubContent>

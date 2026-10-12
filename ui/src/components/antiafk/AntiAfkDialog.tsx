@@ -1,6 +1,7 @@
 /** Anti-AFK: status and windows, tools, how it behaves, rejoining, Discord and statistics */
 
 import { Bell, Eye, EyeOff, Gauge, LayoutGrid, Play, Power, RotateCcw, Send, Square, Volume2, VolumeX, X, Zap } from 'lucide-react'
+import { useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -54,6 +55,9 @@ export function AntiAfkDialog() {
   }
 
   const running = status?.running ?? false
+  // the window tools need a Roblox window (showing hidden ones always works)
+  const noWindows = !status?.windows.length
+  const [sending, setSending] = useState(false)
 
   return (
     <Dialog open={panel === 'antiafk'} onOpenChange={(open) => !open && setPanel(null)}>
@@ -71,16 +75,20 @@ export function AntiAfkDialog() {
             <div className="font-semibold">{t(running ? 'Running' : 'Stopped')}</div>
             <div className="text-sm text-muted-foreground">
               {running
-                ? status?.secondsToNext != null
-                  ? t('Next action in {0}', clock(status.secondsToNext))
-                  : t('Waiting for a Roblox window')
+                ? status?.phase === 'acting'
+                  ? t('Pressing keys in the Roblox windows…')
+                  : status?.phase === 'waiting'
+                    ? t('Waiting for you to stop typing and moving the mouse')
+                    : status?.secondsToNext != null
+                      ? t('Next action in {0}', clock(status.secondsToNext))
+                      : t('Waiting for a Roblox window')
                 : status?.windows.length === 1
                   ? t('1 Roblox window open')
                   : t('{0} Roblox windows open', status?.windows.length ?? 0)}
             </div>
           </div>
           {running && (
-            <Button variant="secondary" onClick={() => api.antiAfkNow()}>
+            <Button variant="secondary" disabled={status?.phase === 'acting'} onClick={() => api.antiAfkNow()}>
               <Zap /> {t('Run now')}
             </Button>
           )}
@@ -101,17 +109,17 @@ export function AntiAfkDialog() {
           <ScrollArea className="mt-3 min-h-0 flex-1 pr-3">
             <TabsContent value="windows" className="grid gap-3">
               <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" size="sm" onClick={() => tool('grid')}><LayoutGrid /> {t('Arrange in a grid')}</Button>
+                <Button variant="secondary" size="sm" disabled={noWindows} onClick={() => tool('grid')}><LayoutGrid /> {t('Arrange in a grid')}</Button>
                 {status?.hidden ? (
                   <Button variant="secondary" size="sm" onClick={() => tool('show')}><Eye /> {t('Show windows')}</Button>
                 ) : (
-                  <Button variant="secondary" size="sm" onClick={() => tool('hide')}><EyeOff /> {t('Hide windows')}</Button>
+                  <Button variant="secondary" size="sm" disabled={noWindows} onClick={() => tool('hide')}><EyeOff /> {t('Hide windows')}</Button>
                 )}
-                <Button variant="secondary" size="sm" onClick={() => tool('seeThrough')}>{t('See-through')}</Button>
-                <Button variant="secondary" size="sm" onClick={() => tool('solid')}>{t('Solid')}</Button>
-                <Button variant="secondary" size="sm" onClick={() => tool('mute')}><VolumeX /> {t('Mute all')}</Button>
-                <Button variant="secondary" size="sm" onClick={() => tool('unmute')}><Volume2 /> {t('Unmute all')}</Button>
-                <Button variant="ghost" size="sm" className="text-destructive" onClick={async () => { if (await dialogs.confirm({ title: 'Close every Roblox window?', destructive: true })) await tool('closeAll') }}>
+                <Button variant="secondary" size="sm" disabled={noWindows} onClick={() => tool('seeThrough')}>{t('See-through')}</Button>
+                <Button variant="secondary" size="sm" disabled={noWindows} onClick={() => tool('solid')}>{t('Solid')}</Button>
+                <Button variant="secondary" size="sm" disabled={noWindows} onClick={() => tool('mute')}><VolumeX /> {t('Mute all')}</Button>
+                <Button variant="secondary" size="sm" disabled={noWindows} onClick={() => tool('unmute')}><Volume2 /> {t('Unmute all')}</Button>
+                <Button variant="ghost" size="sm" className="text-destructive" disabled={noWindows} onClick={async () => { if (await dialogs.confirm({ title: 'Close every Roblox window?', destructive: true })) await tool('closeAll') }}>
                   <X /> {t('Close all')}
                 </Button>
               </div>
@@ -176,7 +184,7 @@ export function AntiAfkDialog() {
             <TabsContent value="discord" className="divide-y">
               <TextSetting section="AntiAFK" name="Webhook" title="Discord webhook" hint="Server Settings > Integrations > Webhooks > Copy URL" placeholder="https://discord.com/api/webhooks/…" password width="w-72" />
               <SettingRow title="Send a test message">
-                <Button variant="secondary" disabled={!setting('AntiAFK', 'Webhook')} onClick={async () => { try { await api.antiAfkTestWebhook(); notify.success('Sent') } catch (e) { notify.error(e) } }}>
+                <Button variant="secondary" disabled={!setting('AntiAFK', 'Webhook') || sending} onClick={async () => { setSending(true); try { await api.antiAfkTestWebhook(); notify.success('Sent') } catch (e) { notify.error(e) } finally { setSending(false) } }}>
                   <Send /> {t('Test')}
                 </Button>
               </SettingRow>

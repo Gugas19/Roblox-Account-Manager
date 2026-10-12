@@ -1,7 +1,8 @@
 //! The open app listens on a named pipe, ram-cli sends it a command and prints the answer.
 //!
-//! One JSON line each way per message. Only processes of the same Windows user take part:
-//! ram-cli checks who serves the pipe before sending anything (cookies for `import`).
+//! One JSON line each way per message. Each app folder has its own pipe, so ram-cli only ever talks to the app
+//! next to it (a copy elsewhere, like the tests' one, never reaches yours). Only processes of the same Windows
+//! user take part: ram-cli checks who serves the pipe before sending anything (cookies for `import`).
 
 use super::{run, Out, Reply, Request};
 use crate::app::App;
@@ -16,15 +17,28 @@ use windows::Win32::Security::{GetLengthSid, GetTokenInformation, TokenUser, TOK
 use windows::Win32::System::Pipes::GetNamedPipeServerProcessId;
 use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION};
 
-const PIPE: &str = r"\\.\pipe\RobloxAccountManager.cli";
 const ERROR_PIPE_BUSY: i32 = 231;
+
+/// The pipe of the app in `dir`, the folder of its exe (case doesn't matter on Windows)
+fn pipe_name(dir: &std::path::Path) -> String {
+    use sha2::{Digest, Sha256};
+    let hash = Sha256::digest(dir.to_string_lossy().to_lowercase().as_bytes());
+    let id: String = hash[..8].iter().map(|b| format!("{b:02x}")).collect();
+    format!(r"\\.\pipe\RobloxAccountManager.cli.{id}")
+}
+
+/// The pipe of this program's folder: the app and ram-cli live side by side
+fn own_pipe() -> String {
+    pipe_name(&std::env::current_exe().ok().and_then(|p| p.parent().map(|p| p.to_path_buf())).unwrap_or_default())
+}
 
 /// In the app: answers ram-cli for as long as the app runs
 pub fn serve(app: Arc<App>) {
+    let pipe = own_pipe();
     tauri::async_runtime::spawn(async move {
         let mut first = true;
         loop {
-            let server = match ServerOptions::new().first_pipe_instance(first).reject_remote_clients(true).create(PIPE) {
+            let server = match ServerOptions::new().first_pipe_instance(first).reject_remote_clients(true).create(&pipe) {
                 Ok(s) => s,
                 Err(e) => {
                     log::error!("Command line unavailable: {e}");
@@ -77,9 +91,10 @@ async fn answer(app: Arc<App>, pipe: NamedPipeServer) -> Result<()> {
 
 /// In ram-cli: runs the command in the open app. `None` when the app isn't open.
 pub async fn send(request: &Request, out: &Out) -> Result<Option<i32>> {
+    let pipe = own_pipe();
     let mut tries = 0;
     let client = loop {
-        match ClientOptions::new().open(PIPE) {
+        match ClientOptions::new().open(&pipe) {
             Ok(c) => break c,
             Err(e) if e.raw_os_error() == Some(ERROR_PIPE_BUSY) && tries < 100 => {
                 tries += 1;
@@ -103,6 +118,26 @@ pub async fn send(request: &Request, out: &Out) -> Result<Option<i32>> {
         }
     }
     bail!("Roblox Account Manager closed before answering")
+}
+
+/// A second start of the app: brings the window that's already open to the front. False when the open one is
+/// another folder's copy or the old version, which don't answer on this folder's pipe.
+pub fn show_existing() -> bool {
+    let request = Request { args: vec!["open".into()], input: None };
+    matches!(tauri::async_runtime::block_on(send(&request, &Out::new(|_| {}))), Ok(Some(0)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_folder_has_its_own_pipe() {
+        let mine = pipe_name(std::path::Path::new(r"C:\Games\RAM\app"));
+        assert!(mine.starts_with(r"\\.\pipe\RobloxAccountManager.cli."));
+        assert_eq!(mine, pipe_name(std::path::Path::new(r"c:\games\ram\APP")));
+        assert_ne!(mine, pipe_name(std::path::Path::new(r"C:\Games\RAM\target\test-run\cli")));
+    }
 }
 
 /// Whether the process serving the pipe runs as the same Windows user as this one

@@ -22,15 +22,22 @@ export function OutfitsTab() {
   const [outfits, setOutfits] = useState<Outfit[]>([])
   const [missing, setMissing] = useState<MissingAsset[]>([])
   const [loading, setLoading] = useState(false)
+  // one change at a time: wearing an outfit, or buying an item (never twice)
+  const [busy, setBusy] = useState(false)
 
-  const wear = async (json: string) => {
+  const wear = async (json: () => Promise<string | null>) => {
     if (!selected[0]) return notify.info('No Account Selected!')
+    setBusy(true)
     try {
-      const result = await api.wear(selected[0], json)
+      const text = await json()
+      if (!text) return
+      const result = await api.wear(selected[0], text)
       setMissing(result)
       notify.success(result.length ? t('{0} items are missing, you can buy them below', result.length) : 'Avatar changed')
     } catch (e) {
       notify.error(e)
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -38,6 +45,7 @@ export function OutfitsTab() {
     if (!asset.productId || asset.price === null) return
     const ok = await dialogs.confirm({ title: t('Purchase {0}', asset.name), description: t('Are you sure you want to purchase {0} for {1}?', asset.name, `R$ ${asset.price}`) + '\n' + t('This action is irreversable.'), destructive: true })
     if (!ok) return
+    setBusy(true)
     try {
       const result = await api.purchase(selected[0], asset.productId, asset.price, asset.sellerId ?? 0)
       if (result.purchased) {
@@ -46,6 +54,8 @@ export function OutfitsTab() {
       } else notify.error(String(result.errorMsg ?? result.title ?? 'Failed'))
     } catch (e) {
       notify.error(e)
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -53,8 +63,8 @@ export function OutfitsTab() {
     <div className="flex h-full min-h-0 flex-col gap-3">
       <form className="flex gap-2" onSubmit={async (e) => { e.preventDefault(); setLoading(true); try { setOutfits(await api.outfits(username)) } catch (err) { notify.error(err) } finally { setLoading(false) } }}>
         <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder={t('Username')} />
-        <Button type="submit" disabled={!username.trim()}>{t('View Outfits')}</Button>
-        <Button type="button" variant="secondary" disabled={!selected[0]} onClick={async () => { const json = await dialogs.prompt({ title: 'Wear Avatar', label: 'Avatar JSON', multiline: true }); if (json) await wear(json) }}>
+        <Button type="submit" disabled={!username.trim() || loading}>{t('View Outfits')}</Button>
+        <Button type="button" variant="secondary" disabled={!selected[0] || busy} onClick={() => wear(() => dialogs.prompt({ title: 'Wear Avatar', label: 'Avatar JSON', multiline: true }))}>
           <Shirt /> {t('Wear JSON')}
         </Button>
       </form>
@@ -66,7 +76,7 @@ export function OutfitsTab() {
             <div key={a.id} className="flex items-center gap-3">
               <GameIcon src={a.icon} className="size-9" />
               <span className="flex-1 truncate text-sm">{a.name}</span>
-              <Button size="sm" disabled={!a.forSale || a.price === null} onClick={() => buy(a)}>{a.forSale && a.price !== null ? `R$ ${a.price}` : t('Not for sale')}</Button>
+              <Button size="sm" disabled={!a.forSale || a.price === null || busy} onClick={() => buy(a)}>{a.forSale && a.price !== null ? `R$ ${a.price}` : t('Not for sale')}</Button>
             </div>
           ))}
         </div>
@@ -79,7 +89,7 @@ export function OutfitsTab() {
           <ScrollArea className="h-full">
             <div className="grid grid-cols-4 gap-2 pr-3">
               {outfits.map((o) => (
-                <button key={o.id} className="grid gap-1 rounded-lg border p-2 text-left text-xs transition-colors hover:border-primary disabled:opacity-50" disabled={!selected[0]} title={t('Wear on the selected account')} onClick={async () => wear(await api.outfitJson(o.id))}>
+                <button key={o.id} className="grid gap-1 rounded-lg border p-2 text-left text-xs transition-colors hover:border-primary disabled:opacity-50" disabled={!selected[0] || busy} title={t('Wear on the selected account')} onClick={() => wear(() => api.outfitJson(o.id))}>
                   <GameIcon src={o.icon} className="aspect-square w-full" />
                   <span className="truncate">{o.name}</span>
                 </button>

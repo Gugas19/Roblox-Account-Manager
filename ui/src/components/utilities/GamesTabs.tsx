@@ -69,7 +69,7 @@ export function GamesTab() {
       <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); setPage(0); search(0) }}>
         <Input value={term} onChange={(e) => setTerm(e.target.value)} placeholder={t('Search games...')} />
         <Input type="number" min={0} className="w-20" value={page} onChange={(e) => setPage(Number(e.target.value))} aria-label={t('Page')} />
-        <Button type="submit"><Search /> {t('Search')}</Button>
+        <Button type="submit" disabled={loading}><Search /> {t('Search')}</Button>
       </form>
       <div className="min-h-0 flex-1">
         <Grid
@@ -78,7 +78,7 @@ export function GamesTab() {
           empty="No games found"
           onPick={(g) => pick(g)}
           extra={(g) => (
-            <Button size="icon-sm" variant="ghost" aria-label={t('Add to Favorites')} onClick={async (e) => { e.stopPropagation(); await api.addFavorite(String(g.placeId), '', g.name); notify.success('Added to favorites') }}>
+            <Button size="icon-sm" variant="ghost" aria-label={t('Add to Favorites')} onClick={async (e) => { e.stopPropagation(); try { await api.addFavorite(String(g.placeId), '', g.name); notify.success('Added to favorites') } catch (err) { notify.error(err) } }}>
               <Star />
             </Button>
           )}
@@ -101,13 +101,17 @@ export function FavoritesTab() {
 
   const join = async (f: Favorite) => {
     if (!selected.length) return notify.info('No Account Selected!')
-    const result = await api.join(selected, String(f.placeId), f.privateServer)
-    if (result.result === 'error') notify.error(result.message)
+    try {
+      const result = await api.join(selected, String(f.placeId), f.privateServer)
+      if (result.result === 'error') notify.error(result.message)
+    } catch (e) {
+      notify.error(e)
+    }
   }
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
-      <Button className="self-start" onClick={async () => { try { await api.addFavorite(place, job); await reload() } catch (e) { notify.error(e) } }}>
+      <Button className="self-start" disabled={!/\d{3,}/.test(place)} onClick={async () => { try { await api.addFavorite(place, job); await reload() } catch (e) { notify.error(e) } }}>
         <Star /> {t('Favorite the game in the main window')}
       </Button>
       <div className="min-h-0 flex-1">
@@ -125,9 +129,9 @@ export function FavoritesTab() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent onClick={(e) => e.stopPropagation()}>
                   <DropdownMenuItem onClick={() => join(f)}><Play /> {t('Join')}</DropdownMenuItem>
-                  <DropdownMenuItem onClick={async () => { const name = await dialogs.prompt({ title: 'Rename', label: 'Name', defaultValue: f.name }); if (name) { await api.renameFavorite(f.index, name); await reload() } }}><Pencil /> {t('Rename')}</DropdownMenuItem>
+                  <DropdownMenuItem onClick={async () => { const name = await dialogs.prompt({ title: 'Rename', label: 'Name', defaultValue: f.name }); if (name) { try { await api.renameFavorite(f.index, name); await reload() } catch (e) { notify.error(e) } } }}><Pencil /> {t('Rename')}</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => { navigator.clipboard.writeText(String(f.placeId)); notify.success('Copied') }}><ClipboardCopy /> {t('Copy PlaceID')}</DropdownMenuItem>
-                  <DropdownMenuItem className="text-destructive" onClick={async () => { if (await dialogs.confirm({ title: 'Remove Favorite', description: 'Are you sure?', destructive: true })) { await api.removeFavorite(f.index); await reload() } }}><Trash2 /> {t('Remove')}</DropdownMenuItem>
+                  <DropdownMenuItem className="text-destructive" onClick={async () => { if (await dialogs.confirm({ title: 'Remove Favorite', description: 'Are you sure?', destructive: true })) { try { await api.removeFavorite(f.index); await reload() } catch (e) { notify.error(e) } } }}><Trash2 /> {t('Remove')}</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             )
@@ -161,11 +165,11 @@ export function UniverseTab() {
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
       <div className="flex gap-2">
-        <Button variant="secondary" onClick={async () => { try { const id = String(await api.universeId(place)); setUniverse(id); await view(id) } catch (e) { notify.error(e) } }}>
+        <Button variant="secondary" disabled={loading || !/\d{3,}/.test(place)} onClick={async () => { try { const id = String(await api.universeId(place)); setUniverse(id); await view(id) } catch (e) { notify.error(e) } }}>
           {t('Get Universe ID')}
         </Button>
         <Input className="w-48" value={universe} onChange={(e) => setUniverse(e.target.value)} placeholder={t('Universe ID')} />
-        <Button onClick={() => view()} disabled={!universe}>{t('View Games')}</Button>
+        <Button onClick={() => view()} disabled={!universe || loading}>{t('View Games')}</Button>
       </div>
       <div className="min-h-0 flex-1">
         <Grid games={games} loading={loading} empty="Every place of a game (universe) shows here" onPick={(g) => pick(g)} />

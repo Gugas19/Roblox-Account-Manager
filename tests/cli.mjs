@@ -19,14 +19,26 @@ function stopTestApps() {
   try { execSync(`powershell -NoProfile -Command "Get-Process RobloxAccountManager -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '*\\target\\test-run\\cli*' } | Stop-Process -Force"`) } catch {}
 }
 
+// Anti-AFK in the test copy can never press a key: it only takes a made-up account, and waits for a day without
+// input first. The real Roblox on this PC (if open) is listed but never touched.
+const SAFE_ANTI_AFK = '[AntiAFK]\r\nAccounts=__test_nobody__\r\nUserSafe=true\r\nIdleSeconds=86400\r\nMaxWaitSeconds=86400\r\nKeepAwake=false\r\nAutoStart=false\r\nAutoStartIdle=false\r\nAutoRejoin=false\r\nMuteBackground=false\r\nEfficiency=false\r\nAutoGrid=false\r\n'
+
 function prepare(dir) {
   fs.rmSync(dir, { recursive: true, force: true })
   fs.mkdirSync(dir, { recursive: true })
   for (const exe of ['RobloxAccountManager.exe', 'ram-cli.exe']) fs.copyFileSync(path.join(target, exe), path.join(dir, exe))
-  fs.writeFileSync(path.join(dir, 'RAMSettings.ini'), '[General]\r\nLanguage=en\r\nEnableMultiRbx=false\r\n')
+  fs.writeFileSync(path.join(dir, 'RAMSettings.ini'), '[General]\r\nLanguage=en\r\nEnableMultiRbx=false\r\n' + SAFE_ANTI_AFK)
 }
 
 stopTestApps()
+
+// Never runs next to your own Roblox Account Manager: they share one lock, and the tests stay away from it
+const open = execSync(`powershell -NoProfile -Command "Get-Process RobloxAccountManager -ErrorAction SilentlyContinue | Where-Object { $_.Path -notlike '*\\target\\test-run\\*' } | ForEach-Object { $_.Path }; exit 0"`, { encoding: 'utf8' }).trim()
+if (open) {
+  console.error(`Roblox Account Manager is open (${open}).\nClose it, then run the tests again.`)
+  process.exit(2)
+}
+
 prepare(work)
 fs.writeFileSync(path.join(work, 'NoEncryption.IUnderstandTheRisks.iautamor'), '')
 const demo = (Username, UserID, Group, Alias, Description = '') => ({ Username, UserID, Group, Alias, LastUse: new Date().toISOString(), SecurityToken: `fake-token-${UserID}`, Description, Password: '', Fields: {} })
@@ -115,6 +127,11 @@ try {
     expect(cli(work, ['join']), 2, 'Name the accounts')
   })
   await test('Anti-AFK status through the app', () => expect(cli(work, ['antiafk', 'status']), 0, 'Anti-AFK is off'))
+  await test('Anti-AFK start and stop through the app, the status follows at once', () => {
+    expect(cli(work, ['antiafk', 'start']), 0, 'Anti-AFK is on')
+    expect(cli(work, ['antiafk', 'status']), 0, 'Anti-AFK is on')
+    expect(cli(work, ['antiafk', 'stop']), 0, 'Anti-AFK is off')
+  })
   await test('open shows the window', () => expect(cli(work, ['open']), 0, 'is open'))
   await test('several commands at once', async () => {
     const runs = await Promise.all(Array.from({ length: 5 }, () => new Promise((resolve) => {

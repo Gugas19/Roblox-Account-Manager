@@ -107,4 +107,6 @@ export interface AntiAfkStatus {
   windows: AntiAfkWindow[]
   stats: { seconds: number; actions: number; rejoins: number; sessions: number; longest: number }
   hidden: boolean
+  /** waiting for the user to stop typing and moving the mouse, or pressing keys right now */
+  phase: 'waiting' | 'acting' | null
 }

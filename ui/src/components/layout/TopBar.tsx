@@ -32,11 +32,13 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
   const actions = useActions()
   const { selected, download, hideUsernames, setHideUsernames } = useStore()
   const none = selected.length === 0
+  // the browser is being downloaded, everything that opens it waits
+  const downloading = download !== null
 
   return (
     <header className="flex items-center gap-2 px-4 py-3">
       <div className="flex">
-        <Button className="rounded-r-none" onClick={actions.addAccount} disabled={download !== null}>
+        <Button className="rounded-r-none" onClick={actions.addAccount} disabled={downloading}>
           <UserRoundPlus /> {t('Add Account')}
         </Button>
         <DropdownMenu>
@@ -46,11 +48,11 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
-            <DropdownMenuItem onClick={actions.addAccount}><Globe /> {t('Log in with the browser')}</DropdownMenuItem>
+            <DropdownMenuItem disabled={downloading} onClick={actions.addAccount}><Globe /> {t('Log in with the browser')}</DropdownMenuItem>
             <DropdownMenuItem onClick={actions.importCookies}><Download /> {t('Cookie(s)')}</DropdownMenuItem>
-            <DropdownMenuItem onClick={actions.addUserPass}><Plus /> {t('User:Pass')}</DropdownMenuItem>
+            <DropdownMenuItem disabled={downloading} onClick={actions.addUserPass}><Plus /> {t('User:Pass')}</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={actions.customBrowser}>{t('Custom URL & Javascript')}</DropdownMenuItem>
+            <DropdownMenuItem disabled={downloading} onClick={actions.customBrowser}>{t('Custom URL & Javascript')}</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -60,12 +62,12 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
       </Button>
 
       <div className="flex">
-        <Button variant="secondary" className="rounded-r-none" disabled={none} onClick={() => actions.openBrowser('home')}>
+        <Button variant="secondary" className="rounded-r-none" disabled={none || downloading} onClick={() => actions.openBrowser('home')}>
           <Globe /> {t('Open Browser')}
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="secondary" className="rounded-l-none border-l border-border px-2" disabled={none} aria-label={t('More browser options')}>
+            <Button variant="secondary" className="rounded-l-none border-l border-border px-2" disabled={none || downloading} aria-label={t('More browser options')}>
               <ChevronDown />
             </Button>
           </DropdownMenuTrigger>

@@ -206,6 +206,10 @@ pub async fn copy_text(names: Vec<String>, kind: String, place_id: Option<String
         return Err("No Account Selected!".into());
     }
 
+    if (kind == "password" || kind == "combo") && accounts.iter().all(|a| a.password.is_empty()) {
+        return Err("No saved password, it's saved when you log in with the browser".into());
+    }
+
     let lines: Vec<String> = match kind.as_str() {
         "username" => accounts.iter().map(|a| a.username.clone()).collect(),
         "password" => accounts.iter().map(|a| a.password.clone()).collect(),

@@ -57,8 +57,11 @@ export function GamePanel() {
 
   const join = async () => {
     setJoining(true)
-    await actions.join()
-    setJoining(false)
+    try {
+      await actions.join()
+    } finally {
+      setJoining(false)
+    }
     void updateSetting('General', 'SavedPlaceId', place)
   }
 

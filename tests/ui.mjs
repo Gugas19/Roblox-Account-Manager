@@ -19,9 +19,24 @@ const shots = args.includes('--screenshots') ? path.resolve(args[args.indexOf('-
 const port = 9333
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
+// Anti-AFK in the test copy can never press a key: it only takes a made-up account, and waits for a day without
+// input first. The real Roblox on this PC (if open) is listed but never touched.
+const SAFE_ANTI_AFK = '[AntiAFK]\r\nAccounts=__test_nobody__\r\nUserSafe=true\r\nIdleSeconds=86400\r\nMaxWaitSeconds=86400\r\nKeepAwake=false\r\nAutoStart=false\r\nAutoStartIdle=false\r\nAutoRejoin=false\r\nMuteBackground=false\r\nEfficiency=false\r\nAutoGrid=false\r\n'
+
 // ---------- demo data ----------
+
+/** Never runs next to your own Roblox Account Manager: they share one lock, and the tests stay away from it */
+function refuseIfAppOpen() {
+  const open = execSync(`powershell -NoProfile -Command "Get-Process RobloxAccountManager -ErrorAction SilentlyContinue | Where-Object { $_.Path -notlike '*\\target\\test-run\\*' } | ForEach-Object { $_.Path }; exit 0"`, { encoding: 'utf8' }).trim()
+  if (open) {
+    console.error(`Roblox Account Manager is open (${open}).\nClose it, then run the tests again.`)
+    process.exit(2)
+  }
+}
+
 function prepare() {
   try { execSync(`powershell -NoProfile -Command "Get-Process RobloxAccountManager -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '*\\target\\test-run\\*' } | Stop-Process -Force"`) } catch {}
+  refuseIfAppOpen()
   fs.rmSync(work, { recursive: true, force: true })
   fs.mkdirSync(shots, { recursive: true })
   fs.mkdirSync(work, { recursive: true })
@@ -36,7 +51,7 @@ function prepare() {
     demo('StorageAlt01', 3, '2Storage', 'Bank', old), demo('StorageAlt02', 4, '2Storage', ''),
     demo('GrindBot_A', 5, '3Farm', 'Farm A'), demo('GrindBot_B', 6, '3Farm', 'Farm B'),
   ]))
-  fs.writeFileSync(path.join(work, 'RAMSettings.ini'), '[General]\r\nLanguage=en\r\nEnableMultiRbx=false\r\n')
+  fs.writeFileSync(path.join(work, 'RAMSettings.ini'), '[General]\r\nLanguage=en\r\nEnableMultiRbx=false\r\n' + SAFE_ANTI_AFK)
 }
 
 // ---------- DevTools protocol ----------
@@ -145,6 +160,16 @@ async function test(name, body) {
   }
 }
 
+/** Waits until `check` is true: the interface has to update by itself within `ms` */
+async function until(check, message, ms = 2500) {
+  const end = Date.now() + ms
+  while (Date.now() < end) {
+    if (await check()) return
+    await sleep(100)
+  }
+  throw new Error(message)
+}
+
 function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
@@ -234,6 +259,29 @@ async function main() {
         await click(tab, '[role=tab]')
         await shot(`antiafk-${tab.split(' ')[0].toLowerCase()}`)
       }
+      await key('Escape')
+    })
+
+    await test('anti-afk start and stop update by themselves', async () => {
+      await click('Anti-AFK', 'button')
+      const windowsOpen = !(await text()).includes('0 Roblox windows open')
+      await click('Start', 'button')
+      await until(async () => (await text()).includes('Running') && (await find('Stop', 'button')) !== null, 'Start did not change to Running / Stop')
+
+      if (windowsOpen) {
+        // the countdown moves on its own, every second
+        const line = async () => /Next action in \d+:\d+/.exec(await text())?.[0]
+        const first = await line()
+        assert(first, 'no countdown')
+        await until(async () => (await line()) !== first, 'the countdown is frozen')
+        // once the round is due it waits for the user to stop (here for a day), and says so
+        await until(async () => (await text()).includes('Waiting for you to stop typing and moving the mouse'), 'no waiting state', 8000)
+      } else {
+        await until(async () => (await text()).includes('Waiting for a Roblox window'), 'no "waiting for a Roblox window" state')
+      }
+
+      await click('Stop', 'button')
+      await until(async () => (await text()).includes('Stopped') && (await find('Start', 'button')) !== null, 'Stop did not change to Stopped / Start')
       await key('Escape')
     })
 

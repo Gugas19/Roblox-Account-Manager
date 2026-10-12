@@ -66,6 +66,10 @@ pub struct State {
     reminded: AtomicBool,
     run_now: AtomicBool,
     started: AtomicBool,
+    /// a round is due but the user is typing or moving the mouse, since when
+    waiting_since: Mutex<Option<Instant>>,
+    /// keys are being pressed (on a thread of its own, the engine keeps going)
+    acting: AtomicBool,
 }
 
 #[derive(Serialize, Clone)]
@@ -89,6 +93,8 @@ pub struct Status {
     windows: Vec<WindowView>,
     stats: serde_json::Value,
     hidden: bool,
+    /// "waiting" for the user to stop, "acting" while keys are pressed, otherwise none
+    phase: Option<&'static str>,
 }
 
 struct Window {
@@ -98,18 +104,28 @@ struct Window {
     seconds_running: u64,
 }
 
+/// Roblox's own window title, how hidden windows are told apart from its helper windows
+const ROBLOX_TITLE: &str = "Roblox";
+
+/// A Roblox window hidden with "Hide windows" (only visible windows are found otherwise)
+fn hidden_main_window(pid: u32) -> Option<HWND> {
+    winutil::all_windows_of(pid).into_iter().find(|h| winutil::window_title(*h) == ROBLOX_TITLE)
+}
+
+/// Every Roblox window, hidden ones too, so Anti-AFK keeps them active and they stay in the list
 fn roblox_windows() -> Vec<Window> {
     winutil::roblox_processes()
         .into_iter()
         .filter_map(|p| {
-            let hwnd = winutil::main_window(p.pid)?;
+            let hwnd = winutil::main_window(p.pid).or_else(|| hidden_main_window(p.pid))?;
             Some(Window { pid: p.pid, hwnd, tracker: p.tracker_id(), seconds_running: p.seconds_running })
         })
         .collect()
 }
 
+/// The Roblox windows to show again (never Roblox's other hidden helper windows)
 fn hidden_roblox_windows() -> Vec<HWND> {
-    winutil::roblox_processes().into_iter().flat_map(|p| winutil::all_windows_of(p.pid)).collect()
+    winutil::roblox_processes().into_iter().filter_map(|p| hidden_main_window(p.pid)).collect()
 }
 
 impl App {
@@ -196,7 +212,7 @@ pub fn start(app: &Arc<App>, reason: &str) {
 
     let count = roblox_windows().len();
     notify(app, webhook::Event::Started, format!("{reason} · Roblox windows: {count}"));
-    app.emit("antiafk-changed", true);
+    app.emit("antiafk", status(app));
 }
 
 pub fn stop(app: &Arc<App>, by_user: bool) {
@@ -215,14 +231,19 @@ pub fn stop(app: &Arc<App>, by_user: bool) {
     if by_user {
         *state.stopped_with.lock().unwrap() = roblox_windows().iter().map(|w| w.pid).collect();
     }
+    *state.waiting_since.lock().unwrap() = None;
     unsafe {
         SetThreadExecutionState(ES_CONTINUOUS);
     }
-    app.emit("antiafk-changed", false);
+    app.emit("antiafk", status(app));
 }
 
+/// A round right away, without waiting for the user to be idle (ignored while one is going)
 pub fn run_now(app: &App) {
-    app.anti_afk().run_now.store(true, Ordering::SeqCst);
+    let state = app.anti_afk();
+    if !state.acting.load(Ordering::SeqCst) {
+        state.run_now.store(true, Ordering::SeqCst);
+    }
 }
 
 pub fn format_duration(seconds: u64) -> String {
@@ -249,7 +270,7 @@ pub fn tool(app: &App, kind: &str) -> anyhow::Result<String> {
     let pids: Vec<u32> = winutil::roblox_processes().iter().map(|p| p.pid).collect();
     let state = app.anti_afk();
 
-    Ok(match kind {
+    let message = match kind {
         "grid" => {
             layout::arrange(&windows);
             match windows.len() {
@@ -294,25 +315,32 @@ pub fn tool(app: &App, kind: &str) -> anyhow::Result<String> {
             }
         }
         _ => anyhow::bail!("unknown"),
-    })
+    };
+    app.emit("antiafk", status(app));
+    Ok(message)
 }
 
-/// One anti-AFK round over the chosen windows; false when the user was busy and it was postponed
-fn cycle(app: &Arc<App>, windows: &[Window], forced: bool) -> bool {
-    let user_safe = app.afk_flag("UserSafe") && !forced;
-    let idle_needed = app.afk_number("IdleSeconds").max(1);
-    let max_wait = Duration::from_secs(app.afk_number("MaxWaitSeconds"));
+/// Whether a due round starts now, keeps waiting for the user to stop typing and moving the mouse,
+/// or gives up for now (it never takes the focus while the user is busy)
+#[derive(Debug, PartialEq, Eq)]
+enum Ready {
+    Go,
+    Wait,
+    GiveUp,
+}
 
-    if user_safe {
-        let waited = Instant::now();
-        while input::idle_seconds() < idle_needed {
-            if waited.elapsed() > max_wait {
-                return false; // never take the focus while the user is busy, try again soon
-            }
-            std::thread::sleep(Duration::from_millis(500));
-        }
+fn ready(user_safe: bool, idle: u64, idle_needed: u64, waited: Duration, max_wait: Duration) -> Ready {
+    if !user_safe || idle >= idle_needed {
+        Ready::Go
+    } else if waited > max_wait {
+        Ready::GiveUp
+    } else {
+        Ready::Wait
     }
+}
 
+/// One anti-AFK round over the chosen windows, stops early when Anti-AFK is stopped
+fn cycle(app: &Arc<App>, windows: &[Window], forced: bool) {
     let accounts = included_accounts(app);
     let action = input::Action::from_setting(&app.afk("Action"));
     let repeat = app.afk_number("Repeat").clamp(1, 10) as u32;
@@ -323,6 +351,9 @@ fn cycle(app: &Arc<App>, windows: &[Window], forced: bool) -> bool {
     let mut done = 0;
 
     for w in windows {
+        if !app.anti_afk().running.load(Ordering::SeqCst) {
+            break;
+        }
         let account = account_for(app, &w.tracker);
         if !accounts.is_empty() && !account.as_ref().map(|a| accounts.contains(a)).unwrap_or(false) {
             continue;
@@ -359,7 +390,6 @@ fn cycle(app: &Arc<App>, windows: &[Window], forced: bool) -> bool {
         add_stat(app, "StatActions", done as u64);
         notify(app, webhook::Event::Action, format!("Kept {done} window(s) active"));
     }
-    true
 }
 
 /// Relaunches an account into the game it was disconnected from
@@ -522,16 +552,37 @@ fn tick(app: &Arc<App>) {
         state.stopped_with.lock().unwrap().clear();
     }
 
-    // the round itself
+    // the round itself: the engine never waits or presses keys here, so the status keeps coming every second
     let running = state.running.load(Ordering::SeqCst);
     if running {
         let now = Instant::now();
-        let forced = state.run_now.swap(false, Ordering::SeqCst);
+        let forced = state.run_now.load(Ordering::SeqCst);
         let due = state.next_action.lock().unwrap().map(|n| now >= n).unwrap_or(true);
-        if (due || forced) && !windows.is_empty() {
-            let interval = Duration::from_secs(app.afk_number("Interval").clamp(30, ROBLOX_IDLE_KICK - 60));
-            let next = if cycle(app, &windows, forced) { interval } else { Duration::from_secs(30) };
-            *state.next_action.lock().unwrap() = Some(Instant::now() + next);
+        if (due || forced) && !windows.is_empty() && !state.acting.load(Ordering::SeqCst) {
+            let waited = now - *state.waiting_since.lock().unwrap().get_or_insert(now);
+            let user_safe = app.afk_flag("UserSafe") && !forced;
+            let max_wait = Duration::from_secs(app.afk_number("MaxWaitSeconds"));
+            match ready(user_safe, input::idle_seconds(), app.afk_number("IdleSeconds").max(1), waited, max_wait) {
+                Ready::Wait => {}
+                Ready::GiveUp => {
+                    *state.waiting_since.lock().unwrap() = None;
+                    *state.next_action.lock().unwrap() = Some(now + Duration::from_secs(30));
+                }
+                Ready::Go => {
+                    *state.waiting_since.lock().unwrap() = None;
+                    state.run_now.store(false, Ordering::SeqCst);
+                    state.acting.store(true, Ordering::SeqCst);
+                    let app = app.clone();
+                    std::thread::spawn(move || {
+                        cycle(&app, &roblox_windows(), forced);
+                        let state = app.anti_afk();
+                        let interval = Duration::from_secs(app.afk_number("Interval").clamp(30, ROBLOX_IDLE_KICK - 60));
+                        *state.next_action.lock().unwrap() = Some(Instant::now() + interval);
+                        state.acting.store(false, Ordering::SeqCst);
+                        app.emit("antiafk", status(&app));
+                    });
+                }
+            }
         }
         if app.afk_flag("KeepAwake") {
             unsafe {
@@ -566,7 +617,7 @@ pub fn status(app: &App) -> Status {
     let accounts = included_accounts(app);
     let tracked = state.tracked.lock().unwrap();
     let s = stats(app);
-    let windows = roblox_windows()
+    let windows: Vec<WindowView> = roblox_windows()
         .into_iter()
         .map(|w| {
             let t = tracked.get(&w.pid);
@@ -583,9 +634,22 @@ pub fn status(app: &App) -> Status {
         })
         .collect();
 
+    let running = state.running.load(Ordering::SeqCst);
+    let phase = if !running {
+        None
+    } else if state.acting.load(Ordering::SeqCst) {
+        Some("acting")
+    } else if state.waiting_since.lock().unwrap().is_some() {
+        Some("waiting")
+    } else {
+        None
+    };
+
     Status {
-        running: state.running.load(Ordering::SeqCst),
-        seconds_to_next: state.next_action.lock().unwrap().map(|n| n.saturating_duration_since(Instant::now()).as_secs()),
+        running,
+        // no countdown while waiting, pressing keys, or with no Roblox window to keep active
+        seconds_to_next: if phase.is_some() || windows.is_empty() { None } else { state.next_action.lock().unwrap().map(|n| n.saturating_duration_since(Instant::now()).as_secs()) },
+        phase,
         idle_seconds: input::idle_seconds(),
         windows,
         stats: serde_json::json!({ "seconds": s.seconds, "actions": s.actions, "rejoins": s.rejoins, "sessions": s.sessions, "longest": s.longest }),
@@ -606,5 +670,21 @@ pub fn restore_all(app: &App) {
     }
     unsafe {
         SetThreadExecutionState(ES_CONTINUOUS);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_due_round_waits_for_the_user_then_gives_up() {
+        let s = Duration::from_secs;
+        // user safe off, or the user already idle: right away
+        assert_eq!(ready(false, 0, 5, s(0), s(90)), Ready::Go);
+        assert_eq!(ready(true, 5, 5, s(0), s(90)), Ready::Go);
+        // the user is typing: wait, up to the limit, then try again later
+        assert_eq!(ready(true, 1, 5, s(10), s(90)), Ready::Wait);
+        assert_eq!(ready(true, 1, 5, s(91), s(90)), Ready::GiveUp);
     }
 }

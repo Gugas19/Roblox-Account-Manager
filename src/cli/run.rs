@@ -225,10 +225,12 @@ fn anti_afk(app: &Arc<App>, rest: &[String], out: &Out, in_app: bool) -> Result<
 
     let status = serde_json::to_value(antiafk::status(app))?;
     let windows = status["windows"].as_array().cloned().unwrap_or_default();
-    let line = match (status["running"].as_bool().unwrap_or(false), status["secondsToNext"].as_u64()) {
-        (true, Some(s)) => format!("Anti-AFK is on, next action in {}:{:02}", s / 60, s % 60),
-        (true, None) => "Anti-AFK is on, waiting for a Roblox window".to_string(),
-        (false, _) => "Anti-AFK is off".to_string(),
+    let line = match (status["running"].as_bool().unwrap_or(false), status["phase"].as_str(), status["secondsToNext"].as_u64()) {
+        (false, _, _) => "Anti-AFK is off".to_string(),
+        (true, Some("acting"), _) => "Anti-AFK is on, pressing keys in the Roblox windows".to_string(),
+        (true, Some("waiting"), _) => "Anti-AFK is on, waiting for you to stop typing and moving the mouse".to_string(),
+        (true, _, Some(s)) => format!("Anti-AFK is on, next action in {}:{:02}", s / 60, s % 60),
+        (true, _, None) => "Anti-AFK is on, waiting for a Roblox window".to_string(),
     };
     out.line(line);
     for w in windows {

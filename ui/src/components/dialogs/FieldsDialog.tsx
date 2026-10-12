@@ -7,10 +7,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '@/components/ui/input'
 import { api } from '@/lib/api'
 import { useT } from '@/lib/i18n'
+import { notifier } from '@/lib/notify'
 import { useStore } from '@/lib/store'
 
 export function FieldsDialog() {
   const t = useT()
+  const notify = notifier(t)
   const { panel, setPanel, selected } = useStore()
   const name = selected[0]
   const [fields, setFields] = useState<Record<string, string>>({})
@@ -22,8 +24,12 @@ export function FieldsDialog() {
   }, [panel, name])
 
   const save = async (k: string, v: string) => {
-    await api.setField(name, k, v)
-    setFields(await api.accountFields(name))
+    try {
+      await api.setField(name, k, v)
+      setFields(await api.accountFields(name))
+    } catch (e) {
+      notify.error(e)
+    }
   }
 
   return (
@@ -46,7 +52,7 @@ export function FieldsDialog() {
         <form className="flex gap-2" onSubmit={async (e) => { e.preventDefault(); if (key && value) { await save(key, value); setKey(''); setValue('') } }}>
           <Input value={key} onChange={(e) => setKey(e.target.value)} placeholder={t('Field')} className="w-40" />
           <Input value={value} onChange={(e) => setValue(e.target.value)} placeholder={t('Value')} />
-          <Button type="submit" variant="secondary"><Plus /> {t('Add')}</Button>
+          <Button type="submit" variant="secondary" disabled={!key.trim() || !value}><Plus /> {t('Add')}</Button>
         </form>
       </DialogContent>
     </Dialog>
