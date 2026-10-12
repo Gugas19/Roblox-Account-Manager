@@ -8,7 +8,11 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
     GetLastInputInfo, MapVirtualKeyW, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, LASTINPUTINFO, MAPVK_VK_TO_VSC, VIRTUAL_KEY, VK_ESCAPE, VK_LEFT, VK_MENU,
     VK_RETURN, VK_RIGHT, VK_SPACE,
 };
-use windows::Win32::UI::WindowsAndMessaging::{BringWindowToTop, GetForegroundWindow, GetWindowThreadProcessId, IsIconic, SetForegroundWindow, ShowWindow, SW_MINIMIZE, SW_RESTORE};
+use windows::Win32::Foundation::{LPARAM, WPARAM};
+use windows::Win32::UI::Shell::{SHQueryUserNotificationState, QUNS_BUSY, QUNS_PRESENTATION_MODE, QUNS_RUNNING_D3D_FULL_SCREEN};
+use windows::Win32::UI::WindowsAndMessaging::{
+    BringWindowToTop, GetForegroundWindow, GetWindowThreadProcessId, IsIconic, PostMessageW, SetForegroundWindow, ShowWindow, SW_MINIMIZE, SW_RESTORE, WM_KEYDOWN, WM_KEYUP,
+};
 
 /// What the anti-AFK cycle presses in each window
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -66,6 +70,41 @@ pub fn perform(action: Action, repeat: u32) {
             std::thread::sleep(Duration::from_millis(60));
         }
     }
+}
+
+/// The same keys sent straight to one window's message queue: no focus, nothing changes on screen.
+/// Some Roblox experiences ignore keys sent this way (that's why it's the experimental mode).
+fn post(hwnd: HWND, vk: u16, hold: Duration) {
+    unsafe {
+        let scan = MapVirtualKeyW(vk as u32, MAPVK_VK_TO_VSC) as isize;
+        // repeat count 1, the scan code; key up also sets "was down" and "released"
+        let down = 1 | (scan << 16);
+        let up = down | (1 << 30) | (1 << 31);
+        let _ = PostMessageW(hwnd, WM_KEYDOWN, WPARAM(vk as usize), LPARAM(down));
+        std::thread::sleep(hold);
+        let _ = PostMessageW(hwnd, WM_KEYUP, WPARAM(vk as usize), LPARAM(up));
+    }
+}
+
+pub fn post_action(hwnd: HWND, action: Action, repeat: u32) {
+    for _ in 0..repeat.max(1) {
+        for vk in action.keys() {
+            post(hwnd, *vk, Duration::from_millis(60));
+            std::thread::sleep(Duration::from_millis(60));
+        }
+    }
+}
+
+pub fn post_reset_character(hwnd: HWND) {
+    for vk in [VK_ESCAPE.0, b'R' as u16, VK_RETURN.0] {
+        post(hwnd, vk, Duration::from_millis(50));
+        std::thread::sleep(Duration::from_millis(120));
+    }
+}
+
+/// A full screen app or game (or presentation mode) is in front: switching windows would interrupt it
+pub fn full_screen_in_front() -> bool {
+    unsafe { SHQueryUserNotificationState().map(|s| s == QUNS_BUSY || s == QUNS_RUNNING_D3D_FULL_SCREEN || s == QUNS_PRESENTATION_MODE).unwrap_or(false) }
 }
 
 /// Esc, R, Enter: Roblox's reset character

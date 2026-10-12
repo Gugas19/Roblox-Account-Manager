@@ -13,6 +13,10 @@ export interface Account {
   savedPlaceId: string
   savedJobId: string
   hasPassword: boolean
+  /** the account's own color, "#rrggbb" */
+  color: string | null
+  /** its group's color */
+  groupColor: string | null
 }
 
 export type LoadState =
@@ -98,6 +102,8 @@ export interface AntiAfkWindow {
   placeId: number | null
   state: 'playing' | 'disconnected' | 'loading'
   included: boolean
+  /** keys go to it in the background (experimental mode) */
+  background: boolean
 }
 
 export interface AntiAfkStatus {

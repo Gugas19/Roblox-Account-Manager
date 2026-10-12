@@ -45,7 +45,7 @@ function install(name, { zipBytes = fs.readFileSync(zip), stagedVersion = next }
   const dir = path.join(base, name)
   fs.mkdirSync(path.join(dir, 'update'), { recursive: true })
   for (const exe of ['RobloxAccountManager.exe', 'ram-cli.exe']) fs.copyFileSync(path.join(release, exe), path.join(dir, exe))
-  fs.writeFileSync(path.join(dir, 'RAMSettings.ini'), '[General]\r\nLanguage=en\r\n[Updates]\r\nCheck=false\r\nAutoInstall=false\r\n[AntiAFK]\r\nAccounts=__test_nobody__\r\nIdleSeconds=86400\r\nKeepAwake=false\r\n')
+  fs.writeFileSync(path.join(dir, 'RAMSettings.ini'), '[General]\r\nLanguage=en\r\n[Updates]\r\nCheck=false\r\nAutoInstall=false\r\n[AntiAFK]\r\nAccounts=__test_nobody__\r\nIdleSeconds=86400\r\nKeepAwake=false\r\nBackground=false\r\n')
   fs.writeFileSync(path.join(dir, 'AccountData.json'), '[]')
   fs.writeFileSync(path.join(dir, 'NoEncryption.IUnderstandTheRisks.iautamor'), '')
   fs.writeFileSync(path.join(dir, 'update', 'update.zip'), zipBytes)

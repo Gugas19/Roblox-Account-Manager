@@ -121,6 +121,8 @@ pub fn run() {
             commands::accounts::undo_remove,
             commands::accounts::set_alias,
             commands::accounts::set_description,
+            commands::accounts::set_account_color,
+            commands::accounts::set_group_color,
             commands::accounts::move_to_group,
             commands::accounts::reorder,
             commands::accounts::sort_alphabetically,

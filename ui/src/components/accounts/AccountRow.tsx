@@ -43,6 +43,8 @@ export function AccountRow({ account, selected, hideUsername, showAging, showPre
   const [alias, setAlias] = useState(account.alias)
   const aging = showAging && account.daysUnused > 20
   const presence = showPresence ? PRESENCE[account.presence] : null
+  // its own color, otherwise its group's
+  const bar = account.color ?? account.groupColor
 
   return (
     <div
@@ -56,10 +58,11 @@ export function AccountRow({ account, selected, hideUsername, showAging, showPre
       onDragOver={onDragOver}
       onDrop={onDrop}
       onDragLeave={onDragLeave}
-      className={`group grid h-9 cursor-pointer grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,1.6fr)] items-center gap-3 rounded-md px-3 text-sm select-none ${
+      className={`group relative grid h-9 cursor-pointer grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,1.6fr)] items-center gap-3 rounded-md px-3 text-sm select-none ${
         selected ? 'bg-primary/15 text-foreground ring-1 ring-primary/40' : 'hover:bg-accent'
       } ${dropTarget ? 'shadow-[inset_0_2px_0_0_var(--primary)]' : ''}`}
     >
+      {bar && <span aria-hidden className="absolute top-1.5 bottom-1.5 left-0.5 w-1 rounded-full" style={{ background: bar }} />}
       <div className="flex min-w-0 items-center gap-2">
         <span className="flex w-4 shrink-0 gap-0.5">
           {aging && (
@@ -79,7 +82,7 @@ export function AccountRow({ account, selected, hideUsername, showAging, showPre
             </Tooltip>
           )}
         </span>
-        <span className="truncate font-medium">{hideUsername ? '••••••••' : account.username}</span>
+        <span className="truncate font-medium" style={account.color ? { color: account.color } : undefined}>{hideUsername ? '••••••••' : account.username}</span>
       </div>
 
       <div className="min-w-0" onDoubleClick={(e) => { e.stopPropagation(); setAlias(account.alias); setEditing(true) }}>

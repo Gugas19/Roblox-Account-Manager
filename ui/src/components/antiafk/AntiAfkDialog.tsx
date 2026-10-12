@@ -132,6 +132,7 @@ export function AntiAfkDialog() {
                       <div className="truncate font-medium">{w.account ?? t('Roblox (not opened by the app)')}</div>
                       <div className="text-xs text-muted-foreground">PID {w.pid}{w.placeId ? ` · ${t('Place {0}', w.placeId)}` : ''}</div>
                     </div>
+                    {w.background && <Badge variant="outline">{t('In the background')}</Badge>}
                     <Badge variant={w.state === 'disconnected' ? 'destructive' : 'secondary'}>{t(w.state === 'playing' ? 'In game' : w.state === 'disconnected' ? 'Disconnected' : 'Loading')}</Badge>
                   </label>
                 ))}
@@ -165,6 +166,14 @@ export function AntiAfkDialog() {
               <NumberSetting section="AntiAFK" name="IdleSeconds" title="Seconds without input first" min={1} max={120} fallback={5} />
               <NumberSetting section="AntiAFK" name="MaxWaitSeconds" title="Give up waiting after (s)" hint="Then it tries again 30 seconds later instead of interrupting you." min={10} max={600} fallback={90} />
               <Toggle section="AntiAFK" name="SkipFocused" title="Skip the window I'm playing in" hint="A Roblox window you used in the last minute isn't idle." />
+              <Toggle section="AntiAFK" name="Invisible" title="Invisible while pressing keys" hint="The Roblox window turns see-through for that moment, so nothing pops up in front of you." />
+              <Toggle section="AntiAFK" name="SkipFullScreen" title="Wait while a full screen app is in front" hint="Games, videos and presentations in full screen are never interrupted." />
+              <Toggle section="AntiAFK" name="Background" title="Background only (experimental)" hint="Never switches windows: the keys go straight to Roblox. Some games ignore them; if an account gets kicked for being idle, it goes back to the normal mode by itself." />
+              {setting('AntiAFK', 'NoBackground') && (
+                <SettingRow title="Normal mode for" hint={setting('AntiAFK', 'NoBackground').split(',').join(', ')}>
+                  <Button variant="secondary" onClick={() => updateSetting('AntiAFK', 'NoBackground', '')}>{t('Try the background again')}</Button>
+                </SettingRow>
+              )}
               <Toggle section="AntiAFK" name="AutoStart" title="Start when Roblox opens" />
               <Toggle section="AntiAFK" name="AutoStartIdle" title="Start when I'm away" hint="After 19 minutes without input, with a reminder at 18." />
               <Toggle section="AntiAFK" name="KeepAwake" title="Keep the PC awake while running" />

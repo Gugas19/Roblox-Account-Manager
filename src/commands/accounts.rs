@@ -57,6 +57,37 @@ pub fn set_alias(names: Vec<String>, alias: String) -> R<()> {
     Ok(())
 }
 
+/// The color of the accounts, `None` takes it away
+#[tauri::command]
+pub fn set_account_color(names: Vec<String>, color: Option<String>) -> R<()> {
+    let app = app();
+    let color = match color {
+        Some(c) => Some(crate::app::valid_color(&c).ok_or("Not a color")?),
+        None => None,
+    };
+    for n in &names {
+        app.update_account(n, |a| match &color {
+            Some(c) => drop(a.fields.insert("Color".into(), c.clone())),
+            None => drop(a.fields.shift_remove("Color")),
+        });
+    }
+    app.save_accounts(true);
+    Ok(())
+}
+
+/// The color of a group, `None` takes it away
+#[tauri::command]
+pub fn set_group_color(group: String, color: Option<String>) -> R<()> {
+    let app = app();
+    let color = match color {
+        Some(c) => Some(crate::app::valid_color(&c).ok_or("Not a color")?),
+        None => None,
+    };
+    app.set_group_color(&group, color);
+    app.accounts_changed();
+    Ok(())
+}
+
 #[tauri::command]
 pub fn set_description(names: Vec<String>, description: String) -> R<()> {
     let app = app();

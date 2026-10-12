@@ -111,6 +111,16 @@ pub struct AccountView {
     pub saved_place_id: String,
     pub saved_job_id: String,
     pub has_password: bool,
+    /// the account's own color, "#rrggbb"
+    pub color: Option<String>,
+    /// its group's color
+    pub group_color: Option<String>,
+}
+
+/// A color as the app keeps it: "#rrggbb", anything else is refused
+pub fn valid_color(color: &str) -> Option<String> {
+    let c = color.trim();
+    (c.len() == 7 && c.starts_with('#') && c[1..].chars().all(|ch| ch.is_ascii_hexdigit())).then(|| c.to_ascii_lowercase())
 }
 
 impl App {
@@ -124,7 +134,22 @@ impl App {
         self.emit("toast", serde_json::json!({ "kind": kind, "message": message.into() }));
     }
 
+    /// Group colors, kept in RAMSettings.ini ([Groups] Colors) as JSON so any group name is safe
+    pub fn group_colors(&self) -> std::collections::BTreeMap<String, String> {
+        serde_json::from_str(&self.setting("Groups", "Colors")).unwrap_or_default()
+    }
+
+    pub fn set_group_color(&self, group: &str, color: Option<String>) {
+        let mut colors = self.group_colors();
+        match color {
+            Some(c) => colors.insert(group.to_string(), c),
+            None => colors.remove(group),
+        };
+        self.set_setting("Groups", "Colors", &serde_json::to_string(&colors).unwrap_or_default());
+    }
+
     pub fn views(&self) -> Vec<AccountView> {
+        let group_colors = self.group_colors();
         let store = self.store.lock().unwrap();
         let sessions = self.sessions.lock().unwrap();
         store
@@ -142,6 +167,8 @@ impl App {
                 saved_place_id: a.field("SavedPlaceId").to_string(),
                 saved_job_id: a.field("SavedJobId").to_string(),
                 has_password: !a.password.is_empty(),
+                color: valid_color(a.field("Color")),
+                group_color: group_colors.get(&a.group).and_then(|c| valid_color(c)),
             })
             .collect()
     }
@@ -328,5 +355,19 @@ impl App {
             return;
         }
         let _ = std::fs::write(self.dir.join("FavoriteGames.json"), serde_json::to_string(&list).unwrap_or_default());
+    }
+}
+
+#[cfg(test)]
+mod color_tests {
+    use super::valid_color;
+
+    #[test]
+    fn only_rrggbb_colors_are_kept() {
+        assert_eq!(valid_color("#EF4444"), Some("#ef4444".into()));
+        assert_eq!(valid_color(" #22c55e "), Some("#22c55e".into()));
+        for bad in ["", "red", "#fff", "#12345g", "ef4444", "#ef44445", "url(x)", "#ef4444;background:red"] {
+            assert_eq!(valid_color(bad), None, "{bad}");
+        }
     }
 }

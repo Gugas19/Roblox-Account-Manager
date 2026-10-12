@@ -1,12 +1,12 @@
 /** The account list: search, groups, selection, drag and drop (accounts and cookie text), right click menu */
 
 import { ChevronRight, Cookie, Globe, Search, UserRoundPlus } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { AccountMenu } from '@/components/accounts/AccountMenu'
+import { AccountMenu, type ColorTarget, type MenuGroup } from '@/components/accounts/AccountMenu'
 import { AccountRow } from '@/components/accounts/AccountRow'
 import { useActions } from '@/hooks/useActions'
 import { api } from '@/lib/api'
@@ -31,6 +31,33 @@ export function AccountList({ searchRef }: { searchRef: React.RefObject<HTMLInpu
   const [query, setQuery] = useState('')
   const [collapsed, setCollapsed] = useState<string[]>([])
   const [dropOn, setDropOn] = useState<string | null>(null)
+  // right click on a group's header opens the group's menu
+  const [menuGroup, setMenuGroup] = useState<MenuGroup | null>(null)
+  // "Custom color…": the system color picker, for the accounts or the group it was asked for
+  const picker = useRef<HTMLInputElement>(null)
+  const pickFor = useRef<ColorTarget | null>(null)
+
+  useEffect(() => {
+    const input = picker.current
+    if (!input) return
+    // "change" comes once the picker closes (React's onChange fires on every move)
+    const chosen = () => {
+      const target = pickFor.current
+      if (!target) return
+      const done = target.kind === 'group' ? api.setGroupColor(target.key, input.value) : api.setAccountColor(target.names, input.value)
+      done.catch(notify.error)
+    }
+    input.addEventListener('change', chosen)
+    return () => input.removeEventListener('change', chosen)
+  }, [notify])
+
+  const customColor = (target: ColorTarget) => {
+    pickFor.current = target
+    if (!picker.current) return
+    picker.current.value = target.current ?? '#3b82f6'
+    // after the menu has closed
+    setTimeout(() => picker.current?.click(), 50)
+  }
   const showGroups = setting('General', 'UIShowGroups') !== 'false'
   const showHeaders = (theme.ShowHeaders ?? 'True').toLowerCase() !== 'false'
   const showAging = !flag('General', 'DisableAgingAlert')
@@ -39,12 +66,12 @@ export function AccountList({ searchRef }: { searchRef: React.RefObject<HTMLInpu
   const visible = useMemo(() => (query ? accounts.filter((a) => matches(a, query)) : accounts), [accounts, query])
 
   const groups = useMemo(() => {
-    if (!showGroups) return [{ key: '', title: '', items: visible }]
+    if (!showGroups) return [{ key: '', title: '', color: null, items: visible }]
     const map = new Map<string, Account[]>()
     for (const a of visible) map.set(a.group, [...(map.get(a.group) ?? []), a])
     return [...map.entries()]
       .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
-      .map(([key, items]) => ({ key, title: items[0].groupTitle, items }))
+      .map(([key, items]) => ({ key, title: items[0].groupTitle, color: items[0].groupColor, items }))
   }, [visible, showGroups])
 
   const dragged = (e: React.DragEvent, a: Account) => {
@@ -115,7 +142,7 @@ export function AccountList({ searchRef }: { searchRef: React.RefObject<HTMLInpu
       )}
 
       <ContextMenu>
-        <ContextMenuTrigger asChild>
+        <ContextMenuTrigger asChild onContextMenuCapture={() => setMenuGroup(null)}>
           <ScrollArea className="min-h-0 flex-1">
             <div className="px-3 py-2" role="grid" aria-multiselectable onDragOver={(e) => e.preventDefault()} onDrop={(e) => dropped(e, null, 'Default')}>
               {visible.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">{t('No accounts match your search')}</p>}
@@ -125,8 +152,10 @@ export function AccountList({ searchRef }: { searchRef: React.RefObject<HTMLInpu
                   <section key={g.key || 'all'} className="mb-1">
                     {showGroups && (
                       <button
-                        className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs font-semibold tracking-wide text-primary uppercase hover:bg-accent ${dropOn === `group:${g.key}` ? 'bg-primary/10' : ''}`}
+                        className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs font-semibold tracking-wide uppercase hover:bg-accent ${g.color ? '' : 'text-primary'} ${dropOn === `group:${g.key}` ? 'bg-primary/10' : ''}`}
+                        style={g.color ? { color: g.color } : undefined}
                         onClick={() => setCollapsed((c) => (closed ? c.filter((k) => k !== g.key) : [...c, g.key]))}
+                        onContextMenu={() => setMenuGroup({ key: g.key, title: g.title, color: g.color })}
                         onDragOver={(e) => over(e, `group:${g.key}`)}
                         onDragLeave={() => setDropOn(null)}
                         onDrop={(e) => dropped(e, null, g.key)}
@@ -134,7 +163,7 @@ export function AccountList({ searchRef }: { searchRef: React.RefObject<HTMLInpu
                         <ChevronRight className={`size-3.5 transition-transform ${closed ? '' : 'rotate-90'}`} />
                         {g.title}
                         <span className="font-normal text-muted-foreground normal-case">{g.items.length}</span>
-                        <span className="ml-2 h-px flex-1 bg-border" />
+                        <span className={`ml-2 h-px flex-1 ${g.color ? 'opacity-40' : 'bg-border'}`} style={g.color ? { background: g.color } : undefined} />
                       </button>
                     )}
                     {!closed &&
@@ -166,8 +195,14 @@ export function AccountList({ searchRef }: { searchRef: React.RefObject<HTMLInpu
             </div>
           </ScrollArea>
         </ContextMenuTrigger>
-        <AccountMenu showGroups={showGroups} toggleGroups={() => store.updateSetting('General', 'UIShowGroups', showGroups ? 'false' : 'true')} />
+        <AccountMenu
+          showGroups={showGroups}
+          toggleGroups={() => store.updateSetting('General', 'UIShowGroups', showGroups ? 'false' : 'true')}
+          group={menuGroup}
+          onCustomColor={customColor}
+        />
       </ContextMenu>
+      <input ref={picker} type="color" className="sr-only" tabIndex={-1} aria-hidden />
     </div>
   )
 }

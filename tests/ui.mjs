@@ -235,6 +235,40 @@ async function main() {
       await key('Escape')
     })
 
+    await test('colors for an account and a group, from the right click menus', async () => {
+      const style = (expression) => evaluate(`(() => { const e = ${expression}; return e ? getComputedStyle(e).color + '|' + (e.closest('[role=row]')?.querySelector('span[aria-hidden]')?.style.background ?? '') : null })()`)
+      const name = `[...document.querySelectorAll('[role=row] span.font-medium')].find((e) => e.innerText === 'GrindBot_A')`
+      const header = `[...document.querySelectorAll('button')].find((e) => e.innerText.startsWith('FARM'))`
+
+      // one account in red
+      await click('GrindBot_A', '[role=row]', 'right')
+      await click('Color', '[role=menuitem]')
+      await checkCursors('[role=menuitem]')
+      await shot('color-menu')
+      await click('Red', '[role=menuitem]')
+      await until(async () => (await style(name))?.startsWith('rgb(239, 68, 68)|rgb(239, 68, 68)'), 'the account is not red')
+
+      // its group in blue: the header, and the bar of the group's other account
+      await click('FARM', 'button', 'right')
+      await click('Group color', '[role=menuitem]')
+      await click('Blue', '[role=menuitem]')
+      await until(async () => (await style(header))?.startsWith('rgb(59, 130, 246)'), 'the group is not blue')
+      const other = `[...document.querySelectorAll('[role=row] span.font-medium')].find((e) => e.innerText === 'GrindBot_B')`
+      await until(async () => (await style(other))?.endsWith('rgb(59, 130, 246)'), "the group's color is not on its accounts")
+      // the account's own color wins over its group's
+      assert((await style(name)).endsWith('rgb(239, 68, 68)'), "the account's color lost to the group's")
+      await shot('colors')
+
+      // and back to no colors
+      await click('GrindBot_A', '[role=row]', 'right')
+      await click('Color', '[role=menuitem]')
+      await click('No color', '[role=menuitem]')
+      await click('FARM', 'button', 'right')
+      await click('Group color', '[role=menuitem]')
+      await click('No color', '[role=menuitem]')
+      await until(async () => (await style(other))?.endsWith('|'), 'the colors did not go away')
+    })
+
     await test('remove shows undo and undo brings it back', async () => {
       await click('StorageAlt02', '[role=row]')
       await click('Remove', 'button')
@@ -261,6 +295,21 @@ async function main() {
       await shot('settings-developer')
       await click('Miscellaneous', '[role=tab]')
       await shot('settings-misc')
+      await key('Escape')
+    })
+
+    await test('automatic updates can be turned off with one choice', async () => {
+      const ini = () => fs.readFileSync(path.join(work, 'RAMSettings.ini'), 'utf8')
+      const updates = () => /\[Updates\][^[]*/.exec(ini())?.[0] ?? ''
+      await click('Settings', 'button')
+      await evaluate(`[...document.querySelectorAll('[data-slot=setting-row], div')].find((e) => e.innerText?.startsWith('Automatic updates'))?.scrollIntoView()`)
+      await click('Automatic', '[role=combobox]')
+      await click('Off', '[role=option]')
+      await until(async () => /Check=false/.test(updates()) && /AutoInstall=false/.test(updates()), `not saved as off:\n${updates()}`)
+      assert((await text()).includes('never contacts GitHub'), 'no explanation for "Off"')
+      await click('Off', '[role=combobox]')
+      await click('Automatic', '[role=option]')
+      await until(async () => /Check=true/.test(updates()) && /AutoInstall=true/.test(updates()), `not saved as automatic:\n${updates()}`)
       await key('Escape')
     })
 
