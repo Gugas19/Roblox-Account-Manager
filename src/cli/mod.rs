@@ -189,7 +189,7 @@ async fn without_app(request: Request, out: &Out) -> i32 {
     let dir = app_dir();
     let _ = std::env::set_current_dir(&dir);
 
-    let _instance = match NamedMutex::acquire(crate::INSTANCE_MUTEX) {
+    let _instance = match NamedMutex::acquire(&crate::instance_lock(&dir)) {
         Ok((mutex, true)) => mutex,
         _ => {
             // the app may be starting, its command line comes up a moment later

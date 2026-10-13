@@ -17,11 +17,6 @@ const release = path.join(root, 'target', 'release')
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const ps = (command) => execSync(`powershell -NoProfile -Command "${command}; exit 0"`, { encoding: 'utf8' }).trim()
 
-const open = ps(`Get-Process RobloxAccountManager -ErrorAction SilentlyContinue | ForEach-Object { $_.Path }`)
-if (open) {
-  console.error(`Roblox Account Manager is open (${open}).\nClose it, then run the tests again.`)
-  process.exit(2)
-}
 const key = path.join(os.homedir(), '.roblox-account-manager', 'release-signing-key.txt')
 if (!fs.existsSync(key)) {
   console.error('No release signing key on this PC, skipping')
@@ -47,6 +42,8 @@ function install(name, { zipBytes = fs.readFileSync(zip), stagedVersion = next }
   for (const exe of ['RobloxAccountManager.exe', 'ram-cli.exe']) fs.copyFileSync(path.join(release, exe), path.join(dir, exe))
   fs.writeFileSync(path.join(dir, 'RAMSettings.ini'), '[General]\r\nLanguage=en\r\n[Updates]\r\nCheck=false\r\nAutoInstall=false\r\n[AntiAFK]\r\nAccounts=__test_nobody__\r\nIdleSeconds=86400\r\nKeepAwake=false\r\nBackground=false\r\n')
   fs.writeFileSync(path.join(dir, 'AccountData.json'), '[]')
+  // a test copy: its own lock and browser data, so it runs next to your own app without touching it
+  fs.writeFileSync(path.join(dir, 'ram-test-copy'), '')
   fs.writeFileSync(path.join(dir, 'NoEncryption.IUnderstandTheRisks.iautamor'), '')
   fs.writeFileSync(path.join(dir, 'update', 'update.zip'), zipBytes)
   fs.copyFileSync(`${zip}.sig`, path.join(dir, 'update', 'update.zip.sig'))

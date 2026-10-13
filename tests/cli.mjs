@@ -27,17 +27,12 @@ function prepare(dir) {
   fs.rmSync(dir, { recursive: true, force: true })
   fs.mkdirSync(dir, { recursive: true })
   for (const exe of ['RobloxAccountManager.exe', 'ram-cli.exe']) fs.copyFileSync(path.join(target, exe), path.join(dir, exe))
+  // a test copy: its own lock and browser data, so it runs next to your own app without touching it
+  fs.writeFileSync(path.join(dir, 'ram-test-copy'), '')
   fs.writeFileSync(path.join(dir, 'RAMSettings.ini'), '[General]\r\nLanguage=en\r\nEnableMultiRbx=false\r\n' + SAFE_ANTI_AFK)
 }
 
 stopTestApps()
-
-// Never runs next to your own Roblox Account Manager: they share one lock, and the tests stay away from it
-const open = execSync(`powershell -NoProfile -Command "Get-Process RobloxAccountManager -ErrorAction SilentlyContinue | Where-Object { $_.Path -notlike '*\\target\\test-run\\*' } | ForEach-Object { $_.Path }; exit 0"`, { encoding: 'utf8' }).trim()
-if (open) {
-  console.error(`Roblox Account Manager is open (${open}).\nClose it, then run the tests again.`)
-  process.exit(2)
-}
 
 prepare(work)
 fs.writeFileSync(path.join(work, 'NoEncryption.IUnderstandTheRisks.iautamor'), '')

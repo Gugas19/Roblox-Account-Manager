@@ -102,8 +102,6 @@ export interface AntiAfkWindow {
   placeId: number | null
   state: 'playing' | 'disconnected' | 'loading'
   included: boolean
-  /** keys go to it in the background (experimental mode) */
-  background: boolean
 }
 
 export interface AntiAfkStatus {

@@ -2,7 +2,7 @@
 
 use windows::Win32::Foundation::{HWND, RECT};
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetLayeredWindowAttributes, GetWindowLongW, IsIconic, SetLayeredWindowAttributes, SetWindowLongW, SetWindowPos, ShowWindow, SystemParametersInfoW, GWL_EXSTYLE, HWND_TOP, LWA_ALPHA, SPI_GETWORKAREA, SWP_NOACTIVATE,
+    GetWindowLongW, IsIconic, SetLayeredWindowAttributes, SetWindowLongW, SetWindowPos, ShowWindow, SystemParametersInfoW, GWL_EXSTYLE, HWND_TOP, LWA_ALPHA, SPI_GETWORKAREA, SWP_NOACTIVATE,
     SWP_SHOWWINDOW, SW_HIDE, SW_RESTORE, SW_SHOWNOACTIVATE, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS, WS_EX_LAYERED,
 };
 
@@ -60,23 +60,6 @@ pub fn set_hidden(windows: &[HWND], hidden: bool) {
             let _ = ShowWindow(*hwnd, if hidden { SW_HIDE } else { SW_SHOWNOACTIVATE });
         }
     }
-}
-
-/// A window's see-through level, `None` when it's solid (to put it back as it was)
-pub fn opacity_of(hwnd: HWND) -> Option<u8> {
-    unsafe {
-        if GetWindowLongW(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED.0 as i32 == 0 {
-            return None;
-        }
-        let mut alpha = 255u8;
-        let mut flags = Default::default();
-        GetLayeredWindowAttributes(hwnd, None, Some(&mut alpha), Some(&mut flags)).ok()?;
-        (flags & LWA_ALPHA == LWA_ALPHA).then_some(alpha)
-    }
-}
-
-pub fn restore_opacity(hwnd: HWND, before: Option<u8>) {
-    set_opacity(&[hwnd], before.unwrap_or(255));
 }
 
 /// See-through windows (alpha 0-255, 255 turns it off)

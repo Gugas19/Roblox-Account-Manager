@@ -25,24 +25,16 @@ const SAFE_ANTI_AFK = '[AntiAFK]\r\nAccounts=__test_nobody__\r\nUserSafe=true\r\
 
 // ---------- demo data ----------
 
-/** Never runs next to your own Roblox Account Manager: they share one lock, and the tests stay away from it */
-function refuseIfAppOpen() {
-  const open = execSync(`powershell -NoProfile -Command "Get-Process RobloxAccountManager -ErrorAction SilentlyContinue | Where-Object { $_.Path -notlike '*\\target\\test-run\\*' } | ForEach-Object { $_.Path }; exit 0"`, { encoding: 'utf8' }).trim()
-  if (open) {
-    console.error(`Roblox Account Manager is open (${open}).\nClose it, then run the tests again.`)
-    process.exit(2)
-  }
-}
-
 function prepare() {
   try { execSync(`powershell -NoProfile -Command "Get-Process RobloxAccountManager -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '*\\target\\test-run\\*' } | Stop-Process -Force"`) } catch {}
-  refuseIfAppOpen()
   fs.rmSync(work, { recursive: true, force: true })
   fs.mkdirSync(shots, { recursive: true })
   fs.mkdirSync(work, { recursive: true })
   const exe = path.join(root, 'target', fs.existsSync(path.join(root, 'target', 'release', 'RobloxAccountManager.exe')) && args.includes('--release') ? 'release' : 'debug', 'RobloxAccountManager.exe')
   fs.copyFileSync(exe, path.join(work, 'RobloxAccountManager.exe'))
   fs.writeFileSync(path.join(work, 'NoEncryption.IUnderstandTheRisks.iautamor'), '')
+  // a test copy: its own lock and browser data, so it runs next to your own app without touching it
+  fs.writeFileSync(path.join(work, 'ram-test-copy'), '')
   const now = new Date().toISOString()
   const old = new Date(Date.now() - 27 * 86400e3).toISOString()
   const demo = (Username, UserID, Group, Alias, LastUse = now, Description = '') => ({ Username, UserID, Group, Alias, LastUse, SecurityToken: `fake-token-${UserID}`, Description, Password: '', Fields: {} })

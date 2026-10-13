@@ -22,10 +22,6 @@ function Step([string] $Name, [scriptblock] $Work) {
 $Version = (Select-String -Path Cargo.toml -Pattern '^version = "(.+)"' | Select-Object -First 1).Matches.Groups[1].Value
 Write-Host "Roblox Account Manager $Version" -ForegroundColor Green
 
-# the tests can't run next to an open Roblox Account Manager: say so now, not after the build
-$Open = Get-Process RobloxAccountManager -ErrorAction SilentlyContinue | Where-Object { $_.Path -notlike '*\target\test-run\*' }
-if ($Open) { throw "Roblox Account Manager is open ($($Open[0].Path)), close it and keep it closed until the release is ready" }
-
 Step "Translations" { python tools/strings.py | Select-Object -First 1 }
 Step "Interface" { npm --prefix ui run build }
 Step "Build" { cargo build --release }

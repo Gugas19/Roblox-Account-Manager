@@ -25,6 +25,24 @@ use tauri::{Manager, WindowEvent};
 /// Same name as the C# version, so the two never run at the same time on the same files
 pub(crate) const INSTANCE_MUTEX: &str = "{93b3858f-3dac-4dc0-99cb-0476efc5adce}";
 
+/// A copy run by the tests (a `ram-test-copy` file next to it) or a development build (cargo's target folder).
+/// It runs next to the real app: a lock of its own, its own WebView2 data, and it never touches the Windows
+/// startup entry.
+pub(crate) fn is_test_copy(dir: &std::path::Path) -> bool {
+    dir.join("ram-test-copy").exists() || dir.components().any(|c| c.as_os_str().eq_ignore_ascii_case("target"))
+}
+
+/// The single instance lock: shared by every real copy (and the old C# version, they use the same files),
+/// one per folder for test copies
+pub(crate) fn instance_lock(dir: &std::path::Path) -> String {
+    if !is_test_copy(dir) {
+        return INSTANCE_MUTEX.to_string();
+    }
+    use sha2::{Digest, Sha256};
+    let hash = Sha256::digest(dir.to_string_lossy().to_lowercase().as_bytes());
+    format!("{INSTANCE_MUTEX}-test-{}", hash[..8].iter().map(|b| format!("{b:02x}")).collect::<String>())
+}
+
 pub fn run() {
     // the app keeps its files next to the exe, like the C# version
     let dir = std::env::current_exe().ok().and_then(|p| p.parent().map(|p| p.to_path_buf())).unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
@@ -32,13 +50,14 @@ pub fn run() {
 
     // started by an update: the previous version is quitting, give it a moment to let go of the lock
     let after_update = std::env::args().any(|a| a == "--updated");
-    let mut instance = NamedMutex::acquire(INSTANCE_MUTEX);
+    let lock = instance_lock(&dir);
+    let mut instance = NamedMutex::acquire(&lock);
     for _ in 0..if after_update { 50 } else { 0 } {
         if matches!(instance, Ok((_, true))) {
             break;
         }
         std::thread::sleep(std::time::Duration::from_millis(200));
-        instance = NamedMutex::acquire(INSTANCE_MUTEX);
+        instance = NamedMutex::acquire(&lock);
     }
 
     let _instance = match instance {
@@ -67,8 +86,16 @@ pub fn run() {
     }
     services::updater::clean_old(dir.clone());
 
+    let test_copy = is_test_copy(&dir);
+    if test_copy {
+        // its own browser data: two apps on the same WebView2 data folder get in each other's way
+        std::env::set_var("WEBVIEW2_USER_DATA_FOLDER", dir.join("webview-data"));
+    }
+
     let state = app::init(dir);
-    win::fix_startup_path();
+    if !test_copy {
+        win::fix_startup_path();
+    }
 
     if let Err(e) = services::webserver::restart(&state) {
         log::error!("{e}");

@@ -82,8 +82,6 @@ pub struct WindowView {
     /// playing, disconnected, loading
     state: &'static str,
     included: bool,
-    /// keys go to it in the background (experimental mode)
-    background: bool,
 }
 
 #[derive(Serialize, Clone)]
@@ -261,35 +259,6 @@ fn included_accounts(app: &App) -> Vec<String> {
     app.afk("Accounts").split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()
 }
 
-/// Roblox's error code for "disconnected for being idle 20 minutes"
-const IDLE_KICK: i64 = 278;
-
-/// Accounts kicked for being idle in background mode: their game ignores keys sent that way, they use the normal mode
-fn background_refused(app: &App) -> Vec<String> {
-    app.afk("NoBackground").split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()
-}
-
-/// Background mode for this window: keys go straight to it, the focus never moves
-fn uses_background(app: &App, account: &Option<String>) -> bool {
-    app.afk_flag("Background") && account.as_ref().map(|a| !background_refused(app).contains(a)).unwrap_or(true)
-}
-
-/// A window in background mode got kicked for being idle: that game ignores background keys, back to the normal mode
-fn background_failed(app: &Arc<App>, account: &Option<String>) {
-    if let Some(a) = account {
-        let mut refused = background_refused(app);
-        if !refused.contains(a) {
-            refused.push(a.clone());
-            app.set_setting(SECTION, "NoBackground", &refused.join(","));
-        }
-    }
-    let name = account.clone().unwrap_or_else(|| "Roblox".into());
-    let text = format!("{name} was kicked for being idle: its game ignores keys sent in the background, it uses the normal mode now");
-    log::warn!("{text}");
-    app.toast("error", text.clone());
-    notify(app, webhook::Event::Error, text);
-}
-
 fn account_for(app: &App, tracker: &Option<String>) -> Option<String> {
     let tracker = tracker.as_ref()?;
     app.store.lock().unwrap().accounts.iter().find(|a| a.browser_tracker_id.as_deref() == Some(tracker.as_str())).map(|a| a.username.clone())
@@ -380,11 +349,7 @@ fn cycle(app: &Arc<App>, windows: &[Window], forced: bool) {
     let skip_focused = app.afk_flag("SkipFocused") && !forced;
     let previous = input::foreground();
     let hidden = app.anti_afk().hidden.load(Ordering::SeqCst);
-    let invisible = app.afk_flag("Invisible");
-    // windows made see-through for the moment, with how they were before
-    let mut faded: Vec<(HWND, Option<u8>)> = Vec::new();
     let mut done = 0;
-    let mut focused = 0;
 
     for w in windows {
         if !app.anti_afk().running.load(Ordering::SeqCst) {
@@ -399,21 +364,7 @@ fn cycle(app: &Arc<App>, windows: &[Window], forced: bool) {
             continue;
         }
 
-        // experimental: straight to the window, the focus never moves
-        if uses_background(app, &account) {
-            input::post_action(w.hwnd, action, repeat);
-            if reset {
-                input::post_reset_character(w.hwnd);
-            }
-            done += 1;
-            continue;
-        }
-
         let minimized = input::was_minimized(w.hwnd);
-        if invisible {
-            faded.push((w.hwnd, layout::opacity_of(w.hwnd)));
-            layout::set_opacity(&[w.hwnd], 1);
-        }
         if hidden {
             layout::set_hidden(&[w.hwnd], false);
         }
@@ -423,7 +374,6 @@ fn cycle(app: &Arc<App>, windows: &[Window], forced: bool) {
                 input::reset_character();
             }
             done += 1;
-            focused += 1;
         }
         if minimized {
             input::minimize(w.hwnd);
@@ -433,12 +383,8 @@ fn cycle(app: &Arc<App>, windows: &[Window], forced: bool) {
         }
     }
 
-    if !previous.0.is_null() && focused > 0 {
+    if !previous.0.is_null() && done > 0 {
         input::focus(previous);
-    }
-    // visible again once they're back behind the user's window
-    for (hwnd, before) in faded {
-        layout::restore_opacity(hwnd, before);
     }
 
     if done > 0 {
@@ -533,13 +479,10 @@ fn tick(app: &Arc<App>) {
             if let Some(log) = t.log.as_mut() {
                 log.update();
                 match log.state.disconnected {
-                    Some(reason) if t.disconnected_since.is_none() => {
+                    Some(_) if t.disconnected_since.is_none() => {
                         t.disconnected_since = Some(Instant::now());
                         t.handled_disconnect = false;
                         notify(app, webhook::Event::Disconnected, format!("{} lost the connection", t.account.clone().unwrap_or_else(|| format!("Roblox {}", w.pid))));
-                        if reason == IDLE_KICK && running && uses_background(app, &t.account) {
-                            background_failed(app, &t.account);
-                        }
                     }
                     None => t.disconnected_since = None,
                     _ => {}
@@ -618,10 +561,8 @@ fn tick(app: &Arc<App>) {
         let due = state.next_action.lock().unwrap().map(|n| now >= n).unwrap_or(true);
         if (due || forced) && !windows.is_empty() && !state.acting.load(Ordering::SeqCst) {
             let waited = now - *state.waiting_since.lock().unwrap().get_or_insert(now);
-            // only switching windows can get in the user's way: background-only rounds go right away
-            let switches = windows.iter().any(|w| !uses_background(app, &account_for(app, &w.tracker)));
-            let user_safe = app.afk_flag("UserSafe") && !forced && switches;
-            let busy = switches && !forced && app.afk_flag("SkipFullScreen") && input::full_screen_in_front() && !pids.contains(&foreground_pid);
+            let user_safe = app.afk_flag("UserSafe") && !forced;
+            let busy = !forced && app.afk_flag("SkipFullScreen") && input::full_screen_in_front() && !pids.contains(&foreground_pid);
             let max_wait = Duration::from_secs(app.afk_number("MaxWaitSeconds"));
             match ready(user_safe, input::idle_seconds(), app.afk_number("IdleSeconds").max(1), busy, waited, max_wait) {
                 Ready::Wait => {}
@@ -687,7 +628,6 @@ pub fn status(app: &App) -> Status {
             WindowView {
                 pid: w.pid,
                 included: accounts.is_empty() || account.as_ref().map(|a| accounts.contains(a)).unwrap_or(false),
-                background: uses_background(app, &account),
                 account,
                 title: winutil::window_title(w.hwnd),
                 place_id: log.place_id,
