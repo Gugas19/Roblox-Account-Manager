@@ -91,7 +91,7 @@ Compress-Archive -Path "$Pack\*" -DestinationPath $Zip
 Remove-Item -Recurse -Force $Pack
 
 # signs, then checks the signature the same way the app does
-Step "Signature" { cargo run -q --release --example sign-release -- $Zip }
+Step "Signature" { & target\release\examples\sign-release.exe $Zip }
 
 Write-Host ("`nReady to upload, in {0:N1} minutes:" -f ((Get-Date) - $Started).TotalMinutes) -ForegroundColor Green
 Get-ChildItem $Dist | ForEach-Object { "  $($_.FullName)" }

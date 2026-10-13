@@ -117,7 +117,7 @@ impl IniFile {
 
     pub fn load(path: &Path) -> IniFile {
         match std::fs::read(path) {
-            Ok(bytes) => IniFile::parse(&String::from_utf8_lossy(&bytes).trim_start_matches('\u{feff}')),
+            Ok(bytes) => IniFile::parse(String::from_utf8_lossy(&bytes).trim_start_matches('\u{feff}')),
             Err(_) => IniFile::default(),
         }
     }

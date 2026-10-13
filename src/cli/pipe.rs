@@ -127,19 +127,6 @@ pub fn show_existing() -> bool {
     matches!(tauri::async_runtime::block_on(send(&request, &Out::new(|_| {}))), Ok(Some(0)))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn every_folder_has_its_own_pipe() {
-        let mine = pipe_name(std::path::Path::new(r"C:\Games\RAM\app"));
-        assert!(mine.starts_with(r"\\.\pipe\RobloxAccountManager.cli."));
-        assert_eq!(mine, pipe_name(std::path::Path::new(r"c:\games\ram\APP")));
-        assert_ne!(mine, pipe_name(std::path::Path::new(r"C:\Games\RAM\target\test-run\cli")));
-    }
-}
-
 /// Whether the process serving the pipe runs as the same Windows user as this one
 fn same_user(pipe: HANDLE) -> bool {
     unsafe {
@@ -170,4 +157,17 @@ unsafe fn user_sid(process: HANDLE) -> Option<Vec<u8>> {
     let sid = (*(buffer.as_ptr() as *const TOKEN_USER)).User.Sid;
     let length = GetLengthSid(sid) as usize;
     Some(std::slice::from_raw_parts(sid.0 as *const u8, length).to_vec())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_folder_has_its_own_pipe() {
+        let mine = pipe_name(std::path::Path::new(r"C:\Games\RAM\app"));
+        assert!(mine.starts_with(r"\\.\pipe\RobloxAccountManager.cli."));
+        assert_eq!(mine, pipe_name(std::path::Path::new(r"c:\games\ram\APP")));
+        assert_ne!(mine, pipe_name(std::path::Path::new(r"C:\Games\RAM\target\test-run\cli")));
+    }
 }

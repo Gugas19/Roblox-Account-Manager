@@ -230,8 +230,8 @@ async function main() {
     await test('main window lists the accounts by group', async () => {
       const t = await text()
       for (const name of ['NightFalcon_07', 'StorageAlt01', 'GrindBot_B', 'MAIN', 'STORAGE', 'FARM', '6 accounts']) assert(t.includes(name), `missing ${name}`)
-      // the game's name comes from Roblox half a second after the Place ID: the picture waits for it (if online)
-      await until(async () => !(await text()).includes('Current Place'), '', 5000).catch(() => {})
+      // the game's name and icon come from Roblox half a second after the Place ID: the picture waits for them (if online)
+      await until(async () => !(await text()).includes('Current Place') && (await evaluate(`!!document.querySelector('img.size-11')?.complete`)), '', 5000).catch(() => {})
       await shot('main')
     })
 

@@ -166,10 +166,16 @@ pub async fn allow_private_servers(name: String) -> R<bool> {
     app.api.set_private_server_privacy_everyone(&a.security_token, &csrf).await.map_err(e)
 }
 
+/// The game's name and icon for the game panel, both asked at the same time
 #[tauri::command]
-pub async fn place_name(place: String) -> Option<String> {
+pub async fn place_info(place: String) -> Option<Value> {
     let (id, _) = parse_place(&place, "");
-    app().api.place_name(id?).await.ok().flatten()
+    let ids = [id?];
+    let id = ids[0];
+    let app = app();
+    let (name, mut icons) = tokio::join!(app.api.place_name(id), super::games::place_icons(&app, &ids));
+    let name = name.ok().flatten()?;
+    Some(json!({ "name": name, "icon": icons.remove(&id) }))
 }
 
 #[tauri::command]

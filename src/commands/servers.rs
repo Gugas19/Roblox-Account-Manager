@@ -97,6 +97,7 @@ pub fn load_regions(name: Option<String>, place: String, ids: Vec<String>) -> R<
         }
         let format_text = Some(app.setting("General", "ServerRegionFormat")).filter(|f| !f.is_empty()).unwrap_or_else(|| "<city>, <region_code>".into());
         let ip_api = Some(app.setting("General", "IPApiLink")).filter(|f| !f.is_empty()).unwrap_or_else(|| "http://ip-api.com/json/<ip>".into());
+        let placeholder = regex::Regex::new(r"<(\w+)>").unwrap();
 
         for id in ids.into_iter().take(16) {
             let region = match app.api.join_game_instance(&account.security_token, current, &id, universe_place).await {
@@ -116,7 +117,7 @@ pub fn load_regions(name: Option<String>, place: String, ids: Vec<String>) -> R<
                     }
                     let info = app.api.get(&ip_api.replace("<ip>", &ip), None).await.ok().and_then(|r| r.json()).unwrap_or_default();
                     let mut text = format_text.clone();
-                    for c in regex::Regex::new(r"<(\w+)>").unwrap().captures_iter(&format_text) {
+                    for c in placeholder.captures_iter(&format_text) {
                         let value = match &c[1] {
                             "address" => ip.clone(),
                             "port" => js["joinScript"]["ServerPort"].to_string(),

@@ -171,7 +171,7 @@ pub fn run() {
             commands::joining::follow_check,
             commands::joining::follow,
             commands::joining::allow_private_servers,
-            commands::joining::place_name,
+            commands::joining::place_info,
             commands::joining::set_shuffle,
             commands::games::recent_games,
             commands::games::search_games,

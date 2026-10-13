@@ -30,21 +30,20 @@ export function useActions() {
   }, [selected.length, notify])
 
   /** A join that may need the user's ok to open the account's private server privacy */
-  const handleJoin = useCallback(async (result: JoinResult, retry: () => Promise<JoinResult>, account: string) => {
-    if (result.result === 'needsPrivacy') {
+  const handleJoin = useCallback(async (first: JoinResult, retry: () => Promise<JoinResult>, account: string) => {
+    let result = first
+    while (result.result === 'needsPrivacy') {
       const ok = await dialogs.confirm({
         title: 'Account Manager has detected your account\'s privacy settings do not allow you to join private servers.',
         description: 'Would you like to change this setting to Everyone now?',
       })
-      if (ok) {
-        try {
-          await api.allowPrivateServers(account)
-        } catch (e) {
-          notify.error(e)
-        }
-        return handleJoin(await retry(), retry, account)
+      if (!ok) return
+      try {
+        await api.allowPrivateServers(account)
+      } catch (e) {
+        notify.error(e)
       }
-      return
+      result = await retry()
     }
     if (result.result === 'error') notify.error(result.message)
   }, [dialogs, notify])

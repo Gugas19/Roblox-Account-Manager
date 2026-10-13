@@ -27,7 +27,7 @@ jobs:
           python-version: "3.12"
 
       - name: Rust
-        run: rustup toolchain install stable --profile minimal && rustup default stable
+        run: rustup toolchain install stable --profile minimal --component clippy && rustup default stable
 
       - uses: Swatinem/rust-cache@v2
 
@@ -38,6 +38,9 @@ jobs:
         run: |
           npm --prefix ui ci
           npm --prefix ui run build
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
 
       - name: Unit tests
         run: cargo test --lib

@@ -46,6 +46,11 @@ def ui_strings():
                     s = m.group(1) if m.group(1) is not None else m.group(2)
                     if is_text(s):
                         found.add(unescape(s))
+            # dialogs.alert('title', 'text'): both go through t()
+            for m in re.finditer(r'\bdialogs\.alert\(\s*' + STRING + r'(?:\s*,\s*' + STRING + r')?', text):
+                for s in m.groups():
+                    if s is not None and is_text(s):
+                        found.add(unescape(s))
     return found
 
 

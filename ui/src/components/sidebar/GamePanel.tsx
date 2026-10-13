@@ -26,7 +26,7 @@ export function GamePanel() {
   const t = useT()
   const actions = useActions()
   const { place, setPlace, job, setJob, selected, launching, setting, updateSetting } = useStore()
-  const [name, setName] = useState<string | null>(null)
+  const [info, setInfo] = useState<{ name: string; icon?: string } | null>(null)
   const [recent, setRecent] = useState<Game[]>([])
   const [shuffle, setShuffle] = useState(setting('General', 'ShuffleJobId') === 'true')
   const [joining, setJoining] = useState(false)
@@ -39,12 +39,16 @@ export function GamePanel() {
 
   useEffect(() => void api.setShuffle(shuffle), [shuffle])
 
-  // the game's name, once the user stops typing
+  // the game's name and icon, once the user stops typing (an answer for an older place is dropped)
   useEffect(() => {
-    setName(null)
+    setInfo(null)
     if (!/\d{3,}/.test(place)) return
-    const timer = setTimeout(() => api.placeName(place).then(setName), 500)
-    return () => clearTimeout(timer)
+    let current = true
+    const timer = setTimeout(() => api.placeInfo(place).then((i) => current && setInfo(i)), 500)
+    return () => {
+      current = false
+      clearTimeout(timer)
+    }
   }, [place])
 
   const paste = (e: React.ClipboardEvent) => {
@@ -70,10 +74,10 @@ export function GamePanel() {
   return (
     <section className="grid gap-3">
       <div className="flex items-center gap-3">
-        <GameIcon src={recentGame?.icon} className="size-11" />
+        <GameIcon src={info?.icon ?? recentGame?.icon} className="size-11" />
         <div className="min-w-0">
           <div className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{t('Game')}</div>
-          <div className="truncate font-semibold">{name ?? recentGame?.name ?? t('Current Place')}</div>
+          <div className="truncate font-semibold">{info?.name ?? recentGame?.name ?? t('Current Place')}</div>
         </div>
       </div>
 

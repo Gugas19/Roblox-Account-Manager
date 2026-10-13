@@ -54,7 +54,7 @@ export const api = {
   followCheck: (username: string) => call<{ userId: number; inGame: boolean }>('follow_check', { username }),
   follow: (names: string[], userId: number) => call<JoinResult>('follow', { names, userId }),
   allowPrivateServers: (name: string) => call<boolean>('allow_private_servers', { name }),
-  placeName: (place: string) => call<string | null>('place_name', { place }),
+  placeInfo: (place: string) => call<{ name: string; icon?: string } | null>('place_info', { place }),
   setShuffle: (on: boolean) => call<void>('set_shuffle', { on }),
 
   // games
