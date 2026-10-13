@@ -1,6 +1,6 @@
 /** Right click menu of the account list (same items as the C# version, developer ones only in developer mode) */
 
-import { ArrowDownAZ, ClipboardCopy, Code, FileText, FolderInput, Info, KeyRound, LogIn, Palette, Trash2, UserPlus } from 'lucide-react'
+import { ArrowDownAZ, Check, ClipboardCopy, Code, FileText, FolderInput, Gauge, Info, KeyRound, LogIn, Palette, PenLine, Trash2, UserPlus } from 'lucide-react'
 import { ContextMenuContent, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger } from '@/components/ui/context-menu'
 import { ColorItems } from '@/components/accounts/ColorItems'
 import { useDialogs } from '@/components/dialogs/DialogHost'
@@ -27,6 +27,9 @@ interface Props {
   onCustomColor: (target: ColorTarget) => void
 }
 
+/** Frame rate limits offered in the menu (a custom one is possible too) */
+const FPS_CHOICES = [15, 30, 45, 60, 90, 120, 144, 240]
+
 export function AccountMenu({ showGroups, toggleGroups, group, onCustomColor }: Props) {
   const t = useT()
   const notify = notifier(t)
@@ -35,6 +38,18 @@ export function AccountMenu({ showGroups, toggleGroups, group, onCustomColor }: 
   const { devMode, selected, selectedAccounts } = useStore()
   const none = selected.length === 0
   const noPassword = !selectedAccounts.some((a) => a.hasPassword)
+  // the accounts' frame rate limit when they all have the same one
+  const sameFps = selectedAccounts.length > 0 && selectedAccounts.every((a) => a.fpsLimit === selectedAccounts[0].fpsLimit)
+  const fps = sameFps ? selectedAccounts[0].fpsLimit : undefined
+  const setFps = (limit: number | null) => api.setFpsLimit(selected, limit).catch(notify.error)
+  const customFps = async () => {
+    const text = await dialogs.prompt({ title: 'FPS limit', label: 'Frames per second, from 5 to 1000. Applied the next time the account launches.', defaultValue: fps ? String(fps) : '60' })
+    if (text === null) return
+    const n = Number(text)
+    if (!Number.isInteger(n) || n < 5 || n > 1000) return notify.error(t('The frame rate limit goes from {0} to {1}', 5, 1000))
+    await setFps(n)
+  }
+
   // the accounts' color when they all have the same one
   const accountsColor = selectedAccounts.length && selectedAccounts.every((a) => a.color === selectedAccounts[0].color) ? selectedAccounts[0].color : null
 
@@ -52,6 +67,15 @@ export function AccountMenu({ showGroups, toggleGroups, group, onCustomColor }: 
             />
           </ContextMenuSubContent>
         </ContextMenuSub>
+        <ContextMenuItem
+          onClick={async () => {
+            // the full name, with the sorting number ("1Main"), so the order can be kept or changed
+            const name = await dialogs.prompt({ title: 'Rename group', label: 'A number in front sorts the groups (1Main, 2Alts), it is hidden in the list', defaultValue: group.key })
+            if (name && name !== group.key) await api.renameGroup(group.key, name).catch(notify.error)
+          }}
+        >
+          <PenLine /> {t('Rename group…')}
+        </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem onClick={actions.sortAlphabetically}><ArrowDownAZ /> {t('Sort Alphabetically')}</ContextMenuItem>
         <ContextMenuItem onClick={toggleGroups}><FolderInput /> {t(showGroups ? 'Hide groups' : 'Show groups')}</ContextMenuItem>
@@ -80,6 +104,27 @@ export function AccountMenu({ showGroups, toggleGroups, group, onCustomColor }: 
           <ContextMenuItem disabled={none} onClick={actions.moveToGroup}>{t('Move Account To')}</ContextMenuItem>
           <ContextMenuItem disabled={none} onClick={() => actions.copy('group')}>{t('Copy Group')}</ContextMenuItem>
           <ContextMenuItem onClick={toggleGroups}>{t(showGroups ? 'Hide groups' : 'Show groups')}</ContextMenuItem>
+        </ContextMenuSubContent>
+      </ContextMenuSub>
+      <ContextMenuSub>
+        <ContextMenuSubTrigger disabled={none}><Gauge /> {t('FPS limit')}</ContextMenuSubTrigger>
+        <ContextMenuSubContent className="w-52">
+          <ContextMenuItem onClick={() => setFps(null)}>
+            {t('Like in the settings')}
+            {fps === null && <Check className="ml-auto" />}
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          {FPS_CHOICES.map((n) => (
+            <ContextMenuItem key={n} onClick={() => setFps(n)}>
+              {t('{0} FPS', n)}
+              {fps === n && <Check className="ml-auto" />}
+            </ContextMenuItem>
+          ))}
+          <ContextMenuSeparator />
+          <ContextMenuItem onClick={customFps}>
+            {t('Custom…')}
+            {fps != null && !FPS_CHOICES.includes(fps) && <span className="ml-auto text-xs text-muted-foreground">{t('{0} FPS', fps)}</span>}
+          </ContextMenuItem>
         </ContextMenuSubContent>
       </ContextMenuSub>
       <ContextMenuSub>

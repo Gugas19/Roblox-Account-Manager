@@ -43,7 +43,12 @@ function prepare() {
     demo('StorageAlt01', 3, '2Storage', 'Bank', old), demo('StorageAlt02', 4, '2Storage', ''),
     demo('GrindBot_A', 5, '3Farm', 'Farm A'), demo('GrindBot_B', 6, '3Farm', 'Farm B'),
   ]))
-  fs.writeFileSync(path.join(work, 'RAMSettings.ini'), '[General]\r\nLanguage=en\r\nEnableMultiRbx=false\r\n' + SAFE_ANTI_AFK)
+  // the README's pictures show the normal settings. Still safe: Anti-AFK only takes a made-up account, so it never
+  // finds a window of its own to switch to or press keys in
+  const settings = args.includes('--readme')
+    ? '[General]\r\nLanguage=en\r\n' + SAFE_ANTI_AFK.replace('IdleSeconds=86400', 'IdleSeconds=5').replace('MaxWaitSeconds=86400', 'MaxWaitSeconds=90')
+    : '[General]\r\nLanguage=en\r\nEnableMultiRbx=false\r\n' + SAFE_ANTI_AFK
+  fs.writeFileSync(path.join(work, 'RAMSettings.ini'), settings)
 }
 
 // ---------- DevTools protocol ----------
@@ -111,20 +116,44 @@ async function mouse(type, x, y, button = 'left') {
   await call('Input.dispatchMouseEvent', { type, x, y, button, clickCount: 1, buttons: button === 'left' ? 1 : 2 })
 }
 
+/** Opens a right click submenu, clicking its trigger again if the menu was still opening */
+async function openSub(text) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    await click(text, '[role=menuitem]')
+    const open = await evaluate(`!!document.querySelector('[data-slot=context-menu-sub-content][data-state=open]')`)
+    if (open) return
+    await sleep(100)
+  }
+  throw new Error(`the "${text}" submenu didn't open`)
+}
+
+/** Menus and dialogs animate for 100 ms: after an action, a short settle before the next one */
+const SETTLE = 150
+
+/** Waits (up to 3 s) for the element to show up, so no test needs a long fixed pause before a click */
+async function findSoon(text, selector) {
+  const end = Date.now() + 3000
+  for (;;) {
+    const p = await find(text, selector)
+    if (p || Date.now() > end) return p
+    await sleep(50)
+  }
+}
+
 async function click(text, selector, button = 'left') {
-  const p = await find(text, selector)
+  const p = await findSoon(text, selector)
   if (!p) throw new Error(`nothing to click: "${text}"`)
   await mouse('mouseMoved', p.x, p.y, button)
   await mouse('mousePressed', p.x, p.y, button)
   await mouse('mouseReleased', p.x, p.y, button)
-  await sleep(350)
+  await sleep(SETTLE)
 }
 
 async function key(keyName, modifiers = 0) {
   const code = keyName.length === 1 ? `Key${keyName.toUpperCase()}` : keyName
   await call('Input.dispatchKeyEvent', { type: 'keyDown', key: keyName, code, modifiers, windowsVirtualKeyCode: keyName.length === 1 ? keyName.toUpperCase().charCodeAt(0) : { Escape: 27, Enter: 13, Delete: 46 }[keyName] })
   await call('Input.dispatchKeyEvent', { type: 'keyUp', key: keyName, code, modifiers })
-  await sleep(300)
+  await sleep(SETTLE)
 }
 
 async function shot(name) {
@@ -185,7 +214,8 @@ async function main() {
   prepare()
   const app = spawn(path.join(work, 'RobloxAccountManager.exe'), [], {
     cwd: work,
-    env: { ...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port}` },
+    // the test copy's window is off screen: Chromium must keep drawing it anyway
+    env: { ...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --disable-features=CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows --disable-renderer-backgrounding` },
     stdio: 'ignore',
   })
 
@@ -193,11 +223,15 @@ async function main() {
     await connect()
     await call('Page.enable')
     await call('Runtime.enable')
-    await sleep(2500)
+    // the test copy never has the Windows focus (it must not take it from you): the page behaves as if it had
+    await call('Emulation.setFocusEmulationEnabled', { enabled: true })
+    await until(async () => (await text()).includes('6 accounts'), 'the accounts never showed up', 15000)
 
     await test('main window lists the accounts by group', async () => {
       const t = await text()
       for (const name of ['NightFalcon_07', 'StorageAlt01', 'GrindBot_B', 'MAIN', 'STORAGE', 'FARM', '6 accounts']) assert(t.includes(name), `missing ${name}`)
+      // the game's name comes from Roblox half a second after the Place ID: the picture waits for it (if online)
+      await until(async () => !(await text()).includes('Current Place'), '', 5000).catch(() => {})
       await shot('main')
     })
 
@@ -212,8 +246,7 @@ async function main() {
 
     await test('search filters and counts', async () => {
       await evaluate(`(() => { const i = document.querySelector('input[placeholder="Search accounts..."]'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(i, 'storage'); i.dispatchEvent(new Event('input', { bubbles: true })) })()`)
-      await sleep(300)
-      assert((await text()).includes('2 of 6 accounts'), 'counter')
+      await until(async () => (await text()).includes('2 of 6 accounts'), 'counter')
       await shot('search')
       await evaluate(`(() => { const i = document.querySelector('input[placeholder="Search accounts..."]'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(i, ''); i.dispatchEvent(new Event('input', { bubbles: true })) })()`)
     })
@@ -234,7 +267,7 @@ async function main() {
 
       // one account in red
       await click('GrindBot_A', '[role=row]', 'right')
-      await click('Color', '[role=menuitem]')
+      await openSub('Color')
       await checkCursors('[role=menuitem]')
       await shot('color-menu')
       await click('Red', '[role=menuitem]')
@@ -242,7 +275,7 @@ async function main() {
 
       // its group in blue: the header, and the bar of the group's other account
       await click('FARM', 'button', 'right')
-      await click('Group color', '[role=menuitem]')
+      await openSub('Group color')
       await click('Blue', '[role=menuitem]')
       await until(async () => (await style(header))?.startsWith('rgb(59, 130, 246)'), 'the group is not blue')
       const other = `[...document.querySelectorAll('[role=row] span.font-medium')].find((e) => e.innerText === 'GrindBot_B')`
@@ -253,22 +286,47 @@ async function main() {
 
       // and back to no colors
       await click('GrindBot_A', '[role=row]', 'right')
-      await click('Color', '[role=menuitem]')
+      await openSub('Color')
       await click('No color', '[role=menuitem]')
       await click('FARM', 'button', 'right')
-      await click('Group color', '[role=menuitem]')
+      await openSub('Group color')
       await click('No color', '[role=menuitem]')
       await until(async () => (await style(other))?.endsWith('|'), 'the colors did not go away')
+    })
+
+    await test('FPS limit for an account, from the right click menu', async () => {
+      const badge = () => evaluate(`[...document.querySelectorAll('[role=row]')].find((r) => r.innerText.includes('PixelBuilderBR'))?.innerText.includes('30 FPS')`)
+      await click('PixelBuilderBR', '[role=row]', 'right')
+      await openSub('FPS limit')
+      await shot('fps-menu')
+      await click('30 FPS', '[role=menuitem]')
+      await until(badge, 'no "30 FPS" on the account')
+      await click('PixelBuilderBR', '[role=row]', 'right')
+      await openSub('FPS limit')
+      await click('Like in the settings', '[role=menuitem]')
+      await until(async () => !(await badge()), 'the limit did not go away')
+    })
+
+    await test('rename a group from its header', async () => {
+      await click('FARM', 'button', 'right')
+      await click('Rename group…', '[role=menuitem]')
+      await evaluate(`(() => { const i = document.querySelector('[role=dialog] input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(i, '3Grinders'); i.dispatchEvent(new Event('input', { bubbles: true })) })()`)
+      await evaluate(`document.querySelector('[role=dialog] form').requestSubmit()`)
+      await until(async () => (await text()).includes('GRINDERS') && !(await text()).includes('FARM'), 'the group was not renamed')
+      // and back, so the other tests find it
+      await click('GRINDERS', 'button', 'right')
+      await click('Rename group…', '[role=menuitem]')
+      await evaluate(`(() => { const i = document.querySelector('[role=dialog] input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(i, '3Farm'); i.dispatchEvent(new Event('input', { bubbles: true })) })()`)
+      await evaluate(`document.querySelector('[role=dialog] form').requestSubmit()`)
+      await until(async () => (await text()).includes('FARM'), 'the group did not get its name back')
     })
 
     await test('remove shows undo and undo brings it back', async () => {
       await click('StorageAlt02', '[role=row]')
       await click('Remove', 'button')
-      await sleep(500)
-      assert(!(await rows()).includes('StorageAlt02'), 'not removed')
+      await until(async () => !(await rows()).includes('StorageAlt02'), 'not removed')
       await click('Undo', 'button')
-      await sleep(800)
-      assert((await rows()).includes('StorageAlt02'), 'undo failed')
+      await until(async () => (await rows()).includes('StorageAlt02'), 'undo failed')
     })
 
     await test('command palette (Ctrl+K)', async () => {
@@ -336,7 +394,8 @@ async function main() {
         assert(first, 'no countdown')
         await until(async () => (await line()) !== first, 'the countdown is frozen')
         // once the round is due it waits for the user to stop (here for a day), and says so
-        await until(async () => (await text()).includes('Waiting for you to stop typing and moving the mouse'), 'no waiting state', 8000)
+        // (with the README's normal settings the round runs instead of waiting, for a made-up account: no keys)
+        if (!args.includes('--readme')) await until(async () => (await text()).includes('Waiting for you to stop typing and moving the mouse'), 'no waiting state', 8000)
       } else {
         await until(async () => (await text()).includes('Waiting for a Roblox window'), 'no "waiting for a Roblox window" state')
       }
@@ -366,14 +425,12 @@ async function main() {
     await test('language switch is instant', async () => {
       await click('EN', 'button')
       await click('Português (Portugal)', '[role=menuitem]')
-      await sleep(500)
-      assert((await text()).includes('Adicionar conta'), 'not translated')
+      await until(async () => (await text()).includes('Adicionar conta'), 'not translated')
       await shot('main-pt')
       for (const [code, name, word] of [['PT', 'Español', 'Añadir cuenta'], ['ES', 'Français', 'Ajouter un compte'], ['FR', 'Deutsch', 'Konto hinzufügen']]) {
         await click(code, 'button')
         await click(name, '[role=menuitem]')
-        await sleep(500)
-        assert((await text()).includes(word), `${name} not translated`)
+        await until(async () => (await text()).includes(word), `${name} not translated`)
         await shot(`main-${name.slice(0, 2).toLowerCase()}`)
       }
       await click('DE', 'button')
@@ -396,6 +453,7 @@ function updateReadmeImages() {
     palette: 'command-palette', 'antiafk-behaviour': 'antiafk', 'antiafk-rejoin': 'antiafk-rejoin',
     search: 'search', 'account-menu': 'account-menu', 'account-utilities': 'account-utilities',
     'settings-general': 'settings', theme: 'theme', 'utilities-servers': 'utilities',
+    colors: 'colors', 'fps-menu': 'fps-limit',
   }
   const images = path.join(root, 'Images')
   fs.mkdirSync(images, { recursive: true })

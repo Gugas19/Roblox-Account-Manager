@@ -70,6 +70,8 @@ pub struct State {
     waiting_since: Mutex<Option<Instant>>,
     /// keys are being pressed (on a thread of its own, the engine keeps going)
     acting: AtomicBool,
+    /// the last status sent to the interface (without the idle time) and when
+    last_sent: Mutex<(String, Option<Instant>)>,
 }
 
 #[derive(Serialize, Clone)]
@@ -104,28 +106,22 @@ struct Window {
     seconds_running: u64,
 }
 
-/// Roblox's own window title, how hidden windows are told apart from its helper windows
-const ROBLOX_TITLE: &str = "Roblox";
-
-/// A Roblox window hidden with "Hide windows" (only visible windows are found otherwise)
-fn hidden_main_window(pid: u32) -> Option<HWND> {
-    winutil::all_windows_of(pid).into_iter().find(|h| winutil::window_title(*h) == ROBLOX_TITLE)
-}
-
-/// Every Roblox window, hidden ones too, so Anti-AFK keeps them active and they stay in the list
+/// Every Roblox window, hidden ones too, so Anti-AFK keeps them active and they stay in the list.
+/// Found by their window class every second (cheap), the process details are read once per Roblox.
 fn roblox_windows() -> Vec<Window> {
-    winutil::roblox_processes()
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    winutil::roblox_main_windows()
         .into_iter()
-        .filter_map(|p| {
-            let hwnd = winutil::main_window(p.pid).or_else(|| hidden_main_window(p.pid))?;
-            Some(Window { pid: p.pid, hwnd, tracker: p.tracker_id(), seconds_running: p.seconds_running })
+        .filter_map(|(pid, hwnd)| {
+            let info = winutil::roblox_info(pid)?;
+            Some(Window { pid, hwnd, tracker: info.tracker_id, seconds_running: now.saturating_sub(info.started) })
         })
         .collect()
 }
 
 /// The Roblox windows to show again (never Roblox's other hidden helper windows)
 fn hidden_roblox_windows() -> Vec<HWND> {
-    winutil::roblox_processes().into_iter().filter_map(|p| hidden_main_window(p.pid)).collect()
+    winutil::roblox_main_windows().into_iter().map(|(_, hwnd)| hwnd).filter(|h| unsafe { !windows::Win32::UI::WindowsAndMessaging::IsWindowVisible(*h).as_bool() }).collect()
 }
 
 impl App {
@@ -415,7 +411,7 @@ fn rejoin(app: &Arc<App>, pid: u32, account: &str, place: i64, job: Option<Strin
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(Duration::from_secs(3)).await;
         let tracker = app.ensure_tracker(&acc.username);
-        let opts = JoinOptions { place_id: place, job_id: if same_server { job.unwrap_or_default() } else { String::new() }, privacy_ok: true, ..app.join_options() };
+        let opts = JoinOptions { place_id: place, job_id: if same_server { job.unwrap_or_default() } else { String::new() }, privacy_ok: true, fps_limit: launcher::fps_limit_of(&acc), ..app.join_options() };
         match launcher::join(&app.api, &acc.security_token, &tracker, opts).await {
             JoinResult::Success => {
                 add_stat(&app, "StatRejoins", 1);
@@ -593,7 +589,25 @@ fn tick(app: &Arc<App>) {
         }
     }
 
-    app.emit("antiafk", status(app));
+    send_status(app);
+}
+
+/// The status for the interface, only when something in it changed (the idle time aside, it changes every
+/// second) or every 5 seconds: sending it every second kept the interface busy for nothing
+fn send_status(app: &Arc<App>) {
+    let status = status(app);
+    let mut key = serde_json::to_value(&status).unwrap_or_default();
+    if let Some(o) = key.as_object_mut() {
+        o.remove("idleSeconds");
+    }
+    let key = key.to_string();
+    let mut last = app.anti_afk().last_sent.lock().unwrap();
+    let due = last.1.map(|t| t.elapsed() >= Duration::from_secs(5)).unwrap_or(true);
+    if due || last.0 != key {
+        *last = (key, Some(Instant::now()));
+        drop(last);
+        app.emit("antiafk", status);
+    }
 }
 
 /// Applies `change(pids, on)` so only the windows the user isn't looking at have the effect, undoes it when turned off

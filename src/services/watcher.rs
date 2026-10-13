@@ -174,10 +174,10 @@ pub fn read_logs(app: &App) {
     let (init, init2, stop, stop2, pause, rta1, rta2) = (rx("DataModelInit"), rx("DataModelInit2"), rx("DataModelStop"), rx("DataModelStop2"), rx("DataModelPause"), rx("ReturnToApp1"), rx("ReturnToApp2"));
     let hex = |s: &str| i64::from_str_radix(s, 16).ok();
 
-    let alive: HashSet<u32> = winutil::roblox_processes().iter().map(|p| p.pid).collect();
+    // which tracked processes still run, without listing every process 4 times a second
     let mut tracked = app.watcher.tracked.lock().unwrap();
-    tracked.retain(|pid, _| alive.contains(pid));
-    app.watcher.seen.lock().unwrap().retain(|pid| alive.contains(pid));
+    tracked.retain(|pid, _| winutil::process_alive(*pid));
+    app.watcher.seen.lock().unwrap().retain(|pid| winutil::process_alive(*pid));
 
     let mut kill = Vec::new();
 

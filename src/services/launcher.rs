@@ -25,7 +25,18 @@ pub struct JoinOptions {
     pub unlock_fps: bool,
     pub max_fps: i64,
     pub custom_client_settings: Option<String>,
+    /// this account's own frame rate limit, wins over the global one
+    pub fps_limit: Option<i64>,
 }
+
+/// The frame rate limit an account has (its "FPSLimit" field), if any
+pub fn fps_limit_of(account: &crate::core::accounts::Account) -> Option<i64> {
+    account.field("FPSLimit").parse::<i64>().ok().filter(|n| (FPS_MIN..=FPS_MAX).contains(n))
+}
+
+pub const FPS_MIN: i64 = 5;
+pub const FPS_MAX: i64 = 1000;
+const FPS_FLAG: &str = "DFIntTaskSchedulerTargetFps";
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(tag = "result", content = "message", rename_all = "camelCase")]
@@ -84,14 +95,42 @@ pub fn patch_client_settings(opts: &JoinOptions) -> Result<()> {
 
     let settings_folder = folder.join("ClientSettings");
     std::fs::create_dir_all(&settings_folder)?;
-    let file = settings_folder.join("ClientAppSettings.json");
+    write_client_settings(&settings_folder, opts)
+}
 
-    if let Some(custom) = opts.custom_client_settings.as_ref().filter(|c| !c.is_empty() && Path::new(c).exists()) {
+/// ClientAppSettings.json in `settings_folder`: the custom file, the account's frame rate or the global one
+fn write_client_settings(settings_folder: &Path, opts: &JoinOptions) -> Result<()> {
+    let file = settings_folder.join("ClientAppSettings.json");
+    // next to Roblox's settings: the frame rate in there was written by this app (so it can take it away again)
+    let marker = settings_folder.join("ram-fps-limit");
+
+    let custom = opts.custom_client_settings.as_ref().filter(|c| !c.is_empty() && Path::new(c).exists());
+    if let Some(custom) = custom {
         std::fs::copy(custom, &file)?;
-    } else if opts.unlock_fps {
-        let mut settings = std::fs::read_to_string(&file).ok().and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok()).filter(|v| v.is_object()).unwrap_or_else(|| serde_json::json!({}));
-        settings["DFIntTaskSchedulerTargetFps"] = serde_json::json!(if opts.max_fps > 0 { opts.max_fps } else { 240 });
-        std::fs::write(&file, serde_json::to_string(&settings)?)?;
+        let _ = std::fs::remove_file(&marker);
+    }
+
+    // the account's own limit, otherwise the global unlock (not over a custom file, it has its own)
+    let wanted = opts.fps_limit.or_else(|| (opts.unlock_fps && custom.is_none()).then_some(if opts.max_fps > 0 { opts.max_fps } else { 240 }));
+    let read = || std::fs::read_to_string(&file).ok().and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok()).filter(|v| v.is_object()).unwrap_or_else(|| serde_json::json!({}));
+
+    match wanted {
+        Some(fps) => {
+            let mut settings = read();
+            settings[FPS_FLAG] = serde_json::json!(fps);
+            std::fs::write(&file, serde_json::to_string(&settings)?)?;
+            std::fs::write(&marker, fps.to_string())?;
+        }
+        // an account without a limit after one with: what this app wrote goes, the rest of the file stays
+        None if marker.exists() => {
+            let mut settings = read();
+            if let Some(o) = settings.as_object_mut() {
+                o.remove(FPS_FLAG);
+            }
+            std::fs::write(&file, serde_json::to_string(&settings)?)?;
+            let _ = std::fs::remove_file(&marker);
+        }
+        None => {}
     }
     Ok(())
 }
@@ -202,6 +241,55 @@ pub fn shareable_link(ticket: &str, place_id: &str, job_id: &str) -> String {
 pub fn app_link(ticket: &str) -> String {
     let tracker = format!("{}{}", rand::thread_rng().gen_range(500000..600000), rand::thread_rng().gen_range(10000..90000));
     format!("<roblox-player://1/1+launchmode:app+gameinfo:{}+launchtime:{}+browsertrackerid:{}+robloxLocale:en_us+gameLocale:en_us>", ticket, launch_time(), tracker)
+}
+
+#[cfg(test)]
+mod fps_tests {
+    use super::*;
+
+    fn folder() -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("ram-fps-test-{}-{}", std::process::id(), rand::random::<u32>()));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn settings(dir: &Path) -> serde_json::Value {
+        serde_json::from_str(&std::fs::read_to_string(dir.join("ClientAppSettings.json")).unwrap_or_else(|_| "{}".into())).unwrap()
+    }
+
+    #[test]
+    fn an_account_limit_then_an_account_without() {
+        let dir = folder();
+        std::fs::write(dir.join("ClientAppSettings.json"), r#"{"FFlagSomethingElse":true}"#).unwrap();
+
+        // the account with a limit
+        write_client_settings(&dir, &JoinOptions { fps_limit: Some(30), ..Default::default() }).unwrap();
+        assert_eq!(settings(&dir)[FPS_FLAG], 30);
+        // the next one has none and the global unlock is off: the 30 goes, the user's own flags stay
+        write_client_settings(&dir, &JoinOptions::default()).unwrap();
+        assert!(settings(&dir).get(FPS_FLAG).is_none());
+        assert_eq!(settings(&dir)["FFlagSomethingElse"], true);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn the_account_limit_wins_over_the_global_one() {
+        let dir = folder();
+        write_client_settings(&dir, &JoinOptions { unlock_fps: true, max_fps: 144, fps_limit: Some(60), ..Default::default() }).unwrap();
+        assert_eq!(settings(&dir)[FPS_FLAG], 60);
+        write_client_settings(&dir, &JoinOptions { unlock_fps: true, max_fps: 144, ..Default::default() }).unwrap();
+        assert_eq!(settings(&dir)[FPS_FLAG], 144);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_frame_rate_the_app_did_not_write_is_left_alone() {
+        let dir = folder();
+        std::fs::write(dir.join("ClientAppSettings.json"), r#"{"DFIntTaskSchedulerTargetFps":75}"#).unwrap();
+        write_client_settings(&dir, &JoinOptions::default()).unwrap();
+        assert_eq!(settings(&dir)[FPS_FLAG], 75);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }
 
 #[cfg(test)]

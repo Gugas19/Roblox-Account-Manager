@@ -7,7 +7,7 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   base: './',
-  resolve: { alias: { '@': path.resolve(__dirname, './src') } },
+  resolve: { alias: { '@': path.resolve(import.meta.dirname, './src') } },
   server: { port: 1420, strictPort: true },
   build: { outDir: 'dist', target: 'es2022', chunkSizeWarningLimit: 2000 },
 })

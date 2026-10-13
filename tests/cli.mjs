@@ -82,6 +82,15 @@ await test('list --json and --group', () => {
   const farm = JSON.parse(cli(work, ['list', '--group', 'farm', '--json']).out)
   if (farm.map((a) => a.username).join() !== 'GrindBot_A,GrindBot_B') throw new Error(JSON.stringify(farm))
 })
+await test('frame rate limit per account', () => {
+  const fpsOf = () => JSON.parse(cli(work, ['list', '--json']).out).find((a) => a.username === 'NightFalcon_07').fpsLimit
+  expect(cli(work, ['fps', 'Main', '30']), 0, 'NightFalcon_07 now use 30 FPS')
+  if (fpsOf() !== 30) throw new Error(`fpsLimit is ${fpsOf()}`)
+  expect(cli(work, ['fps', 'Main', 'fast']), 2, 'from 5 to 1000')
+  expect(cli(work, ['fps', 'Main', '2']), 1, 'from 5 to 1000')
+  expect(cli(work, ['fps', 'Main', 'default']), 0, "the settings' limit")
+  if (fpsOf() !== null) throw new Error(`fpsLimit is ${fpsOf()}`)
+})
 await test('status', () => expect(cli(work, ['status']), 0, 'not open', 'Accounts: 5', 'Anti-AFK: off'))
 await test('wrong command lines exit with 2', () => {
   expect(cli(work, ['dance']), 2, "Unknown command 'dance'", 'ram-cli help')

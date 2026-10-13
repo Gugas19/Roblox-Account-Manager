@@ -112,7 +112,7 @@ pub fn run() {
         .setup(move |tauri_app| {
             let _ = setup_state.handle.set(tauri_app.handle().clone());
             if let Some(window) = tauri_app.get_webview_window("main") {
-                let _ = window.show();
+                show_window(&window);
             }
             tray(tauri_app, setup_state.clone())?;
             Ok(())
@@ -149,6 +149,10 @@ pub fn run() {
             commands::accounts::set_alias,
             commands::accounts::set_description,
             commands::accounts::set_account_color,
+            commands::accounts::set_fps_limit,
+            commands::accounts::rename_group,
+            commands::backup::export_accounts,
+            commands::backup::import_backup,
             commands::accounts::set_group_color,
             commands::accounts::move_to_group,
             commands::accounts::reorder,
@@ -255,8 +259,41 @@ fn tray(tauri_app: &tauri::App, state: Arc<app::App>) -> tauri::Result<()> {
 
 pub(crate) fn show_main(handle: &tauri::AppHandle) {
     if let Some(window) = handle.get_webview_window("main") {
+        show_window(&window);
+        if !own_folder_is_test_copy() {
+            let _ = window.unminimize();
+            let _ = window.set_focus();
+        }
+    }
+}
+
+fn own_folder_is_test_copy() -> bool {
+    std::env::current_exe().ok().and_then(|p| p.parent().map(is_test_copy)).unwrap_or(false)
+}
+
+/// Shows the window. A test copy's window opens off screen and never takes the focus: the tests drive the page
+/// directly, the person using the PC keeps working undisturbed.
+fn show_window(window: &tauri::WebviewWindow) {
+    if !own_folder_is_test_copy() {
+        // the window doesn't ask for the focus by itself (tauri.conf.json): the real app takes it here
         let _ = window.show();
-        let _ = window.unminimize();
         let _ = window.set_focus();
+        return;
+    }
+    if let Ok(hwnd) = window.hwnd() {
+        use windows::Win32::UI::WindowsAndMessaging::{
+            GetWindowLongW, SetLayeredWindowAttributes, SetWindowLongW, SetWindowPos, ShowWindow, GWL_EXSTYLE, HWND_BOTTOM, LWA_ALPHA, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SW_SHOWNOACTIVATE,
+            WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+        };
+        let hwnd = windows::Win32::Foundation::HWND(hwnd.0 as _);
+        unsafe {
+            // never activated, no taskbar button, fully see-through, behind every window. It stays where it is:
+            // moved off screen, Windows gave it another monitor's scale and the page came out the wrong size.
+            let style = GetWindowLongW(hwnd, GWL_EXSTYLE);
+            SetWindowLongW(hwnd, GWL_EXSTYLE, style | (WS_EX_NOACTIVATE.0 | WS_EX_TOOLWINDOW.0 | WS_EX_LAYERED.0) as i32);
+            let _ = SetLayeredWindowAttributes(hwnd, windows::Win32::Foundation::COLORREF(0), 0, LWA_ALPHA);
+            let _ = SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            let _ = ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+        }
     }
 }

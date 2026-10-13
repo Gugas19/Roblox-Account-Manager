@@ -10,3 +10,4 @@ AccountData.json*
 RAMSettings.ini
 RAMTheme.ini
 log.txt
+__pycache__/

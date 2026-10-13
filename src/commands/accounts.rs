@@ -57,6 +57,25 @@ pub fn set_alias(names: Vec<String>, alias: String) -> R<()> {
     Ok(())
 }
 
+/// The frame rate limit of the accounts (applied when they launch), `None` goes back to the global setting
+#[tauri::command]
+pub fn set_fps_limit(names: Vec<String>, limit: Option<i64>) -> R<()> {
+    let app = app();
+    if let Some(n) = limit {
+        if !(launcher::FPS_MIN..=launcher::FPS_MAX).contains(&n) {
+            return Err(format!("The frame rate limit goes from {} to {}", launcher::FPS_MIN, launcher::FPS_MAX));
+        }
+    }
+    for n in &names {
+        app.update_account(n, |a| match limit {
+            Some(fps) => drop(a.fields.insert("FPSLimit".into(), fps.to_string())),
+            None => drop(a.fields.shift_remove("FPSLimit")),
+        });
+    }
+    app.save_accounts(true);
+    Ok(())
+}
+
 /// The color of the accounts, `None` takes it away
 #[tauri::command]
 pub fn set_account_color(names: Vec<String>, color: Option<String>) -> R<()> {
@@ -110,6 +129,33 @@ pub fn move_to_group(names: Vec<String>, group: String) {
         app.update_account(n, |a| a.group = group.clone());
     }
     app.save_accounts(false);
+}
+
+/// Renames a group: every account in it moves to the new name, and the group's color goes with them
+#[tauri::command]
+pub fn rename_group(from: String, to: String) -> R<usize> {
+    let app = app();
+    let to = to.trim().to_string();
+    if to.is_empty() {
+        return Err("The group needs a name".into());
+    }
+    if to.chars().count() > 100 {
+        return Err("The group name can have at most 100 characters".into());
+    }
+    let mut moved = 0;
+    {
+        let mut store = app.store.lock().unwrap();
+        for a in store.accounts.iter_mut().filter(|a| a.group == from) {
+            a.group = to.clone();
+            moved += 1;
+        }
+    }
+    if let Some(color) = app.group_colors().get(&from).cloned() {
+        app.set_group_color(&from, None);
+        app.set_group_color(&to, Some(color));
+    }
+    app.save_accounts(true);
+    Ok(moved)
 }
 
 /// Drag and drop: puts the accounts before `before` (or at the end of the group) and moves them to its group

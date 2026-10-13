@@ -354,6 +354,7 @@ fn spawn_join(account: crate::core::accounts::Account, opts: JoinOptions) {
     tauri::async_runtime::spawn(async move {
         let app = app();
         let tracker = app.ensure_tracker(&account.username);
+        let opts = JoinOptions { fps_limit: launcher::fps_limit_of(&account), ..opts };
         let result = launcher::join(&app.api, &account.security_token, &tracker, opts).await;
         if let launcher::JoinResult::Error(e) = result {
             app.toast("error", e);

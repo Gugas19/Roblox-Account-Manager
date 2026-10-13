@@ -115,6 +115,8 @@ pub struct AccountView {
     pub color: Option<String>,
     /// its group's color
     pub group_color: Option<String>,
+    /// its own frame rate limit
+    pub fps_limit: Option<i64>,
 }
 
 /// A color as the app keeps it: "#rrggbb", anything else is refused
@@ -169,6 +171,7 @@ impl App {
                 has_password: !a.password.is_empty(),
                 color: valid_color(a.field("Color")),
                 group_color: group_colors.get(&a.group).and_then(|c| valid_color(c)),
+                fps_limit: crate::services::launcher::fps_limit_of(a),
             })
             .collect()
     }

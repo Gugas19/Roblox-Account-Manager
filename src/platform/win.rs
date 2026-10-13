@@ -5,10 +5,11 @@ use std::os::windows::ffi::OsStrExt;
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{CloseHandle, BOOL, ERROR_ALREADY_EXISTS, GetLastError, HANDLE, HWND, LPARAM, WAIT_ABANDONED, WAIT_OBJECT_0, WPARAM};
-use windows::Win32::System::Threading::{CreateMutexW, ReleaseMutex, WaitForSingleObject, INFINITE};
+use windows::Win32::System::Threading::{CreateMutexW, GetExitCodeProcess, OpenProcess, ReleaseMutex, WaitForSingleObject, INFINITE, PROCESS_QUERY_LIMITED_INFORMATION};
 use windows::Win32::UI::Shell::{ShellExecuteExW, SEE_MASK_NOCLOSEPROCESS, SHELLEXECUTEINFOW};
 use windows::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, GetForegroundWindow, GetWindow, GetWindowRect, GetWindowTextW, GetWindowThreadProcessId, IsWindowVisible, MoveWindow, PostMessageW, GW_OWNER, SW_SHOWNORMAL, WM_CLOSE,
+    EnumWindows, GetClassNameW, GetForegroundWindow, GetWindow, GetWindowRect, GetWindowTextW, GetWindowThreadProcessId, IsWindowVisible, MoveWindow, PostMessageW, GW_OWNER, SW_SHOWNORMAL,
+    WM_CLOSE,
 };
 
 pub fn wide(s: &str) -> Vec<u16> {
@@ -46,6 +47,76 @@ pub fn roblox_processes() -> Vec<RobloxProcess> {
             seconds_running: now.saturating_sub(p.start_time()),
         })
         .collect()
+}
+
+/// The window class of the Roblox player's main window
+const ROBLOX_WINDOW_CLASS: &str = "WINDOWSCLIENT";
+
+/// What doesn't change while a Roblox process runs, read once (listing processes costs ~15-20 ms, this is
+/// needed every second)
+#[derive(Clone)]
+pub struct RobloxInfo {
+    pub tracker_id: Option<String>,
+    /// unix seconds
+    pub started: u64,
+}
+
+static ROBLOX_INFO: once_cell::sync::Lazy<std::sync::Mutex<std::collections::HashMap<u32, Option<RobloxInfo>>>> = once_cell::sync::Lazy::new(Default::default);
+
+/// Every Roblox player main window (hidden ones too) with its process, found by the window class: ~0.5 ms
+pub fn roblox_main_windows() -> Vec<(u32, HWND)> {
+    unsafe extern "system" fn each(hwnd: HWND, lparam: LPARAM) -> BOOL {
+        let found = &mut *(lparam.0 as *mut Vec<(u32, HWND)>);
+        let mut class = [0u16; 32];
+        let n = GetClassNameW(hwnd, &mut class);
+        if n > 0 && String::from_utf16_lossy(&class[..n as usize]) == ROBLOX_WINDOW_CLASS {
+            let mut pid = 0u32;
+            GetWindowThreadProcessId(hwnd, Some(&mut pid));
+            if !found.iter().any(|(p, _)| *p == pid) {
+                found.push((pid, hwnd));
+            }
+        }
+        BOOL(1)
+    }
+
+    let mut found: Vec<(u32, HWND)> = Vec::new();
+    unsafe {
+        let _ = EnumWindows(Some(each), LPARAM(&mut found as *mut _ as isize));
+    }
+    // only the Roblox player (read once per process), and forget the ones that are gone
+    let mut cache = ROBLOX_INFO.lock().unwrap();
+    cache.retain(|pid, _| found.iter().any(|(p, _)| p == pid));
+    found.retain(|(pid, _)| cache.entry(*pid).or_insert_with(|| read_roblox_info(*pid)).is_some());
+    found
+}
+
+/// The cached details of a Roblox process found by `roblox_main_windows`
+pub fn roblox_info(pid: u32) -> Option<RobloxInfo> {
+    ROBLOX_INFO.lock().unwrap().get(&pid).cloned().flatten()
+}
+
+fn read_roblox_info(pid: u32) -> Option<RobloxInfo> {
+    let mut sys = System::new();
+    let target = [Pid::from_u32(pid)];
+    sys.refresh_processes_specifics(ProcessesToUpdate::Some(&target), true, ProcessRefreshKind::new().with_cmd(UpdateKind::Always));
+    let p = sys.process(Pid::from_u32(pid))?;
+    if !p.name().to_string_lossy().eq_ignore_ascii_case("RobloxPlayerBeta.exe") {
+        return None;
+    }
+    let process = RobloxProcess { pid, command_line: p.cmd().iter().map(|a| a.to_string_lossy().to_string()).collect::<Vec<_>>().join(" "), memory_mb: 0, seconds_running: 0 };
+    Some(RobloxInfo { tracker_id: process.tracker_id(), started: p.start_time() })
+}
+
+/// Whether a process still runs (without listing every process)
+pub fn process_alive(pid: u32) -> bool {
+    const STILL_ACTIVE: u32 = 259;
+    unsafe {
+        let Ok(handle) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) else { return false };
+        let mut code = 0u32;
+        let alive = GetExitCodeProcess(handle, &mut code).is_ok() && code == STILL_ACTIVE;
+        let _ = CloseHandle(handle);
+        alive
+    }
 }
 
 pub fn is_roblox_running() -> bool {

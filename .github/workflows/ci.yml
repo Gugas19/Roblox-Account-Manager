@@ -1,0 +1,46 @@
+# Every push and pull request: the interface and the app build, the unit tests pass, every text is translated.
+# No secrets here: releases are signed on the maintainer's PC (tools/release.ps1), never on GitHub.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Translations
+        run: python tools/strings.py
+
+      - name: Interface
+        run: |
+          npm --prefix ui ci
+          npm --prefix ui run build
+
+      - name: Unit tests
+        run: cargo test --lib
+
+      - name: Build
+        run: cargo build --bins

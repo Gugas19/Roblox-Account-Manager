@@ -44,6 +44,7 @@ pub async fn join(names: Vec<String>, place: String, job: String, privacy_ok: bo
 
 pub(crate) async fn join_one(app: &Arc<App>, account: &Account, opts: JoinOptions) -> JoinResult {
     let tracker = app.ensure_tracker(&account.username);
+    let opts = JoinOptions { fps_limit: launcher::fps_limit_of(account), ..opts };
     let result = launcher::join(&app.api, &account.security_token, &tracker, opts).await;
     app.launch_next.store(true, Ordering::SeqCst);
 
@@ -80,6 +81,8 @@ pub(super) fn launch_many(app: Arc<App>, accounts: Vec<Account>, opts: JoinOptio
 /// saved place wins over `opts`. `done` hears about every account. A new launch or "cancel" stops it.
 pub(crate) async fn launch_sequence(app: &Arc<App>, accounts: &[Account], opts: JoinOptions, use_saved: bool, mut done: impl FnMut(usize, &Account, &JoinResult)) {
     let generation = app.launch_generation.fetch_add(1, Ordering::SeqCst) + 1;
+    // the frame rate of the previous account and when it launched (Roblox reads its settings as it starts)
+    let mut previous: Option<(Option<i64>, std::time::Instant)> = None;
     let delay = app.setting_i64("General", "AccountJoinDelay", 8).max(0) as u64;
     let async_join = app.setting_bool("General", "AsyncJoin");
 
@@ -98,6 +101,15 @@ pub(crate) async fn launch_sequence(app: &Arc<App>, accounts: &[Account], opts: 
             }
         }
         o.privacy_ok = true;
+
+        // a different frame rate limit than the account before: give that Roblox time to read its own first
+        let fps = launcher::fps_limit_of(account);
+        if let Some((before, at)) = previous {
+            if before != fps {
+                tokio::time::sleep(Duration::from_secs(4).saturating_sub(at.elapsed())).await;
+            }
+        }
+        previous = Some((fps, std::time::Instant::now()));
 
         app.launch_next.store(false, Ordering::SeqCst);
         let result = join_one(app, account, o).await;

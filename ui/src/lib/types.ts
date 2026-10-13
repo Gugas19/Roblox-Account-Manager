@@ -17,6 +17,8 @@ export interface Account {
   color: string | null
   /** its group's color */
   groupColor: string | null
+  /** its own frame rate limit, applied when it launches */
+  fpsLimit: number | null
 }
 
 export type LoadState =

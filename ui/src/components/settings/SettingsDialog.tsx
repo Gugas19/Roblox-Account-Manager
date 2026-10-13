@@ -1,6 +1,6 @@
 /** Settings: General, Developer and Miscellaneous, every change applies right away */
 
-import { FileJson, FolderOpen, Lock } from 'lucide-react'
+import { Download, FileJson, FolderOpen, Lock, Upload } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -66,6 +66,35 @@ export function SettingsDialog() {
   const { t, language, setTable } = useI18n()
   const { panel, setPanel, boot, setting, updateSetting, flag } = useStore()
   const [startup, setStartup] = useState(boot.startup)
+  const dialogs = useDialogs()
+  const notify = notifier(t)
+
+  // backups: always encrypted, with a password chosen here
+  const exportBackup = async () => {
+    const password = await dialogs.prompt({ title: 'Export accounts', label: "Password for the backup, at least 4 characters. It can't be recovered if you forget it.", password: true })
+    if (!password) return
+    const again = await dialogs.prompt({ title: 'Export accounts', label: 'Confirm password', password: true })
+    if (again === null) return
+    if (again !== password) return notify.error("The passwords don't match")
+    try {
+      const path = await api.exportAccounts(password)
+      if (path) notify.success(t('Saved to {0}', path))
+    } catch (e) {
+      notify.error(e)
+    }
+  }
+  const importBackup = async () => {
+    const path = await api.pickFile(t('Import accounts'))
+    if (!path) return
+    const password = await dialogs.prompt({ title: 'Import accounts', label: "The backup's password", password: true })
+    if (!password) return
+    try {
+      const r = await api.importBackup(path, password)
+      notify.success(t('{0} accounts added, {1} were already here', r.added, r.existing))
+    } catch (e) {
+      notify.error(e)
+    }
+  }
   const changeProtection = useProtectionChange()
   const customSettings = setting('General', 'CustomClientSettings')
 
@@ -120,6 +149,12 @@ export function SettingsDialog() {
               <NumberSetting section="General" name="MaxRecentGames" title="Max Recent Games" min={1} max={50} fallback={8} />
               <SettingRow title="Account protection" hint="Windows encryption or a password.">
                 <Button variant="secondary" onClick={changeProtection}><Lock /> {t('Change Encryption Method')}</Button>
+              </SettingRow>
+              <SettingRow title="Backup" hint="A copy of your accounts encrypted with a password you choose, to keep safe or to move to another PC.">
+                <div className="flex gap-2">
+                  <Button variant="secondary" onClick={exportBackup}><Download /> {t('Export')}</Button>
+                  <Button variant="secondary" onClick={importBackup}><Upload /> {t('Import')}</Button>
+                </div>
               </SettingRow>
               <UpdatesSection />
             </TabsContent>

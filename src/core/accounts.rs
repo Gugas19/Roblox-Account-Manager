@@ -186,7 +186,7 @@ impl AccountStore {
         })
     }
 
-    fn parse(data: &[u8]) -> Result<Vec<Account>> {
+    pub(crate) fn parse(data: &[u8]) -> Result<Vec<Account>> {
         let text = String::from_utf8_lossy(data);
         let text = text.trim_start_matches('\u{feff}');
         if text.trim().is_empty() || text.trim() == "null" {

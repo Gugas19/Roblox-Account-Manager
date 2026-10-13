@@ -8,6 +8,7 @@
 [![License](https://img.shields.io/badge/license-GPLv3-blue?style=for-the-badge)](LICENSE)
 ![Platform](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?style=for-the-badge)
 ![Rust](https://img.shields.io/badge/Rust-Tauri%202-B7410E?style=for-the-badge&logo=rust)
+[![CI](https://img.shields.io/github/actions/workflow/status/Gugas19/Roblox-Account-Manager/ci.yml?branch=master&label=CI&style=for-the-badge)](https://github.com/Gugas19/Roblox-Account-Manager/actions/workflows/ci.yml)
 
 ![Roblox Account Manager](Images/main.png)
 
@@ -109,6 +110,7 @@ ram-cli antiafk [start|stop|now|status]
 ram-cli status
 ram-cli open
 ram-cli update
+ram-cli fps <accounts> <5-1000|default>
 ```
 
 Accounts are named by username, user id or alias (any case). `--all` picks every account, `--group <name>` a group.
@@ -162,6 +164,7 @@ that every language has the same keys and placeholders.
 | ![Command palette](Images/command-palette.png) Command palette (`Ctrl+K`) | ![Search](Images/search.png) Search |
 | ![Account menu](Images/account-menu.png) Account menu | ![Account utilities](Images/account-utilities.png) Account utilities |
 | ![Utilities](Images/utilities.png) Utilities: servers, games, favorites, universes, outfits, watcher | ![Theme editor](Images/theme.png) Theme editor |
+| ![Colors](Images/colors.png) Colors for accounts and groups | ![FPS limit](Images/fps-limit.png) FPS limit per account |
 
 ![Settings](Images/settings.png)
 
@@ -223,6 +226,12 @@ pwsh -File tools\release.ps1                  # builds, tests, zips and signs ta
 Upload the zip and its `.sig` to a GitHub release tagged `v<version>`. The private key stays in
 `%USERPROFILE%\.roblox-account-manager\`, never in the repository; installed apps only accept updates signed with it.
 
+The release runs while the app is open (the tests use their own copies, which never take the focus) and takes about
+3 minutes. Optional: with a Windows code signing certificate installed, set `RAM_CODESIGN_THUMBPRINT` to its thumbprint
+and the exes are signed with it too, so Windows and antivirus software trust them more.
+
+Every push is also built and unit tested on GitHub ([CI](.github/workflows/ci.yml)), without any secret.
+
 ### Updating the screenshots
 
 After changing the interface, run the following and commit the `Images` folder. The README picks up the new images.
@@ -255,9 +264,9 @@ Set a password and change the port if you plan on enabling any dangerous method,
 **A:** Open the settings with the gear icon in the top right and, in the `General` tab, turn on `Multi Roblox`. It works as soon as every Roblox window is closed, no restart needed.
 
 
-## **Q:** Why is multi-roblox disabled by default?
+## **Q:** Is multi-roblox safe?
 
-**A:** A Byfron developer has stated that using multiple clients may be considered malicious behavior, so multi-roblox is disabled by default and you can turn it on at your own risk.
+**A:** It's on by default. A Byfron developer has stated that using multiple clients may be considered malicious behavior, so use it at your own risk, and turn it off in `Settings` > `General` > `Multi Roblox` if you'd rather not.
 ![2023-05-06 23_58_33-Clipboard](https://user-images.githubusercontent.com/11778654/236662271-ce6bc2c8-7690-436a-97d0-1cfea56b541f.png)
 
 
@@ -273,7 +282,7 @@ Set a password and change the port if you plan on enabling any dangerous method,
 
 ## **Q:** How do I back up my accounts file?
 
-**A:** Protect it with a password (`Settings` > `General` > `Change Encryption Method` > password). A password-protected `AccountData.json` can be copied to Google Drive, a flash drive or another PC, and opens anywhere with that password. A file with the default encryption only opens on this PC with this Windows user.
+**A:** `Settings` > `General` > `Backup` > `Export` saves your accounts encrypted with a password you choose, to keep on Google Drive, a flash drive or another PC. `Import` adds the accounts of a backup that aren't there yet. The backup never holds your accounts in plain text, and it can even be used as an `AccountData.json` with that password.
 
 
 ## **Q:** How do I prevent Windows Defender from deleting the app's files?
@@ -313,7 +322,7 @@ Set a password and change the port if you plan on enabling any dangerous method,
 | :--- | :---: | ---: |
 | Account Encryption | Your account data is encrypted for your Windows user, so someone who gets the file can't read it | **DO NOT SHARE YOUR `AccountData.json` FILE AT ALL** |
 | Password Encryption | Encrypt your data with a password | Recommended: the file can be stored in Google Drive or moved to another computer |
-| [Multi Roblox](#q-how-do-i-enable-multi-roblox) | [DISABLED BY DEFAULT, READ FAQ] Several Roblox clients open at once | **If it doesn't work, make sure no Roblox process is running in the background (Task Manager)** |
+| [Multi Roblox](#q-is-multi-roblox-safe) | [ON BY DEFAULT, READ FAQ] Several Roblox clients open at once | **If it doesn't work, make sure no Roblox process is running in the background (Task Manager)** |
 | Anti-AFK | Keeps Roblox windows from being kicked for being idle, rejoins disconnected accounts, mutes and arranges windows | Click `Anti-AFK` in the top bar, or `ram-cli antiafk start` |
 | Command Line | Join, follow, list, close and import accounts from scripts and shortcuts | `ram-cli help` |
 | Command Palette | Any account or action from the keyboard | `Ctrl+K` |
@@ -326,7 +335,7 @@ Set a password and change the port if you plan on enabling any dangerous method,
 | Player Finder | Find a player even with their follows off, as long as you know their game | In the server list, type the username and click search |
 | Account Utilities | Change an account's password, email, display name, follow privacy, add friends, block, sign out other sessions | Click `Account Utilities` **(requires a valid account to be selected)** |
 | Account Sorting | Order accounts the way you like | Drag and drop an account in the list, or `Sort Alphabetically` |
-| Account Grouping | Put accounts in groups, drag them between groups | Right click an account, `Groups`, `Move Account To` |
+| Account Grouping | Put accounts in groups, drag them between groups, rename a group | Right click an account, `Groups`, `Move Account To`; right click a group's header to rename it |
 | Group Sorting | Order groups by giving them a number | Name a group with a number from 0-999 in front (ex. `1Main`, `007 Bank`), the number is hidden afterwards |
 | Games List | Search Roblox games | `Utilities` > `Games` |
 | Favorite Games | Keep the games you play close | `Utilities` > `Favorites` |
@@ -349,6 +358,9 @@ Set a password and change the port if you plan on enabling any dangerous method,
 | Import Cookies | Add accounts from their .ROBLOSECURITY cookies | Drop cookies onto the app, the arrow next to `Add Account` > `Cookie(s)`, or `ram-cli import` |
 | Bulk User Importing | Add accounts from username:password lines | The arrow next to `Add Account` > `User:Pass` |
 | FPS Unlocker | Raise Roblox's FPS cap, or use your own ClientAppSettings.json | `Settings` > `Miscellaneous` |
+| FPS Limit per Account | Each account can have its own frame rate limit (15 for storage alts, 144 for your main), applied when it launches | Right click an account > `FPS limit`, or `ram-cli fps` |
+| Colors | Give accounts and groups a color | Right click an account > `Color`, or a group's header > `Group color` |
+| Backups | Export your accounts encrypted with a password, import them on any PC | `Settings` > `General` > `Backup` |
 | Proxies | Browsers use a random proxy from `proxies.txt` | `Settings` > `Miscellaneous` > `Use proxies` |
 | Account Presence | A dot when an account is online, in game or in Studio | `Settings` > `Miscellaneous` |
 | Automatic Cookie Refresh | Unused accounts get new cookies so they don't get logged out | `Settings` > `General` > `Auto Refresh Cookies` (signs out other sessions) |

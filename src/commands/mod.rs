@@ -12,6 +12,7 @@ pub mod account_utils;
 pub mod browsing;
 pub mod settings;
 pub mod updates;
+pub mod backup;
 
 
 use crate::app::{app, AccountView, App};
