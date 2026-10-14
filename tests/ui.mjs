@@ -429,6 +429,19 @@ async function main() {
       await key('Escape')
     })
 
+    await test('a notification closes with its X while a window is open', async () => {
+      await click('Utilities', 'button')
+      // the same event Rust sends for an error
+      await evaluate(`window.__TAURI_INTERNALS__.invoke('plugin:event|emit', { event: 'toast', payload: { kind: 'error', message: 'Test notification' } })`)
+      await until(async () => !!(await evaluate(`!!document.querySelector('[data-close-button]')`)), 'no notification')
+      await sleep(400)
+      const p = await evaluate(`(() => { const r = document.querySelector('[data-close-button]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })()`)
+      for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await mouse(type, p.x, p.y)
+      await until(async () => !(await text()).includes('Test notification'), 'the X did not close the notification')
+      assert((await text()).includes('Servers'), 'the window closed instead')
+      await key('Escape')
+    })
+
     await test('account utilities', async () => {
       await click('NightFalcon_07', '[role=row]')
       await click('Account Utilities', 'button')

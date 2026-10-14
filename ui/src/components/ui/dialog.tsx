@@ -65,6 +65,11 @@ function DialogContent({
           className
         )}
         {...props}
+        // a click on a notification (its X or its button) isn't a click outside that closes the window
+        onInteractOutside={(e) => {
+          if ((e.target as Element | null)?.closest?.("[data-sonner-toaster]")) e.preventDefault()
+          props.onInteractOutside?.(e)
+        }}
       >
         {children}
         {showCloseButton && (

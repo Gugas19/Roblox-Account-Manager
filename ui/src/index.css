@@ -164,6 +164,12 @@ input[type="checkbox"],
   cursor: not-allowed;
 }
 
+/* An open window (dialog) blocks clicks everywhere else, notifications included: their close and action buttons
+   must keep working over it */
+[data-sonner-toaster] {
+  pointer-events: auto;
+}
+
 /* Scrollbars in the theme colors instead of the white Windows ones */
 * {
   scrollbar-width: thin;

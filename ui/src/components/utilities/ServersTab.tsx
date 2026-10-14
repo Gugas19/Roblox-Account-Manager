@@ -48,11 +48,20 @@ export function ServersTab() {
     return () => stops.forEach((s) => s.then((stop) => stop()))
   }, [notify])
 
+  const hasGame = /\d{3,}/.test(place) || /\d{3,}/.test(otherPlace)
+  // false (and says why) when there's no game to list
+  const gameChosen = () => {
+    if (hasGame) return true
+    notify.info('Choose a game first: its Place ID in the main window, or in Other Place ID here')
+    return false
+  }
+
   const refresh = async () => {
     if (busy) {
       await api.stopServers()
       return setBusy(false)
     }
+    if (!gameChosen()) return
     setServers([])
     setBusy(true)
     try {
@@ -64,6 +73,7 @@ export function ServersTab() {
   }
 
   const find = async () => {
+    if (!gameChosen()) return
     setServers([])
     setBusy(true)
     try {
@@ -142,7 +152,7 @@ export function ServersTab() {
           </Table>
           {servers.length === 0 && (
             <div className="grid place-items-center py-16 text-sm text-muted-foreground">
-              {busy ? <Loader2 className="animate-spin" /> : t('Press Refresh to list the servers of the game in the main window.')}
+              {busy ? <Loader2 className="animate-spin" /> : t(hasGame ? 'Press Refresh to list the servers of the game in the main window.' : 'Choose a game first: its Place ID in the main window, or in Other Place ID here')}
             </div>
           )}
         </ScrollArea>

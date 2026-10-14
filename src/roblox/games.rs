@@ -25,6 +25,10 @@ impl Api {
         if r.status == 429 {
             bail!("Too many requests, wait a moment and try again");
         }
+        // Roblox answers 400/404 with {"errors":[{"message":"The place is invalid."}]} for a Place ID that doesn't exist
+        if r.status == 400 || r.status == 404 {
+            bail!("That game doesn't exist, check the Place ID");
+        }
         r.json().filter(|_| r.ok()).ok_or_else(|| anyhow!("[{}] {}", r.status, r.body))
     }
 
