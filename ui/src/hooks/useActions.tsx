@@ -176,11 +176,6 @@ export function useActions() {
         notify.error(e)
       }
     },
-    saveToAccount: async () => {
-      if (!needSelection()) return
-      await api.savePlace(selected, place, job)
-      notify.success(place || job ? 'Saved' : 'Removed')
-    },
     clearSavedPlaces: async () => {
       if (await dialogs.confirm({ title: 'Remove every saved Place Id?', destructive: true })) notify.success(t('Removed {0} saved Place Ids', await api.clearSavedPlaces()))
     },

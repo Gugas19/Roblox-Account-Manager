@@ -1,6 +1,6 @@
 /** Right click menu of the account list (same items as the C# version, developer ones only in developer mode) */
 
-import { ArrowDownAZ, Check, ClipboardCopy, Code, FileText, FolderInput, Gauge, Info, KeyRound, LogIn, Palette, PenLine, Pin, Trash2, UserPlus } from 'lucide-react'
+import { ArrowDownAZ, Check, ClipboardCopy, Code, FileText, FolderInput, Gauge, Info, KeyRound, LogIn, Palette, PenLine, Trash2, UserPlus } from 'lucide-react'
 import { ContextMenuContent, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger } from '@/components/ui/context-menu'
 import { ColorItems } from '@/components/accounts/ColorItems'
 import { useDialogs } from '@/components/dialogs/DialogHost'
@@ -38,7 +38,6 @@ export function AccountMenu({ showGroups, toggleGroups, group, onCustomColor }: 
   const { devMode, selected, selectedAccounts } = useStore()
   const none = selected.length === 0
   const noPassword = !selectedAccounts.some((a) => a.hasPassword)
-  const hasSavedGame = selectedAccounts.some((a) => a.savedPlaceId || a.savedJobId)
   // the accounts' frame rate limit when they all have the same one
   const sameFps = selectedAccounts.length > 0 && selectedAccounts.every((a) => a.fpsLimit === selectedAccounts[0].fpsLimit)
   const fps = sameFps ? selectedAccounts[0].fpsLimit : undefined
@@ -136,14 +135,6 @@ export function AccountMenu({ showGroups, toggleGroups, group, onCustomColor }: 
             onPick={(color) => api.setAccountColor(selected, color).catch(notify.error)}
             onCustom={() => onCustomColor({ kind: 'accounts', names: [...selected], current: accountsColor })}
           />
-        </ContextMenuSubContent>
-      </ContextMenuSub>
-      {/* a game (and server) the account always joins, and fills in the panel when it's selected */}
-      <ContextMenuSub>
-        <ContextMenuSubTrigger disabled={none}><Pin /> {t('Saved game')}</ContextMenuSubTrigger>
-        <ContextMenuSubContent className="w-64">
-          <ContextMenuItem onClick={actions.saveToAccount}>{t('Always join the game in the panel')}</ContextMenuItem>
-          <ContextMenuItem disabled={!hasSavedGame} onClick={() => api.savePlace(selected, '', '').then(() => notify.success('Removed'), notify.error)}>{t('Forget the saved game')}</ContextMenuItem>
         </ContextMenuSubContent>
       </ContextMenuSub>
       <ContextMenuItem onClick={actions.sortAlphabetically}><ArrowDownAZ /> {t('Sort Alphabetically')}</ContextMenuItem>

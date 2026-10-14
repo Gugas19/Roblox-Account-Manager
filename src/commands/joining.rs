@@ -42,8 +42,9 @@ pub async fn join(names: Vec<String>, place: String, job: String, privacy_ok: bo
     let opts = JoinOptions { place_id, job_id, join_vip: vip, privacy_ok, ..app.join_options() };
 
     if accounts.len() > 1 {
-        // the accounts' saved games win, except over a share link someone sent
-        launch_many(app, accounts, opts, !share);
+        // each account joins its own saved game, except with "Same for all" or a share link someone sent
+        let use_saved = !share && !app.setting_bool("General", "SameGameForAll");
+        launch_many(app, accounts, opts, use_saved);
         return Ok(JoinResult::Success);
     }
 

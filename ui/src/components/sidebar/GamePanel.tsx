@@ -1,4 +1,5 @@
-/** Game section: place (with recent games), server, shuffle and the big Join button. Both boxes remember what was typed */
+/** Game section: place (with recent games), server, shuffle and the big Join button. What's typed is saved by itself,
+ *  into the selected accounts (each has its own game) or, with "Same for all", once for every account */
 
 import { History, Loader2, Play, Shuffle, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -7,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Progress } from '@/components/ui/progress'
+import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { GameIcon } from '@/components/common/GameTile'
 import { useActions } from '@/hooks/useActions'
@@ -34,19 +36,28 @@ export function GamePanel() {
   const [recent, setRecent] = useState<Game[]>([])
   const [shuffle, setShuffle] = useState(setting('General', 'ShuffleJobId') === 'true')
   const [joining, setJoining] = useState(false)
-  // what the user typed or picked, saved for the next start (an account's own saved game, filled in when it's
-  // selected, isn't)
-  const typed = useRef<string | null>(null)
-  const typedJob = useRef<string | null>(null)
+  const sameForAll = setting('General', 'SameGameForAll') === 'true'
+  // What's typed or picked is saved by itself: into the selected accounts (each remembers its own game), and as the
+  // last game used (for the next start and for accounts without one). With "same game for all", only the latter.
+  // The accounts are the ones selected while typing, even if the selection changes before the save
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const remember = (nextPlace: string, nextJob: string) => {
+    clearTimeout(saveTimer.current)
+    const names = sameForAll ? [] : [...selected]
+    saveTimer.current = setTimeout(() => {
+      void updateSetting('General', 'SavedPlaceId', nextPlace.trim())
+      void updateSetting('General', 'SavedJobId', nextJob.trim())
+      if (names.length) api.savePlace(names, nextPlace.trim(), nextJob.trim()).catch(() => {})
+    }, 800)
+  }
   const choose = (value: string) => {
-    typed.current = value
     setPlace(value)
+    remember(value, job)
   }
   const chooseJob = (value: string) => {
-    typedJob.current = value
     setJob(value)
+    remember(place, value)
   }
-
   useEffect(() => {
     api.recentGames().then(setRecent)
     const stop = on<Game[]>('recent-games', setRecent)
@@ -67,30 +78,15 @@ export function GamePanel() {
     }
   }, [place])
 
-  useEffect(() => {
-    if (typed.current !== place) return
-    const timer = setTimeout(() => {
-      typed.current = null
-      void updateSetting('General', 'SavedPlaceId', place.trim())
-    }, 800)
-    return () => clearTimeout(timer)
-  }, [place, updateSetting])
-
-  useEffect(() => {
-    if (typedJob.current !== job) return
-    const timer = setTimeout(() => {
-      typedJob.current = null
-      void updateSetting('General', 'SavedJobId', job.trim())
-    }, 800)
-    return () => clearTimeout(timer)
-  }, [job, updateSetting])
-
   const paste = (e: React.ClipboardEvent) => {
     const link = fromLink(e.clipboardData.getData('text'))
     if (!link) return
     e.preventDefault()
-    if (link.place) choose(link.place)
-    if (link.job) chooseJob(link.job)
+    const nextPlace = link.place ?? place
+    const nextJob = link.job ?? job
+    setPlace(nextPlace)
+    setJob(nextJob)
+    remember(nextPlace, nextJob)
   }
 
   const join = async () => {
@@ -111,10 +107,21 @@ export function GamePanel() {
     <section className="grid gap-3">
       <div className="flex items-center gap-3">
         <GameIcon src={shareLink ? undefined : (info?.icon ?? recentGame?.icon)} className="size-11" />
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{t('Game')}</div>
           <div className="truncate font-semibold">{shareLink ? t('Private server from a link') : place.trim() ? (info?.name ?? recentGame?.name ?? t('Current Place')) : t('No game chosen')}</div>
         </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+              <Switch size="sm" checked={sameForAll} onCheckedChange={(on) => void updateSetting('General', 'SameGameForAll', on ? 'true' : 'false')} />
+              {t('Same for all')}
+            </label>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-64">
+            {t(sameForAll ? 'On: every account joins this game, choosing another account doesn\'t change it' : 'Off: each account remembers its own game, it shows when you choose the account')}
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       <div className="grid grid-cols-2 gap-2">

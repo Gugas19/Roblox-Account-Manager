@@ -270,6 +270,32 @@ async function main() {
       assert((await evaluate(`document.querySelector('input[placeholder="Alias"]').value`)) === 'Main', 'alias box')
     })
 
+    await test('each account keeps its own game, or the same for all', async () => {
+      const savedOf = (name) => JSON.parse(fs.readFileSync(path.join(work, 'AccountData.json'), 'utf8')).find((a) => a.Username === name)?.Fields?.SavedPlaceId
+      const placeBox = () => evaluate(`document.querySelector('#place').value`)
+      const type = (value) => evaluate(`(() => { const i = document.querySelector('#place'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, '${value}'); i.dispatchEvent(new Event('input', { bubbles: true })) })()`)
+      // NightFalcon_07 is selected: what's typed is saved into it
+      await type('1818')
+      await until(async () => savedOf('NightFalcon_07') === '1818', `not saved into the account: ${savedOf('NightFalcon_07')}`)
+      // an account without its own game shows the last one used, and choosing back shows its own
+      await click('StorageAlt01', '[role=row]')
+      await until(async () => (await placeBox()) === '1818', `StorageAlt01 shows ${await placeBox()}`)
+      assert(savedOf('StorageAlt01') === undefined, 'saved into an account just by choosing it')
+      await type('5315046213')
+      await until(async () => savedOf('StorageAlt01') === '5315046213', 'not saved into StorageAlt01')
+      await click('NightFalcon_07', '[role=row]')
+      await until(async () => (await placeBox()) === '1818', `NightFalcon_07 shows ${await placeBox()}`)
+      // same for all: choosing another account doesn't change the game
+      await click('Same for all', 'label')
+      await until(async () => /SameGameForAll=true/.test(fs.readFileSync(path.join(work, 'RAMSettings.ini'), 'utf8')), 'switch not saved')
+      await click('StorageAlt01', '[role=row]')
+      await sleep(300)
+      assert((await placeBox()) === '1818', `the game changed with "same for all": ${await placeBox()}`)
+      await click('Same for all', 'label')
+      await until(async () => /SameGameForAll=false/.test(fs.readFileSync(path.join(work, 'RAMSettings.ini'), 'utf8')), 'switch not turned off')
+      await click('NightFalcon_07', '[role=row]')
+    })
+
     await test('search filters and counts', async () => {
       await evaluate(`(() => { const i = document.querySelector('input[placeholder="Search accounts..."]'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(i, 'storage'); i.dispatchEvent(new Event('input', { bubbles: true })) })()`)
       await until(async () => (await text()).includes('2 of 6 accounts'), 'counter')

@@ -92,13 +92,25 @@ export function StoreProvider({ boot, children }: { boot: Bootstrap; children: R
 
   const selectedAccounts = useMemo(() => accounts.filter((a) => selected.includes(a.username)), [accounts, selected])
 
-  // the selected account's saved place fills the boxes, like the C# version
+  // Choosing an account fills the boxes with its own game, or with the last one used when it has none, unless the
+  // same game is set for every account. Only when the selection changes: the boxes save into the accounts as they're
+  // typed in, and that save mustn't fill them again with an older value
+  const latest = useRef({ accounts, settings })
+  latest.current = { accounts, settings }
+  const selectionKey = selected.join('\n')
   useEffect(() => {
-    if (selectedAccounts.length !== 1) return
-    const a = selectedAccounts[0]
-    if (a.savedPlaceId) setPlace(a.savedPlaceId)
-    if (a.savedJobId) setJob(a.savedJobId)
-  }, [selectedAccounts])
+    const { accounts, settings } = latest.current
+    if (selected.length !== 1 || settings.General?.SameGameForAll === 'true') return
+    const a = accounts.find((x) => x.username === selected[0])
+    if (!a) return
+    if (a.savedPlaceId || a.savedJobId) {
+      setPlace(a.savedPlaceId ?? '')
+      setJob(a.savedJobId ?? '')
+    } else {
+      setPlace(settings.General?.SavedPlaceId ?? '')
+      setJob(settings.General?.SavedJobId ?? '')
+    }
+  }, [selectionKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateSetting = useCallback(async (section: string, key: string, value: string) => {
     setSettings((s) => ({ ...s, [section]: { ...s[section], [key]: value } }))
