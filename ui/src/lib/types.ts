@@ -48,6 +48,8 @@ export interface Bootstrap {
   multiRobloxOk: boolean
   browserInstalled: boolean
   placeId: string
+  /** the server box as it was left */
+  jobId: string
   followUser: string
   version: string
   startup: boolean

@@ -22,6 +22,7 @@ pub fn bootstrap() -> Value {
         "browserInstalled": browser::installed_browser().is_some(),
         // the last game typed or joined, none on a new install
         "placeId": app.setting("General", "SavedPlaceId"),
+        "jobId": app.setting("General", "SavedJobId"),
         "followUser": app.setting("General", "SavedFollowUser"),
         "version": env!("CARGO_PKG_VERSION"),
         "startup": winutil::startup_enabled(),

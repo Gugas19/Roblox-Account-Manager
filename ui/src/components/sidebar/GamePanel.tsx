@@ -1,6 +1,6 @@
-/** Game section: place (with recent games), server, shuffle, save to account and the big Join button */
+/** Game section: place (with recent games), server, shuffle and the big Join button. Both boxes remember what was typed */
 
-import { History, Loader2, Play, Save, Shuffle, X } from 'lucide-react'
+import { History, Loader2, Play, Shuffle, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -34,11 +34,17 @@ export function GamePanel() {
   const [recent, setRecent] = useState<Game[]>([])
   const [shuffle, setShuffle] = useState(setting('General', 'ShuffleJobId') === 'true')
   const [joining, setJoining] = useState(false)
-  // what the user typed or picked, saved as the place for the next start (an account's own saved place isn't)
+  // what the user typed or picked, saved for the next start (an account's own saved game, filled in when it's
+  // selected, isn't)
   const typed = useRef<string | null>(null)
+  const typedJob = useRef<string | null>(null)
   const choose = (value: string) => {
     typed.current = value
     setPlace(value)
+  }
+  const chooseJob = (value: string) => {
+    typedJob.current = value
+    setJob(value)
   }
 
   useEffect(() => {
@@ -70,12 +76,21 @@ export function GamePanel() {
     return () => clearTimeout(timer)
   }, [place, updateSetting])
 
+  useEffect(() => {
+    if (typedJob.current !== job) return
+    const timer = setTimeout(() => {
+      typedJob.current = null
+      void updateSetting('General', 'SavedJobId', job.trim())
+    }, 800)
+    return () => clearTimeout(timer)
+  }, [job, updateSetting])
+
   const paste = (e: React.ClipboardEvent) => {
     const link = fromLink(e.clipboardData.getData('text'))
     if (!link) return
     e.preventDefault()
     if (link.place) choose(link.place)
-    if (link.job) setJob(link.job)
+    if (link.job) chooseJob(link.job)
   }
 
   const join = async () => {
@@ -138,17 +153,7 @@ export function GamePanel() {
               <TooltipContent className="max-w-60">{t(shuffle ? 'Shuffle is on: every join picks a random server' : 'Shuffle: pick a random server for every join')}</TooltipContent>
             </Tooltip>
           </div>
-          <div className="flex gap-1">
-            <Input id="job" value={job} onChange={(e) => setJob(e.target.value)} onPaste={paste} onFocus={(e) => e.target.select()} placeholder={t('Job ID or VIP link')} />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="secondary" size="icon" disabled={selected.length === 0} onClick={actions.saveToAccount} aria-label={t('Save to account')}>
-                  <Save />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-64">{t('Save this Place ID and Job ID to the selected accounts, they join it every time')}</TooltipContent>
-            </Tooltip>
-          </div>
+          <Input id="job" value={job} onChange={(e) => chooseJob(e.target.value)} onPaste={paste} onFocus={(e) => e.target.select()} placeholder={t('Job ID or VIP link')} />
         </div>
       </div>
 

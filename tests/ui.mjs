@@ -170,7 +170,8 @@ async function shot(name) {
   fs.writeFileSync(path.join(shots, `${name}.png`), Buffer.from(data, 'base64'))
 }
 
-const text = () => evaluate('document.body.innerText')
+// the page may not have a body yet right after the app starts
+const text = async () => (await evaluate('document.body?.innerText')) ?? ''
 const rows = () => evaluate("[...document.querySelectorAll('[role=row]')].map(r => r.innerText).join(' | ')")
 
 // ---------- tests ----------
@@ -251,6 +252,14 @@ async function main() {
       await until(async () => saved() === '1818', `not saved: ${saved()}`)
       await type('5315046213')
       await until(async () => saved() === '5315046213', `not saved back: ${saved()}`)
+      // the server box too, by itself (there's no save button)
+      const savedJob = () => /SavedJobId=(.*)/.exec(fs.readFileSync(path.join(work, 'RAMSettings.ini'), 'utf8'))?.[1]?.trim()
+      const typeJob = (value) => evaluate(`(() => { const i = document.querySelector('#job'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, '${value}'); i.dispatchEvent(new Event('input', { bubbles: true })) })()`)
+      await typeJob('https://www.roblox.com/share?code=abc123&type=Server')
+      await until(async () => savedJob() === 'https://www.roblox.com/share?code=abc123&type=Server', `server box not saved: ${savedJob()}`)
+      assert((await text()).includes('Private server from a link'), 'the panel does not say the link decides the game')
+      await typeJob('')
+      await until(async () => (savedJob() ?? '') === '', `server box not emptied: ${savedJob()}`)
     })
     await test('selecting enables the account buttons', async () => {
       await checkCursors('button, [role=row]')

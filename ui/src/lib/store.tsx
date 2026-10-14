@@ -47,7 +47,7 @@ export function StoreProvider({ boot, children }: { boot: Bootstrap; children: R
   const [settings, setSettings] = useState<Settings>(boot.settings)
   const [theme, setTheme] = useState<Theme>(boot.theme)
   const [place, setPlace] = useState(boot.placeId)
-  const [job, setJob] = useState('')
+  const [job, setJob] = useState(boot.jobId ?? '')
   const [panel, setPanel] = useState<Panel>(null)
   const [launching, setLaunching] = useState({ total: 0, done: 0 })
   const [download, setDownload] = useState<number | null>(null)
