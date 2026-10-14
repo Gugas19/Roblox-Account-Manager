@@ -112,8 +112,11 @@ async fn join(app: &Arc<App>, args: &Args, out: &Out) -> Result<()> {
     let given = args.value("place");
     let (place, job) = parse_place(given.unwrap_or(&app.setting("General", "SavedPlaceId")), args.value("job").unwrap_or(""));
 
+    // a private server share link: Roblox gives the place when joining, and the accounts' saved games don't apply
+    let share = crate::roblox::server_share_code(&job).is_some();
     let place_id = match place {
         Some(id) => id,
+        None if share => 0,
         None if given.is_some() => return Err(usage("--place takes a place id or a game link")),
         None if accounts.iter().all(|a| a.field("SavedPlaceId").parse::<i64>().is_ok()) => 0,
         None => return Err(usage("Which game? Use --place <id or game link>")),
@@ -122,7 +125,7 @@ async fn join(app: &Arc<App>, args: &Args, out: &Out) -> Result<()> {
     let job_id = if vip { job[4..].to_string() } else { job };
 
     let opts = JoinOptions { place_id, job_id, join_vip: vip, privacy_ok: true, ..app.join_options() };
-    launch(app, accounts, opts, given.is_none(), out).await
+    launch(app, accounts, opts, given.is_none() && !share, out).await
 }
 
 async fn follow(app: &Arc<App>, args: &Args, out: &Out) -> Result<()> {

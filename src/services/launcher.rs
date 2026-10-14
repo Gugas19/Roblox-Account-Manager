@@ -182,6 +182,19 @@ pub async fn join(api: &Api, token: &str, tracker: &str, mut opts: JoinOptions) 
         Err(e) => return JoinResult::Error(format!("ERROR: {e}")),
     };
 
+    // a private server share link (roblox.com/share?code=…&type=Server): Roblox says which game and server it is,
+    // then it joins like an old "privateServerLinkCode" link
+    if let Some(code) = crate::roblox::server_share_code(&opts.job_id) {
+        match api.resolve_server_share_link(token, &csrf, &code).await {
+            Ok(Some((place, link_code))) => {
+                opts.place_id = place;
+                opts.job_id = format!("https://www.roblox.com/games/{place}?privateServerLinkCode={link_code}");
+            }
+            Ok(None) => return JoinResult::Error("That private server link isn't valid anymore, ask for a new one".into()),
+            Err(e) => return JoinResult::Error(format!("ERROR: {e}")),
+        }
+    }
+
     if opts.shuffle && opts.job_id.is_empty() && !opts.follow_user {
         opts.job_id = api.random_job_id(opts.place_id, opts.shuffle_lowest, opts.shuffle_pages).await.unwrap_or_default();
     }
@@ -195,14 +208,14 @@ pub async fn join(api: &Api, token: &str, tracker: &str, mut opts: JoinOptions) 
         close_last_process(tracker).await;
     }
 
-    let link_code = regex::Regex::new("privateServerLinkCode=(.+)").unwrap().captures(&opts.job_id).map(|c| c[1].to_string()).unwrap_or_default();
+    let link_code = regex::Regex::new(r"privateServerLinkCode=([^&#\s]+)").unwrap().captures(&opts.job_id).map(|c| c[1].to_string()).unwrap_or_default();
     let mut access_code = opts.job_id.clone();
 
+    // a private server link: the access code when the game page still shows it, otherwise the link code alone is
+    // enough (it's how the Roblox site joins one)
     if !link_code.is_empty() {
-        if let Ok(Some(code)) = api.private_server_access_code(token, &csrf, opts.place_id, &link_code).await {
-            opts.join_vip = true;
-            access_code = code;
-        }
+        opts.join_vip = true;
+        access_code = api.private_server_access_code(token, &csrf, opts.place_id, &link_code).await.ok().flatten().unwrap_or_default();
     }
 
     if opts.join_vip && !opts.privacy_ok {

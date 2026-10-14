@@ -169,6 +169,18 @@ impl Api {
             .collect())
     }
 
+    /// What a private server share link (roblox.com/share?code=…&type=Server) points to: its place and link code,
+    /// the same as an old "games/<place>?privateServerLinkCode=…" link. None when Roblox says it isn't valid anymore
+    pub async fn resolve_server_share_link(&self, token: &str, csrf: &str, code: &str) -> Result<Option<(i64, String)>> {
+        let request = self
+            .with_csrf(Method::POST, "https://apis.roblox.com/sharelinks/v1/resolve-link", token, csrf)
+            .header(REFERER, "https://www.roblox.com/share-links")
+            .json(&json!({ "linkId": code, "linkType": "Server" }));
+        let r = self.send(request).await?;
+        let v = r.json().filter(|_| r.ok()).ok_or_else(|| anyhow!("[{}] {}", r.status, r.body))?;
+        Ok(server_invite(&v))
+    }
+
     /// The access code of a private server link (the page embeds it)
     pub async fn private_server_access_code(&self, token: &str, csrf: &str, place_id: i64, link_code: &str) -> Result<Option<String>> {
         let url = format!("https://www.roblox.com/games/{place_id}?privateServerLinkCode={link_code}");
@@ -180,5 +192,54 @@ impl Api {
     pub async fn client_version(&self) -> Result<String> {
         let r = self.get("https://clientsettings.roblox.com/v1/client-version/WindowsPlayer", None).await?;
         r.json().and_then(|v| v["clientVersionUpload"].as_str().map(str::to_string)).ok_or_else(|| anyhow!("no version"))
+    }
+}
+
+/// The code of a private server share link: roblox.com/share?code=…&type=Server (also /share-links, any order)
+pub fn server_share_code(text: &str) -> Option<String> {
+    let link = regex::Regex::new(r"(?i)roblox\.com/share(?:-links)?/?\?(\S+)").unwrap();
+    let query = link.captures(text)?.get(1)?.as_str().to_string();
+    let param = |name: &str| query.split('&').find_map(|p| p.split_once('=').filter(|(k, _)| k.eq_ignore_ascii_case(name)).map(|(_, v)| v.to_string()));
+    let code = param("code").filter(|c| !c.is_empty() && c.chars().all(|c| c.is_ascii_alphanumeric()))?;
+    param("type").filter(|t| t.eq_ignore_ascii_case("Server")).map(|_| code)
+}
+
+/// placeId and linkCode of a resolve-link answer, when it's a valid private server invite
+fn server_invite(v: &Value) -> Option<(i64, String)> {
+    let data = &v["privateServerInviteData"];
+    if data["status"].as_str().is_some_and(|s| !s.eq_ignore_ascii_case("Valid")) {
+        return None;
+    }
+    // ids come as numbers or as text
+    let text = |x: &Value| x.as_str().map(str::to_string).or_else(|| x.as_u64().map(|n| n.to_string())).filter(|s| !s.is_empty());
+    let place = text(&data["placeId"])?.parse().ok()?;
+    Some((place, text(&data["linkCode"])?))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn share_links_give_their_code() {
+        let code = Some("864059867507234896ed98bd1b78a8dc".to_string());
+        assert_eq!(server_share_code("https://www.roblox.com/share?code=864059867507234896ed98bd1b78a8dc&type=Server"), code);
+        assert_eq!(server_share_code("roblox.com/share-links?type=server&code=864059867507234896ed98bd1b78a8dc"), code);
+        assert_eq!(server_share_code("look: https://www.roblox.com/share?code=864059867507234896ed98bd1b78a8dc&type=Server thanks"), code);
+        // other kinds of share links, and old private server links, aren't these
+        assert_eq!(server_share_code("https://www.roblox.com/share?code=864059867507234896ed98bd1b78a8dc&type=ExperienceDetails"), None);
+        assert_eq!(server_share_code("https://www.roblox.com/games/1818/x?privateServerLinkCode=123"), None);
+        assert_eq!(server_share_code("https://www.roblox.com/share?code=&type=Server"), None);
+    }
+
+    #[test]
+    fn resolve_link_answers() {
+        let valid = json!({ "privateServerInviteData": { "status": "Valid", "ownerUserId": 1, "universeId": 2, "privateServerId": 3, "linkCode": "1020499390872690887970171", "placeId": 90906407195271_i64 } });
+        assert_eq!(server_invite(&valid), Some((90906407195271, "1020499390872690887970171".to_string())));
+        let as_text = json!({ "privateServerInviteData": { "status": "Valid", "linkCode": "abc", "placeId": "1818" } });
+        assert_eq!(server_invite(&as_text), Some((1818, "abc".to_string())));
+        let expired = json!({ "privateServerInviteData": { "status": "Expired", "linkCode": "abc", "placeId": 1818 } });
+        assert_eq!(server_invite(&expired), None);
+        assert_eq!(server_invite(&json!({ "privateServerInviteData": null, "experienceInviteData": {} })), None);
     }
 }

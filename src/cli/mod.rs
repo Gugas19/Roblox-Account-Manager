@@ -30,7 +30,7 @@ Accounts are named by username, user id or alias (any case).
 
 Commands:
   list [--group <name>] [--json]     the accounts (never their cookies)
-  join <accounts> [--place <id or game link>] [--job <job id or VIP link>]
+  join <accounts> [--place <id or game link>] [--job <job id or private server link>]
                                      launch the accounts into a game, one after the other.
                                      Without --place each account uses its saved place.
   follow <accounts> --user <name>    join the game a player is in

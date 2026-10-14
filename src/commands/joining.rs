@@ -9,6 +9,10 @@ pub(crate) fn parse_place(text: &str, job: &str) -> (Option<i64>, String) {
     if text.contains("privateServerLinkCode") && link.is_match(text) {
         job = text.to_string();
     }
+    // a private server share link has no place in it: Roblox gives it when joining
+    if crate::roblox::server_share_code(text).is_some() {
+        return (None, text.trim().to_string());
+    }
     let place = match link.captures(text) {
         Some(c) => c[1].to_string(),
         None => {
@@ -23,18 +27,23 @@ pub(crate) fn parse_place(text: &str, job: &str) -> (Option<i64>, String) {
 pub async fn join(names: Vec<String>, place: String, job: String, privacy_ok: bool) -> R<JoinResult> {
     let app = app();
     let (place_id, job) = parse_place(&place, &job);
-    let place_id = place_id.ok_or("Invalid PlaceId provided")?;
+    // with a share link the place comes from Roblox when joining
+    let share = crate::roblox::server_share_code(&job).is_some();
+    let place_id = place_id.or(share.then_some(0)).ok_or("Invalid PlaceId provided")?;
     let vip = job.len() > 4 && job.starts_with("VIP:");
     let job_id = if vip { job[4..].to_string() } else { job };
 
-    add_recent_game(app.clone(), place_id);
-    app.set_setting("General", "SavedPlaceId", &place_id.to_string());
+    if place_id > 0 {
+        add_recent_game(app.clone(), place_id);
+        app.set_setting("General", "SavedPlaceId", &place_id.to_string());
+    }
 
     let accounts = app.accounts_named(&names);
     let opts = JoinOptions { place_id, job_id, join_vip: vip, privacy_ok, ..app.join_options() };
 
     if accounts.len() > 1 {
-        launch_many(app, accounts, opts);
+        // the accounts' saved games win, except over a share link someone sent
+        launch_many(app, accounts, opts, !share);
         return Ok(JoinResult::Success);
     }
 
@@ -61,12 +70,12 @@ pub(crate) async fn join_one(app: &Arc<App>, account: &Account, opts: JoinOption
 }
 
 /// Launches several accounts in the background, the interface shows the progress
-pub(super) fn launch_many(app: Arc<App>, accounts: Vec<Account>, opts: JoinOptions) {
+pub(super) fn launch_many(app: Arc<App>, accounts: Vec<Account>, opts: JoinOptions, use_saved: bool) {
     tauri::async_runtime::spawn(async move {
         let total = accounts.len();
         app.emit("launching", json!({ "total": total, "done": 0 }));
         let a = app.clone();
-        launch_sequence(&app, &accounts, opts, true, move |i, account, result| {
+        launch_sequence(&app, &accounts, opts, use_saved, move |i, account, result| {
             if let JoinResult::Error(err) = result {
                 a.toast("error", format!("{}: {}", account.username, err));
             }
@@ -150,7 +159,7 @@ pub async fn follow(names: Vec<String>, user_id: i64) -> R<JoinResult> {
     let accounts = app.accounts_named(&names);
     let opts = JoinOptions { place_id: user_id, follow_user: true, privacy_ok: true, ..app.join_options() };
     if accounts.len() > 1 {
-        launch_many(app, accounts, opts);
+        launch_many(app, accounts, opts, true);
         return Ok(JoinResult::Success);
     }
     let account = accounts.into_iter().next().ok_or("No Account Selected!")?;

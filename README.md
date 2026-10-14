@@ -104,7 +104,7 @@ The app checks the [releases](https://github.com/Gugas19/Roblox-Account-Manager/
 
 ```
 ram-cli list [--group <name>] [--json]
-ram-cli join <accounts> [--place <id or game link>] [--job <job id or VIP link>]
+ram-cli join <accounts> [--place <id or game link>] [--job <job id or private server link>]
 ram-cli follow <accounts> --user <username>
 ram-cli close <accounts> | --all
 ram-cli import [file]
@@ -294,7 +294,12 @@ Set a password and change the port if you plan on enabling any dangerous method,
 
 ## **Q:** Can I join VIP servers with it?
 
-**A:** Yes. Make sure the Place ID matches the game, paste the whole VIP server link into the Job ID box and press Join Server.
+**A:** Yes. Paste the private server link into the Job ID box and press Join Server. Both kinds work:
+
+- the new share links, `https://www.roblox.com/share?code=…&type=Server`: the game comes from the link, the Place ID box doesn't matter;
+- the old links, `https://www.roblox.com/games/<place>/…?privateServerLinkCode=…`.
+
+The account needs *Who can invite me to private servers* set to Everyone in its Roblox privacy settings; the app offers to change it. Private servers the account already has access to show up with a VIP tag in Utilities → Servers (select the account first).
 
 
 ## **Q:** Can you use this on Mac?
@@ -342,7 +347,7 @@ Set a password and change the port if you plan on enabling any dangerous method,
 | Games List | Search Roblox games | `Utilities` > `Games` |
 | Favorite Games | Keep the games you play close | `Utilities` > `Favorites` |
 | Recent Games | The games you joined last | The clock icon above `Place ID`, or type the game's name into `Place ID` |
-| Game Links | Paste a game or VIP server link into `Place ID` | The Place ID (and the VIP server) is taken from the link |
+| Game Links | Paste a game or private server link (old or `share?code=` links) | The Place ID and the private server are taken from the link |
 | Open Browser | A browser logged in as the selected account | Click `Open Browser` with an account selected |
 | Join Group | Join a group with several accounts | The arrow next to `Open Browser` > `Join Group` |
 | Custom URL & Javascript | Open a page and run a script in several browsers | The arrow next to `Open Browser` |

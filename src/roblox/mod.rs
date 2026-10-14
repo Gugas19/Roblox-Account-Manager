@@ -5,6 +5,7 @@ mod account;
 mod auth;
 mod avatar;
 mod games;
+pub use games::server_share_code;
 mod users;
 
 use anyhow::{anyhow, bail, Result};

@@ -15,8 +15,12 @@ import { useT } from '@/lib/i18n'
 import { useStore } from '@/lib/store'
 import type { Game } from '@/lib/types'
 
+/** A private server share link (roblox.com/share?code=…&type=Server): the game comes from Roblox when joining */
+const isShareLink = (text: string) => /roblox\.com\/share(?:-links)?\/?\?\S*type=server/i.test(text) && /[?&]code=\w+/i.test(text)
+
 /** Pasted links: a game page fills the place, a private server link goes to the server box */
 function fromLink(text: string): { place?: string; job?: string } | null {
+  if (isShareLink(text)) return { job: text.trim() }
   const game = /roblox\.com\/(?:[a-z]{2}\/)?games\/(\d+)/i.exec(text)
   if (!game) return null
   return text.includes('privateServerLinkCode') ? { place: game[1], job: text.trim() } : { place: game[1] }
@@ -85,14 +89,16 @@ export function GamePanel() {
   }
 
   const recentGame = recent.find((g) => String(g.placeId) === place)
+  // a share link in the server box decides the game (Roblox tells which when joining)
+  const shareLink = isShareLink(job)
 
   return (
     <section className="grid gap-3">
       <div className="flex items-center gap-3">
-        <GameIcon src={info?.icon ?? recentGame?.icon} className="size-11" />
+        <GameIcon src={shareLink ? undefined : (info?.icon ?? recentGame?.icon)} className="size-11" />
         <div className="min-w-0">
           <div className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{t('Game')}</div>
-          <div className="truncate font-semibold">{place.trim() ? (info?.name ?? recentGame?.name ?? t('Current Place')) : t('No game chosen')}</div>
+          <div className="truncate font-semibold">{shareLink ? t('Private server from a link') : place.trim() ? (info?.name ?? recentGame?.name ?? t('Current Place')) : t('No game chosen')}</div>
         </div>
       </div>
 
