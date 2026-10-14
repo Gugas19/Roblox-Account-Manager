@@ -352,13 +352,13 @@ pub fn restart(app: &App) -> Result<()> {
     Ok(())
 }
 
-/// Checks a little after start, then every 6 hours, when automatic checks are on
+/// Checks right after start (once the window is up), then every 6 hours, when automatic checks are on
 pub fn spawn(app: Arc<App>) {
     if disabled() {
         return;
     }
     tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(Duration::from_secs(20)).await;
+        tokio::time::sleep(Duration::from_secs(3)).await;
         loop {
             if app.setting_bool(SECTION, "Check") {
                 check(&app, false).await;

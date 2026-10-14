@@ -1,8 +1,8 @@
-/** Top bar: a new version, its download, then "restart to update" (hidden otherwise).
+/** Top bar (and the unlock screen): a new version, its download, then "restart to update" (hidden otherwise).
  *  The first time a new version shows up, a notification with a button says so too. */
 
 import { ArrowUpCircle, RotateCw } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -12,13 +12,14 @@ import { api } from '@/lib/api'
 import { useT } from '@/lib/i18n'
 import { notifier } from '@/lib/notify'
 
+// each version is announced once (available, then ready), even when the pill moves from the unlock screen to the top bar
+let announced: string | null = null
+
 export function UpdatePill() {
   const t = useT()
   const notify = notifier(t)
   const dialogs = useDialogs()
   const { status, version } = useUpdate()
-  // each version is announced once (available, then ready)
-  const announced = useRef<string | null>(null)
 
   const restart = async (newVersion: string) => {
     const ok = await dialogs.confirm({ title: t('Restart to update to version {0}?', newVersion), description: 'Anti-AFK stops while the app restarts.' })
@@ -28,8 +29,8 @@ export function UpdatePill() {
   useEffect(() => {
     if (status.state !== 'available' && status.state !== 'ready') return
     const key = `${status.state}:${status.version}`
-    if (announced.current === key) return
-    announced.current = key
+    if (announced === key) return
+    announced = key
 
     if (status.state === 'ready') {
       toast(t('Version {0} is ready', status.version), {

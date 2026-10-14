@@ -16,7 +16,7 @@ LANGS = os.path.join(ROOT, 'lang')
 LANG = os.path.join(LANGS, 'pt-PT.json')
 
 # props of our components whose value goes through t()
-PROPS = r'(?:title|hint|label|description|confirm|cancel|empty)'
+PROPS = r'(?:title|hint|label|description|confirm|cancel|empty|text)'
 STRING = r"""(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")"""
 
 

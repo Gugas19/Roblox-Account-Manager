@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { UpdatePill } from '@/components/layout/UpdatePill'
 import { api } from '@/lib/api'
 import { useT } from '@/lib/i18n'
 import type { LoadState } from '@/lib/types'
@@ -12,7 +13,11 @@ import type { LoadState } from '@/lib/types'
 function Shell({ icon, title, description, children }: { icon: React.ReactNode; title: string; description: string; children: React.ReactNode }) {
   const t = useT()
   return (
-    <div className="grid h-full place-items-center p-6">
+    <div className="relative grid min-h-screen place-items-center bg-background p-6">
+      {/* a new version shows here too, before the accounts are unlocked */}
+      <div className="absolute top-3 right-4">
+        <UpdatePill />
+      </div>
       <Card className="w-full max-w-lg">
         <CardHeader className="items-center text-center">
           <div className="mx-auto mb-2 grid size-12 place-items-center rounded-2xl bg-primary/15 text-primary">{icon}</div>

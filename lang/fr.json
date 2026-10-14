@@ -163,6 +163,8 @@
   "Enable Developer Mode": "Activer le mode développeur",
   "Enable Roblox Watcher": "Activer la surveillance de Roblox",
   "Enable Web Server": "Activer le serveur web",
+  "Encrypted with a password you type when the app starts. The file works on any PC, safe to back up.": "Chiffré avec un mot de passe que vous tapez au démarrage de l'app. Le fichier fonctionne sur n'importe quel PC, sûr à sauvegarder.",
+  "Encrypted with your Windows account, no password to type. The file only opens on this PC with this Windows user.": "Chiffré avec votre compte Windows, aucun mot de passe à taper. Le fichier ne s'ouvre que sur ce PC avec cet utilisateur Windows.",
   "Enter your current password": "Saisissez votre mot de passe actuel",
   "Enter your password to open your accounts.": "Saisissez votre mot de passe pour ouvrir vos comptes.",
   "Error": "Erreur",

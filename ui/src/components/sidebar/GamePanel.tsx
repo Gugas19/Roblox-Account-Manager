@@ -117,7 +117,7 @@ export function GamePanel() {
               </PopoverContent>
             </Popover>
           </div>
-          <Input id="place" value={place} onChange={(e) => choose(e.target.value)} onPaste={paste} onFocus={(e) => e.target.select()} placeholder="1818" />
+          <Input id="place" value={place} onChange={(e) => choose(e.target.value)} onPaste={paste} onFocus={(e) => e.target.select()} placeholder="xxxx" />
         </div>
 
         <div className="grid gap-1.5">
