@@ -34,6 +34,11 @@ pub fn fps_limit_of(account: &crate::core::accounts::Account) -> Option<i64> {
     account.field("FPSLimit").parse::<i64>().ok().filter(|n| (FPS_MIN..=FPS_MAX).contains(n))
 }
 
+/// How long a join waits for the Roblox launcher to finish
+const LAUNCH_WAIT: Duration = Duration::from_secs(30);
+/// A whole join (Roblox's answers and the launcher) at most, then the app stops waiting
+pub const JOIN_TIMEOUT: Duration = Duration::from_secs(60);
+
 pub const FPS_MIN: i64 = 5;
 pub const FPS_MAX: i64 = 1000;
 const FPS_FLAG: &str = "DFIntTaskSchedulerTargetFps";
@@ -170,8 +175,16 @@ pub async fn restore_window_position(tracker: String, rect: (i32, i32, i32, i32)
     }
 }
 
-/// Launches Roblox into a game for one account, `tracker` is the account's browser tracker id (created when empty)
-pub async fn join(api: &Api, token: &str, tracker: &str, mut opts: JoinOptions) -> JoinResult {
+/// Launches Roblox into a game for one account, `tracker` is the account's browser tracker id (created when empty).
+/// Gives up after JOIN_TIMEOUT, so the Join button never spins forever
+pub async fn join(api: &Api, token: &str, tracker: &str, opts: JoinOptions) -> JoinResult {
+    match tokio::time::timeout(JOIN_TIMEOUT, join_now(api, token, tracker, opts)).await {
+        Ok(result) => result,
+        Err(_) => JoinResult::Error("Roblox is taking too long to answer. It may still open; if it doesn't, try again".into()),
+    }
+}
+
+async fn join_now(api: &Api, token: &str, tracker: &str, mut opts: JoinOptions) -> JoinResult {
     if let Err(e) = patch_client_settings(&opts) {
         log::warn!("{e}");
     }
@@ -226,8 +239,9 @@ pub async fn join(api: &Api, token: &str, tracker: &str, mut opts: JoinOptions) 
 
     let link = player_link(&ticket, tracker, &place_launcher_url(&opts, tracker, &access_code, &link_code));
 
-    // the launcher can take a while, don't block the async runtime
-    let result = tokio::task::spawn_blocking(move || winutil::shell_open(&link, true)).await;
+    // the launcher can take a while, don't block the async runtime. Its process ends once Roblox is up, but when
+    // the game itself answers the link it only ends with the game: never wait for that past LAUNCH_WAIT
+    let result = tokio::task::spawn_blocking(move || winutil::shell_open(&link, Some(LAUNCH_WAIT))).await;
 
     match result {
         Ok(Ok(())) => JoinResult::Success,

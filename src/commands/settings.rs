@@ -87,7 +87,7 @@ pub fn open_target(kind: String, value: Option<String>) -> R<()> {
         "game" => format!("https://www.roblox.com/games/{}", value.unwrap_or_default()),
         _ => return Err("unknown".into()),
     };
-    winutil::shell_open(&target, false).map_err(e)
+    winutil::shell_open(&target, None).map_err(e)
 }
 
 /// Watcher toggles need the processes list etc., keep it simple: on/off

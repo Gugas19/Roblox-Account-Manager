@@ -354,7 +354,7 @@ pub fn dump_details(names: Vec<String>) {
 
             match result {
                 Ok(file) => {
-                    let _ = winutil::shell_open(&file.to_string_lossy(), false);
+                    let _ = winutil::shell_open(&file.to_string_lossy(), None);
                 }
                 Err(err) => app.toast("error", format!("Could not get the details of {}:\n\n{}", account.username, err)),
             }

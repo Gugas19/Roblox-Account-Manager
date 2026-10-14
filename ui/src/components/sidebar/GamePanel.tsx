@@ -143,7 +143,7 @@ export function GamePanel() {
 
         <div className="grid gap-1.5">
           <div className="flex items-center justify-between">
-            <Label htmlFor="job">{t('Server or VIP')}</Label>
+            <Label htmlFor="job">{t('Server (link or ID)')}</Label>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon-xs" className={shuffle ? 'text-emerald-500' : ''} aria-pressed={shuffle} aria-label={t('Shuffle JobId')} onClick={() => setShuffle(!shuffle)}>

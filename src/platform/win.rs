@@ -5,7 +5,7 @@ use std::os::windows::ffi::OsStrExt;
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{CloseHandle, BOOL, ERROR_ALREADY_EXISTS, GetLastError, HANDLE, HWND, LPARAM, WAIT_ABANDONED, WAIT_OBJECT_0, WPARAM};
-use windows::Win32::System::Threading::{CreateMutexW, GetExitCodeProcess, OpenProcess, ReleaseMutex, WaitForSingleObject, INFINITE, PROCESS_QUERY_LIMITED_INFORMATION};
+use windows::Win32::System::Threading::{CreateMutexW, GetExitCodeProcess, OpenProcess, ReleaseMutex, WaitForSingleObject, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE};
 use windows::Win32::UI::Shell::{ShellExecuteExW, SEE_MASK_NOCLOSEPROCESS, SHELLEXECUTEINFOW};
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetClassNameW, GetForegroundWindow, GetWindow, GetWindowRect, GetWindowTextW, GetWindowThreadProcessId, IsWindowVisible, MoveWindow, PostMessageW, GW_OWNER, SW_SHOWNORMAL,
@@ -119,6 +119,15 @@ pub fn process_alive(pid: u32) -> bool {
     }
 }
 
+/// Waits (at most `limit`) for a process to end; at once when it's already gone
+pub fn wait_process_exit(pid: u32, limit: std::time::Duration) {
+    unsafe {
+        let Ok(handle) = OpenProcess(PROCESS_SYNCHRONIZE, false, pid) else { return };
+        WaitForSingleObject(handle, limit.as_millis().min(u32::MAX as u128) as u32);
+        let _ = CloseHandle(handle);
+    }
+}
+
 pub fn is_roblox_running() -> bool {
     !roblox_processes().is_empty()
 }
@@ -212,7 +221,8 @@ pub fn move_window(hwnd: HWND, x: i32, y: i32, width: i32, height: i32) {
 }
 
 /// Opens a file, folder, link or protocol (roblox-player:) like double clicking it, optionally waits for the program it started
-pub fn shell_open(target: &str, wait: bool) -> anyhow::Result<()> {
+/// Opens a file, folder, link or protocol. With `wait`, up to that long for the program it started to finish
+pub fn shell_open(target: &str, wait: Option<std::time::Duration>) -> anyhow::Result<()> {
     let file = wide(target);
     let verb = wide("open");
     let mut info = SHELLEXECUTEINFOW {
@@ -227,8 +237,8 @@ pub fn shell_open(target: &str, wait: bool) -> anyhow::Result<()> {
     unsafe {
         ShellExecuteExW(&mut info).map_err(|e| anyhow::anyhow!("{e}"))?;
         if !info.hProcess.is_invalid() && !info.hProcess.0.is_null() {
-            if wait {
-                WaitForSingleObject(info.hProcess, INFINITE);
+            if let Some(limit) = wait {
+                WaitForSingleObject(info.hProcess, limit.as_millis().min(u32::MAX as u128) as u32);
             }
             let _ = CloseHandle(info.hProcess);
         }

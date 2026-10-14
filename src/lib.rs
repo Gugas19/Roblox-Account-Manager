@@ -48,8 +48,13 @@ pub fn run() {
     let dir = std::env::current_exe().ok().and_then(|p| p.parent().map(|p| p.to_path_buf())).unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
     let _ = std::env::set_current_dir(&dir);
 
-    // started by an update: the previous version is quitting, give it a moment to let go of the lock
-    let after_update = std::env::args().any(|a| a == "--updated");
+    // started by an update: the previous version is quitting, give it a moment to be gone (its lock, and the web
+    // server's port and command line pipe it lets go of only as it ends)
+    let args: Vec<String> = std::env::args().collect();
+    let after_update = args.iter().any(|a| a == "--updated");
+    if let Some(pid) = args.iter().position(|a| a == "--after").and_then(|i| args.get(i + 1)).and_then(|p| p.parse().ok()) {
+        win::wait_process_exit(pid, std::time::Duration::from_secs(10));
+    }
     let lock = instance_lock(&dir);
     let mut instance = NamedMutex::acquire(&lock);
     for _ in 0..if after_update { 50 } else { 0 } {

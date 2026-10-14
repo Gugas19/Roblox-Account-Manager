@@ -323,7 +323,13 @@ pub fn install_staged(dir: &Path) -> bool {
 
     let _ = std::fs::remove_dir_all(&target);
     log::info!("Update {} installed, starting it", version_text(version));
-    std::process::Command::new(dir.join("RobloxAccountManager.exe")).arg("--updated").current_dir(dir).spawn().is_ok()
+    // the new version waits for this process to be gone: it lets go of the web server's port and the command
+    // line's pipe only as it ends, after the lock
+    std::process::Command::new(dir.join("RobloxAccountManager.exe"))
+        .args(["--updated", "--after", &std::process::id().to_string()])
+        .current_dir(dir)
+        .spawn()
+        .is_ok()
 }
 
 /// The previous version's files, once this one has been running for a minute
