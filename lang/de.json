@@ -436,6 +436,7 @@
   "Sent": "Gesendet",
   "Separate the accounts with new lines\nMust be in user:pass form": "Ein Konto pro Zeile\nIm Format name:passwort",
   "Server Settings > Integrations > Webhooks > Copy URL": "Servereinstellungen > Integrationen > Webhooks > URL kopieren",
+  "Server or VIP": "Server oder VIP",
   "Servers": "Server",
   "Sessions": "Sitzungen",
   "Set Alias": "Alias setzen",
