@@ -61,11 +61,20 @@ Together "Build and unit tests" @{
     "unit tests"    = "set CARGO_TARGET_DIR=target\unit&& cargo test --lib"
 }
 
+# what gets tested must be what gets shipped: the tests use these exes and never run cargo themselves
+$env:RAM_RELEASE_BUILT = '1'
+$Exes = "target\release\RobloxAccountManager.exe", "target\release\ram-cli.exe"
+$Built = $Exes | ForEach-Object { (Get-FileHash $_).Hash }
+
 # each suite runs its own copy of the app (own folder, lock and browser data)
 Together "Tests" @{
     "command line tests" = "node tests/cli.mjs --release"
     "interface tests"    = "node tests/ui.mjs --release"
     "updater tests"      = "node tests/update.mjs"
+}
+
+if ((Compare-Object $Built ($Exes | ForEach-Object { (Get-FileHash $_).Hash }))) {
+    throw "The exes were built again while the tests ran, so the tested ones aren't the ones that would ship. Run the release again."
 }
 
 # Windows code signing (Authenticode), optional: with a certificate in the Windows certificate store and its

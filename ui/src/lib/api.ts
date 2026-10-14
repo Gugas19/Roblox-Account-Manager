@@ -117,7 +117,7 @@ export const api = {
   setTheme: (key: string, value: string) => call<Theme>('set_theme', { key, value }),
   resetTheme: () => call<Theme>('reset_theme'),
   pickFile: (title: string) => call<string | null>('pick_file', { title }),
-  open: (kind: 'discord' | 'github' | 'logs' | 'browser' | 'data' | 'profile' | 'game', value?: string) => call<void>('open_target', { kind, value }),
+  open: (kind: 'github' | 'logs' | 'browser' | 'data' | 'profile' | 'game', value?: string) => call<void>('open_target', { kind, value }),
   watcherEnable: (enabled: boolean) => call<void>('watcher_enable', { enabled }),
 }
 

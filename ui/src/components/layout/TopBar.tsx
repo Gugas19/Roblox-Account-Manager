@@ -1,6 +1,6 @@
 /** The bar above everything: add/remove/open browser on the left, language, theme and settings on the right */
 
-import { ChevronDown, Command, Download, Globe, MessageCircle, Palette, Plus, Settings, Trash2, UserRoundPlus } from 'lucide-react'
+import { ChevronDown, Command, Download, Globe, Palette, Plus, Settings, Trash2, UserRoundPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Progress } from '@/components/ui/progress'
@@ -103,9 +103,6 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
         <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground" onClick={onPalette}>
           <Command className="size-3.5" /> <kbd className="text-xs">Ctrl K</kbd>
         </Button>
-        <IconButton label="Join Discord" onClick={() => api.open('discord')}>
-          <MessageCircle />
-        </IconButton>
         <LanguageMenu />
         <IconButton label="Theme Editor" onClick={() => actions.open('theme')}>
           <Palette />

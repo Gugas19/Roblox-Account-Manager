@@ -34,9 +34,11 @@ fs.mkdirSync(zipDir)
 for (const exe of ['RobloxAccountManager.exe', 'ram-cli.exe']) fs.copyFileSync(path.join(release, exe), path.join(zipDir, exe))
 const zip = path.join(base, `RobloxAccountManager-${next}.zip`)
 ps(`Compress-Archive -Path '${zipDir}\\*' -DestinationPath '${zip}'`)
-// built with exactly the release script's command: "cargo run --example" alone resolves the features differently,
-// and the two keep rebuilding each other (over a minute each)
-execSync('cargo build -q --release --bins --example sign-release', { cwd: root, stdio: 'inherit' })
+// the release script has built everything already, and no cargo command may run there while the tests do: after a
+// version change cargo built the exes again in the middle of the tests, so the tested ones weren't the shipped ones.
+// On its own, built with the release script's command ("cargo run --example" resolves the features differently,
+// and the two kept rebuilding each other)
+if (!process.env.RAM_RELEASE_BUILT) execSync('cargo build -q --release --bins --example sign-release', { cwd: root, stdio: 'inherit' })
 execSync(`"${path.join(release, 'examples', 'sign-release.exe')}" "${zip}"`, { cwd: root, stdio: 'inherit' })
 
 function install(name, { zipBytes = fs.readFileSync(zip), stagedVersion = next } = {}) {

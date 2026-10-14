@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="icons/icon.svg" width="96" alt="">
+
 # Roblox Account Manager
 
 **A modern, translated, Rust rewrite of [ic3w0lf22's Roblox Account Manager](https://github.com/ic3w0lf22/Roblox-Account-Manager), with Anti-AFK and a command line built in**

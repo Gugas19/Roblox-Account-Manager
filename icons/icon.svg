@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2E313A"/><stop offset="1" stop-color="#141519"/></linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.07"/><stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+    <mask id="behind"><rect width="256" height="256" fill="#FFFFFF"/><g fill="#000000"><circle cx="128" cy="106" r="40"/><path d="M65 213 C65 161 93.35 139 128 139 C162.65 139 191 161 191 213 Z"/></g></mask>
+    <clipPath id="disc"><circle cx="128" cy="128" r="120"/></clipPath>
+  </defs>
+  <circle cx="128" cy="128" r="120" fill="url(#bg)"/>
+  <circle cx="128" cy="128" r="120" fill="url(#shine)"/>
+  <circle cx="128" cy="128" r="117.5" fill="none" stroke="#FFFFFF" stroke-opacity="0.16" stroke-width="5"/>
+  <g clip-path="url(#disc)">
+    <g fill="#FFFFFF" fill-opacity="0.38" mask="url(#behind)"><circle cx="70" cy="96" r="23"/><path d="M30 188 C30 154 48 132 70 132 C92 132 110 154 110 188 Z"/><circle cx="186" cy="96" r="23"/><path d="M146 188 C146 154 164 132 186 132 C208 132 226 154 226 188 Z"/></g>
+    <g fill="#FAFAFA"><circle cx="128" cy="106" r="31"/><path d="M74 204 C74 170 98.3 148 128 148 C157.7 148 182 170 182 204 Z"/></g>
+  </g>
+</svg>

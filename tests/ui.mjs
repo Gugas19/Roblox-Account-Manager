@@ -46,8 +46,8 @@ function prepare() {
   // the README's pictures show the normal settings. Still safe: Anti-AFK only takes a made-up account, so it never
   // finds a window of its own to switch to or press keys in
   const settings = args.includes('--readme')
-    ? '[General]\r\nLanguage=en\r\n' + SAFE_ANTI_AFK.replace('IdleSeconds=86400', 'IdleSeconds=5').replace('MaxWaitSeconds=86400', 'MaxWaitSeconds=90')
-    : '[General]\r\nLanguage=en\r\nEnableMultiRbx=false\r\n' + SAFE_ANTI_AFK
+    ? '[General]\r\nLanguage=en\r\nSavedPlaceId=5315046213\r\n' + SAFE_ANTI_AFK.replace('IdleSeconds=86400', 'IdleSeconds=5').replace('MaxWaitSeconds=86400', 'MaxWaitSeconds=90')
+    : '[General]\r\nLanguage=en\r\nSavedPlaceId=5315046213\r\nEnableMultiRbx=false\r\n' + SAFE_ANTI_AFK
   fs.writeFileSync(path.join(work, 'RAMSettings.ini'), settings)
 }
 
@@ -127,8 +127,17 @@ async function openSub(text) {
   throw new Error(`the "${text}" submenu didn't open`)
 }
 
-/** Menus and dialogs animate for 100 ms: after an action, a short settle before the next one */
-const SETTLE = 150
+/** Right click until the menu shows the item (a busy PC can miss the first one), then clicks the item */
+async function menuItem(target, targetSelector, item) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    await click(target, targetSelector, 'right')
+    if (await findSoon(item, '[role=menuitem]')) return click(item, '[role=menuitem]')
+    await key('Escape')
+  }
+  throw new Error(`the menu of "${target}" never showed "${item}"`)
+}
+
+/** Menus and dialogs animate for 100 ms: after an action, a short settle before the next one */const SETTLE = 150
 
 /** Waits (up to 3 s) for the element to show up, so no test needs a long fixed pause before a click */
 async function findSoon(text, selector) {
@@ -235,6 +244,14 @@ async function main() {
       await shot('main')
     })
 
+    await test('the typed Place ID is remembered for the next start', async () => {
+      const saved = () => /SavedPlaceId=(.*)/.exec(fs.readFileSync(path.join(work, 'RAMSettings.ini'), 'utf8'))?.[1]?.trim()
+      const type = (value) => evaluate(`(() => { const i = document.querySelector('#place'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, '${value}'); i.dispatchEvent(new Event('input', { bubbles: true })) })()`)
+      await type('1818')
+      await until(async () => saved() === '1818', `not saved: ${saved()}`)
+      await type('5315046213')
+      await until(async () => saved() === '5315046213', `not saved back: ${saved()}`)
+    })
     await test('selecting enables the account buttons', async () => {
       await checkCursors('button, [role=row]')
       await click('NightFalcon_07', '[role=row]')
@@ -308,14 +325,12 @@ async function main() {
     })
 
     await test('rename a group from its header', async () => {
-      await click('FARM', 'button', 'right')
-      await click('Rename group…', '[role=menuitem]')
+      await menuItem('FARM', 'button', 'Rename group…')
       await evaluate(`(() => { const i = document.querySelector('[role=dialog] input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(i, '3Grinders'); i.dispatchEvent(new Event('input', { bubbles: true })) })()`)
       await evaluate(`document.querySelector('[role=dialog] form').requestSubmit()`)
       await until(async () => (await text()).includes('GRINDERS') && !(await text()).includes('FARM'), 'the group was not renamed')
       // and back, so the other tests find it
-      await click('GRINDERS', 'button', 'right')
-      await click('Rename group…', '[role=menuitem]')
+      await menuItem('GRINDERS', 'button', 'Rename group…')
       await evaluate(`(() => { const i = document.querySelector('[role=dialog] input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(i, '3Farm'); i.dispatchEvent(new Event('input', { bubbles: true })) })()`)
       await evaluate(`document.querySelector('[role=dialog] form').requestSubmit()`)
       await until(async () => (await text()).includes('FARM'), 'the group did not get its name back')

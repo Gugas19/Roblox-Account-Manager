@@ -20,7 +20,8 @@ pub fn bootstrap() -> Value {
         "loadState": state,
         "multiRobloxOk": multi_ok,
         "browserInstalled": browser::installed_browser().is_some(),
-        "placeId": Some(app.setting("General", "SavedPlaceId")).filter(|p| !p.is_empty()).unwrap_or_else(|| "5315046213".into()),
+        // the last game typed or joined, none on a new install
+        "placeId": app.setting("General", "SavedPlaceId"),
         "followUser": app.setting("General", "SavedFollowUser"),
         "version": env!("CARGO_PKG_VERSION"),
         "startup": winutil::startup_enabled(),
