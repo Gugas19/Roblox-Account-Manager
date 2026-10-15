@@ -45,7 +45,7 @@ function install(name, { zipBytes = fs.readFileSync(zip), stagedVersion = next }
   const dir = path.join(base, name)
   fs.mkdirSync(path.join(dir, 'update'), { recursive: true })
   for (const exe of ['RobloxAccountManager.exe', 'ram-cli.exe']) fs.copyFileSync(path.join(release, exe), path.join(dir, exe))
-  fs.writeFileSync(path.join(dir, 'RAMSettings.ini'), '[General]\r\nLanguage=en\r\n[Updates]\r\nCheck=false\r\nAutoInstall=false\r\n[AntiAFK]\r\nAccounts=__test_nobody__\r\nIdleSeconds=86400\r\nKeepAwake=false\r\nBackground=false\r\n')
+  fs.writeFileSync(path.join(dir, 'RAMSettings.ini'), '[General]\r\nLanguage=en\r\n[Updates]\r\nCheck=false\r\nAutoInstall=false\r\n[AntiAFK]\r\nAccounts=__test_nobody__\r\nIdleSeconds=86400\r\nKeepAwake=false\r\nAutoRejoin=false\r\nAutoRejoinDefaultOn=true\r\n')
   fs.writeFileSync(path.join(dir, 'AccountData.json'), '[]')
   // a test copy: its own lock and browser data, so it runs next to your own app without touching it
   fs.writeFileSync(path.join(dir, 'ram-test-copy'), '')

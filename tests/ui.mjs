@@ -21,7 +21,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 // Anti-AFK in the test copy can never press a key: it only takes a made-up account, and waits for a day without
 // input first. The real Roblox on this PC (if open) is listed but never touched.
-const SAFE_ANTI_AFK = '[AntiAFK]\r\nAccounts=__test_nobody__\r\nUserSafe=true\r\nIdleSeconds=86400\r\nMaxWaitSeconds=86400\r\nKeepAwake=false\r\nAutoStart=false\r\nAutoStartIdle=false\r\nAutoRejoin=false\r\nMuteBackground=false\r\nEfficiency=false\r\nAutoGrid=false\r\n'
+const SAFE_ANTI_AFK = '[AntiAFK]\r\nAccounts=__test_nobody__\r\nUserSafe=true\r\nIdleSeconds=86400\r\nMaxWaitSeconds=86400\r\nKeepAwake=false\r\nAutoStart=false\r\nAutoStartIdle=false\r\nAutoRejoin=false\r\nAutoRejoinDefaultOn=true\r\nMuteBackground=false\r\nEfficiency=false\r\nAutoGrid=false\r\n'
 
 // ---------- demo data ----------
 
@@ -46,7 +46,7 @@ function prepare() {
   // the README's pictures show the normal settings. Still safe: Anti-AFK only takes a made-up account, so it never
   // finds a window of its own to switch to or press keys in
   const settings = args.includes('--readme')
-    ? '[General]\r\nLanguage=en\r\nSavedPlaceId=5315046213\r\n' + SAFE_ANTI_AFK.replace('IdleSeconds=86400', 'IdleSeconds=5').replace('MaxWaitSeconds=86400', 'MaxWaitSeconds=90')
+    ? '[General]\r\nLanguage=en\r\nSavedPlaceId=5315046213\r\n' + SAFE_ANTI_AFK.replace('IdleSeconds=86400', 'IdleSeconds=5').replace('MaxWaitSeconds=86400', 'MaxWaitSeconds=90').replace('AutoRejoin=false', 'AutoRejoin=true')
     : '[General]\r\nLanguage=en\r\nSavedPlaceId=5315046213\r\nEnableMultiRbx=false\r\n' + SAFE_ANTI_AFK
   fs.writeFileSync(path.join(work, 'RAMSettings.ini'), settings)
 }

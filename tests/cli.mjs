@@ -21,7 +21,7 @@ function stopTestApps() {
 
 // Anti-AFK in the test copy can never press a key: it only takes a made-up account, and waits for a day without
 // input first. The real Roblox on this PC (if open) is listed but never touched.
-const SAFE_ANTI_AFK = '[AntiAFK]\r\nAccounts=__test_nobody__\r\nUserSafe=true\r\nIdleSeconds=86400\r\nMaxWaitSeconds=86400\r\nKeepAwake=false\r\nAutoStart=false\r\nAutoStartIdle=false\r\nAutoRejoin=false\r\nMuteBackground=false\r\nEfficiency=false\r\nAutoGrid=false\r\n'
+const SAFE_ANTI_AFK = '[AntiAFK]\r\nAccounts=__test_nobody__\r\nUserSafe=true\r\nIdleSeconds=86400\r\nMaxWaitSeconds=86400\r\nKeepAwake=false\r\nAutoStart=false\r\nAutoStartIdle=false\r\nAutoRejoin=false\r\nAutoRejoinDefaultOn=true\r\nMuteBackground=false\r\nEfficiency=false\r\nAutoGrid=false\r\n'
 
 function prepare(dir) {
   fs.rmSync(dir, { recursive: true, force: true })

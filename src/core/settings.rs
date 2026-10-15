@@ -63,6 +63,14 @@ impl Settings {
         updates.set_default("AutoInstall", "true");
 
         let afk = self.ini.section_mut("AntiAFK");
+        // Rejoining became on by default (4.1.13). Copies from before have "AutoRejoin=false" written as the old
+        // default, not as a choice: turned on once, then the marker keeps whatever the user picks afterwards
+        if !afk.exists("AutoRejoinDefaultOn") {
+            if afk.exists("AutoRejoin") {
+                afk.set("AutoRejoin", "true");
+            }
+            afk.set("AutoRejoinDefaultOn", "true");
+        }
         for (key, value) in ANTI_AFK_DEFAULTS {
             afk.set_default(key, value);
         }
@@ -111,7 +119,7 @@ pub const ANTI_AFK_DEFAULTS: &[(&str, &str)] = &[
     ("SkipFocused", "true"),
     ("AutoStart", "false"),
     ("AutoStartIdle", "false"),
-    ("AutoRejoin", "false"),
+    ("AutoRejoin", "true"),
     ("RejoinSameServer", "true"),
     ("AutoReset", "false"),
     ("MuteBackground", "false"),
@@ -192,5 +200,29 @@ mod tests {
         assert!(s.get_bool("General", "EnableMultiRbx"));
         assert_eq!(s.get("WebServer", "WebServerPort"), "7963");
         assert!(s.ini.to_text().contains("# Visit http://ip-api.com/json/1.1.1.1 to see available format options\r\nServerRegionFormat=<city>, <countryCode>"));
+    }
+
+    #[test]
+    fn rejoin_turns_on_once_then_keeps_the_choice() {
+        let dir = std::env::temp_dir().join(format!("ram-rejoin-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("RAMSettings.ini");
+
+        // a new install: on
+        let _ = std::fs::remove_file(&file);
+        assert!(Settings::load(&dir).get_bool("AntiAFK", "AutoRejoin"));
+
+        // a copy from before, with the old default written: on, once
+        std::fs::write(&file, "[AntiAFK]\nAutoRejoin=false\n").unwrap();
+        let s = Settings::load(&dir);
+        assert!(s.get_bool("AntiAFK", "AutoRejoin"));
+        s.save();
+
+        // turned off afterwards: stays off
+        let mut s = Settings::load(&dir);
+        s.ini.section_mut("AntiAFK").set("AutoRejoin", "false");
+        s.save();
+        assert!(!Settings::load(&dir).get_bool("AntiAFK", "AutoRejoin"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
