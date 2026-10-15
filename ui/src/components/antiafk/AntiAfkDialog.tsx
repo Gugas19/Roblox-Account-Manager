@@ -174,7 +174,7 @@ export function AntiAfkDialog() {
 
             <TabsContent value="rejoin" className="divide-y">
               <Toggle section="AntiAFK" name="AutoRejoin" title="Rejoin disconnected accounts" hint="Reads the Roblox log, closes the disconnected window and launches the account into the same game again." />
-              <Toggle section="AntiAFK" name="RejoinSameServer" title="Rejoin the same server" hint="Otherwise any server of the game." disabled={!flag('AntiAFK', 'AutoRejoin')} />
+              <Toggle section="AntiAFK" name="RejoinSameServer" title="Rejoin the same server" hint="If it closed (for example for a game update) or is full, any server of the game. Off: always any server." disabled={!flag('AntiAFK', 'AutoRejoin')} />
               <Toggle section="AntiAFK" name="AutoReset" title="Reset the character every round" hint="Esc, R, Enter after the key presses." />
               <Toggle section="AntiAFK" name="MuteBackground" title="Mute the windows I'm not looking at" hint="The window in front keeps its sound." />
               <Toggle section="AntiAFK" name="Efficiency" title="Efficiency mode for background windows" hint="Windows' efficiency mode and a lower priority: less CPU and fan noise with many accounts. Safe, Roblox is never paused." />

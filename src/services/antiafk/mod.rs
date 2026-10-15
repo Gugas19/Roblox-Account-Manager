@@ -411,7 +411,17 @@ fn rejoin(app: &Arc<App>, pid: u32, account: &str, place: i64, job: Option<Strin
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(Duration::from_secs(3)).await;
         let tracker = app.ensure_tracker(&acc.username);
-        let opts = JoinOptions { place_id: place, job_id: if same_server { job.unwrap_or_default() } else { String::new() }, privacy_ok: true, fps_limit: launcher::fps_limit_of(&acc), ..app.join_options() };
+        let mut job_id = if same_server { job.unwrap_or_default() } else { String::new() };
+        // the same server, unless Roblox says it can't be joined anymore (it shut down, e.g. for a game update, or
+        // it's full): then any server of the game
+        if !job_id.is_empty() {
+            let status = app.api.join_game_instance(&acc.security_token, place, &job_id, false).await.ok().and_then(|r| r.json()).and_then(|v| v["status"].as_i64());
+            if !rejoin::server_joinable(status) {
+                log::info!("{account}: server {job_id} can't be joined anymore (status {status:?}), rejoining any server of {place}");
+                job_id.clear();
+            }
+        }
+        let opts = JoinOptions { place_id: place, job_id, privacy_ok: true, fps_limit: launcher::fps_limit_of(&acc), ..app.join_options() };
         match launcher::join(&app.api, &acc.security_token, &tracker, opts).await {
             JoinResult::Success => {
                 add_stat(&app, "StatRejoins", 1);

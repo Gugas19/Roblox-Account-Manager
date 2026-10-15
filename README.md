@@ -65,8 +65,9 @@ Roblox kicks you after 20 minutes without input. Anti-AFK keeps every Roblox win
   never acts while a full screen game or video is in front, and puts your window back in front afterwards.
   (Roblox only accepts input while it has the focus: keys and mouse sent in the background are ignored, we tested them
   all, so a short switch to the Roblox window is the only way.)
-- **Rejoins disconnected accounts**: it reads the Roblox log, closes the disconnected window and launches that account
-  into the same game again, into the same server if you want.
+- **Rejoins disconnected accounts** (off until you turn it on, in Rejoin & extras): it reads the Roblox log, closes the
+  disconnected window and launches that account into the same game again, into the same server if you want. When that
+  server closed (a game update, for example) or is full, it joins any server of the game instead.
 - Choice of key (jump, walk, turn the camera, zoom), interval, presses per window, and resetting the character every round.
 - Mute the windows you're not looking at, put background windows in Windows' efficiency mode (less CPU and fan noise),
   arrange them in a grid, hide them or make them see-through.

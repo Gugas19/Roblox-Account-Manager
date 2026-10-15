@@ -94,9 +94,24 @@ impl LogReader {
     }
 }
 
+/// Whether Roblox's join-game-instance answer still lets an account into that server. 6 is full, 11 the server is
+/// gone (shut down), 12 no access; when Roblox didn't answer, the same server is tried anyway
+pub fn server_joinable(status: Option<i64>) -> bool {
+    !matches!(status, Some(6 | 11 | 12))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_closed_or_full_server_isnt_rejoined() {
+        assert!(server_joinable(Some(2)));
+        assert!(server_joinable(None));
+        assert!(!server_joinable(Some(11)));
+        assert!(!server_joinable(Some(6)));
+        assert!(!server_joinable(Some(12)));
+    }
 
     const LOG: &str = "2026-10-11T20:00:01.123Z,1.2,abc,6 [FLog::Output] ! Joining game '0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0' place 1818 at 128.116.1.2\n\
                        2026-10-11T20:20:01.123Z,1.2,abc,6 [FLog::Network] Sending disconnect with reason: 277\n";

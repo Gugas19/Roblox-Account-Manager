@@ -373,8 +373,15 @@ async function main() {
 
     await test('remove shows undo and undo brings it back', async () => {
       await click('StorageAlt02', '[role=row]')
+      // the click must have selected it (a busy PC can miss it), Remove takes the selection
+      const selectedNow = () => evaluate(`[...document.querySelectorAll('[role=row][aria-selected=true]')].map((r) => r.innerText.split('\\n')[0]).join(',')`)
+      await until(async () => (await selectedNow()) === 'StorageAlt02', `selection: ${await selectedNow()}`).catch(async () => {
+        await click('StorageAlt02', '[role=row]')
+        await until(async () => (await selectedNow()) === 'StorageAlt02', `StorageAlt02 isn't selected, the selection is "${await selectedNow()}"`)
+      })
       await click('Remove', 'button')
-      await until(async () => !(await rows()).includes('StorageAlt02'), 'not removed')
+      const toasts = () => evaluate(`[...document.querySelectorAll('[data-sonner-toast]')].map((t) => t.innerText).join(' | ')`)
+      await until(async () => !(await rows()).includes('StorageAlt02'), 'not removed').catch(async (e) => { throw new Error(`${e.message}; selection "${await selectedNow()}", notifications: ${await toasts()}`) })
       await click('Undo', 'button')
       await until(async () => (await rows()).includes('StorageAlt02'), 'undo failed')
     })
