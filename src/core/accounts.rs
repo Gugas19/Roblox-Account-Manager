@@ -298,7 +298,13 @@ impl AccountStore {
             }
             None => self.set_password_hash(None)?,
         }
-        self.save(true, true)
+        self.save(true, true)?;
+        // the backup is a copy of the file as it was before: it would keep the old protection (and the cookies under
+        // it) for up to 8 hours, so it becomes a copy of the newly protected file
+        if self.backup_file().exists() {
+            std::fs::copy(self.file(), self.backup_file())?;
+        }
+        Ok(())
     }
 
     /// Same rules as the C# SaveAccounts: not in the first 2 seconds (unless forced), never an empty list over the file
@@ -434,6 +440,19 @@ mod tests {
         assert_eq!(std::fs::read(store.file()).unwrap(), saved, "an empty list overwrote the accounts");
 
         assert!(dir.join("AccountData.json.backup").exists());
+    }
+
+    #[test]
+    fn a_new_protection_reaches_the_backup_too() {
+        let dir = temp_dir("protection-backup");
+        let mut store = AccountStore::new(&dir);
+        store.load();
+        store.accounts = serde_json::from_str(CSHARP_JSON).unwrap();
+        store.set_protection(None).unwrap();
+        // a backup made under the Windows protection, then a password chosen
+        std::fs::write(store.backup_file(), std::fs::read(store.file()).unwrap()).unwrap();
+        store.set_protection(Some("teste1234")).unwrap();
+        assert_eq!(std::fs::read(store.backup_file()).unwrap(), std::fs::read(store.file()).unwrap(), "the backup kept the old protection");
     }
 
     #[test]

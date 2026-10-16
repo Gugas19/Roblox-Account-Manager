@@ -72,8 +72,9 @@ fn refused(origin: Option<&str>, fetch_site: Option<&str>, host: Option<&str>, e
     if origin.is_some() || fetch_site.is_some_and(|s| !s.eq_ignore_ascii_case("none")) {
         return Some("Requests from web pages are not allowed");
     }
-    if !external {
-        let name = host.unwrap_or("").trim().to_ascii_lowercase();
+    // no Host at all: an old script, never a browser (a rebinding page always sends its own name)
+    if let (false, Some(host)) = (external, host) {
+        let name = host.trim().to_ascii_lowercase();
         let name = if name.starts_with('[') { name.split(']').next().map(|n| format!("{n}]")).unwrap_or_default() } else { name.split(':').next().unwrap_or("").to_string() };
         if !["localhost", "127.0.0.1", "[::1]"].contains(&name.as_str()) {
             return Some("Unknown host");
@@ -420,7 +421,8 @@ mod tests {
         assert!(refused(None, Some("cross-site"), Some("127.0.0.1:7963"), false).is_some());
         // DNS rebinding: the page's own name pointed at 127.0.0.1
         assert!(refused(None, None, Some("evil.example:7963"), false).is_some());
-        assert!(refused(None, None, None, false).is_some());
+        // an old script that sends no Host
+        assert_eq!(refused(None, None, None, false), None);
         // other PCs, when allowed on purpose
         assert_eq!(refused(None, None, Some("192.168.1.20:7963"), true), None);
         assert!(refused(Some("https://evil.example"), None, Some("192.168.1.20:7963"), true).is_some());
