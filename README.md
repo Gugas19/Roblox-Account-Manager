@@ -36,7 +36,7 @@ In the zip, besides the license:
 | `ram-cli.exe` | the [command line](#command-line) |
 
 - It uses the WebView2 runtime that comes with Windows 10 and 11. Nothing else to install: no .NET, and no bundled browser engine.
-- From version 4.0.1 on it [updates itself](#automatic-updates). Version 4.0.0 has to be replaced by hand once.
+- From version 4.0.1 on it [tells you about new versions and updates in one click](#updates). Version 4.0.0 has to be replaced by hand once.
 - The browser used to add accounts (Chrome for Testing) is downloaded automatically the first time you need it, into
   `%LOCALAPPDATA%\RobloxAccountManager\Chrome`. A progress bar shows while it downloads.
 
@@ -45,7 +45,8 @@ In the zip, besides the license:
 Copy your `AccountData.json`, `RAMSettings.ini` and `RAMTheme.ini` next to `RobloxAccountManager.exe`.
 Your accounts, groups, aliases, settings and theme carry over as they are. That includes password-protected files,
 which open with the same password, and the local web API, which answers the same requests (so
-[`RAMAccount.lua`](RAMAccount.lua) and other scripts keep working). Don't run both versions on the same files at
+[`RAMAccount.lua`](RAMAccount.lua) and other scripts keep working, as long as they send the web API password for
+the methods that change something, see [Developer API](#developer-api)). Don't run both versions on the same files at
 the same time: they refuse to start while the other is open.
 
 ## Highlights
@@ -82,24 +83,34 @@ scheduled task. When the app is open the command runs inside it, so the window u
 English, Português (Portugal), Español, Français and Deutsch. Switch at any time with the flag button in the top
 right, and the whole app changes instantly.
 
-### Automatic updates
+### Updates
 The app checks the [releases](https://github.com/Gugas19/Roblox-Account-Manager/releases) when it starts and every
-6 hours, downloads a new version in the background, and installs it the next time it starts (or right away with
-`Restart to update` in the top bar). It never restarts by itself while you use it.
+6 hours and tells you when there's a new version. **Nothing is downloaded or installed until you click**: `Update` in
+the top bar downloads it, then `Restart to update` installs it. If you'd rather have it happen by itself, choose
+`Automatic` in `Settings` > `General` (it then installs on the next start and never restarts while you use it), or
+`Off` to never contact GitHub.
 - Every release is signed with the developer's private key, and the app checks that signature before it keeps a
   download and again before it installs it. A changed download, or a release not signed with that key, is refused,
   even if it comes from this repository.
 - The version is part of what's signed, so an old release can't be published again as a newer one, and only newer
   versions are installed.
 - Only the two exes are taken from the download, and your accounts and settings are never touched.
-- Turn it off, or check by hand, in `Settings` > `General`. `ram-cli update` downloads it from the command line.
+- `Check now` in `Settings` > `General` looks right away. `ram-cli update` downloads it from the command line.
 
 ### Security
 - Your accounts file is encrypted for your Windows user, or with a password if you choose one.
   A password-protected file works on any PC.
-- The local web API refuses protected requests without its password, and only listens to this PC unless you allow other devices.
+- The local web API (off by default) only listens to this PC unless you allow other devices, refuses web pages open in
+  your browser and other host names (so a website can't use it behind your back), and needs its password for anything
+  that changes an account or reveals a cookie or token.
 - The command line only talks to the app in its own folder, run by the same Windows user, and never prints cookies.
-- Updates are installed only when they're signed with the developer's key (see [Automatic updates](#automatic-updates)).
+- Updates are installed only when you ask and only when they're signed with the developer's key (see [Updates](#updates)).
+- Nothing else is downloaded at run time: Chrome for Testing only from Google's own storage address (its size and
+  SHA-256 go to `log.txt`), and the watcher uses the patterns built into the app.
+- The temporary browser profile used to log in (it holds that session's cookie) is deleted when the browser closes,
+  and at the next start if the app crashed.
+- An independent [security audit](https://github.com/ZackWitAK/Roblox-Account-Manager/blob/hardening/AUDIT.md) of
+  version 4.1.13 found nothing malicious; its medium and low findings are fixed from 4.1.15 on.
 
 ## Command line
 
@@ -254,7 +265,10 @@ If you ever want a friend to join a game using your account, make sure the Place
 
 # Developer API
 Enable it in `Settings` > `Developer` > `Enable Web Server`. It answers the same requests as the original app, see the [documentation](https://ic3w0lf22.gitbook.io/roblox-account-manager/), and [`RAMAccount.lua`](RAMAccount.lua) is a ready-made client for it.
-Set a password and change the port if you plan on enabling any dangerous method, and be careful running random scripts with those enabled.
+Requests from web pages in a browser are refused, and so is any host name other than `localhost`/`127.0.0.1` (unless
+you allow other devices). Every method that changes an account, launches it, imports a cookie or reveals a cookie or
+CSRF token needs the password: set one (6 characters or more) and send it as `Password=` (`RAMAccount.lua` does it
+with `SetPassword`). Be careful running random scripts with dangerous methods enabled.
 
 # Frequently Asked Questions
 ## **Q:** Why is this program detected as a virus?
@@ -374,7 +388,7 @@ The account needs *Who can invite me to private servers* set to Everyone in its 
 | Automatic Cookie Refresh | Unused accounts get new cookies so they don't get logged out | `Settings` > `General` > `Auto Refresh Cookies` (signs out other sessions) |
 | Quick Log In | Log in to an account on another device with Roblox's Quick Log In | Right click an account > `Quick Log In` |
 | Tray | Keep the app, Anti-AFK and the web API running with the window closed | Anti-AFK settings |
-| Automatic Updates | New versions download by themselves and install on the next start, only when signed by the developer | `Settings` > `General` |
+| Updates | Tells you about a new version, it downloads and installs when you click, only when signed by the developer (or `Automatic`, or `Off`) | `Settings` > `General` |
 
 # Credits
 

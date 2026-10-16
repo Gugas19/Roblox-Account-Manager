@@ -64,9 +64,33 @@ fn query(url: &str) -> HashMap<String, String> {
         .unwrap_or_default()
 }
 
+/// Why a request is refused before anything else, if it is. Programs and scripts (curl, the Lua helper, ram-cli)
+/// send no Origin and no Sec-Fetch-Site other than "none"; a web page open in a browser does, and must never reach
+/// this API (it could add accounts or change them behind the user's back). A Host that isn't this PC means a DNS
+/// rebinding page, unless external connections were allowed on purpose
+fn refused(origin: Option<&str>, fetch_site: Option<&str>, host: Option<&str>, external: bool) -> Option<&'static str> {
+    if origin.is_some() || fetch_site.is_some_and(|s| !s.eq_ignore_ascii_case("none")) {
+        return Some("Requests from web pages are not allowed");
+    }
+    if !external {
+        let name = host.unwrap_or("").trim().to_ascii_lowercase();
+        let name = if name.starts_with('[') { name.split(']').next().map(|n| format!("{n}]")).unwrap_or_default() } else { name.split(':').next().unwrap_or("").to_string() };
+        if !["localhost", "127.0.0.1", "[::1]"].contains(&name.as_str()) {
+            return Some("Unknown host");
+        }
+    }
+    None
+}
+
 fn respond(mut request: tiny_http::Request) {
     let local = request.remote_addr().map(|a| a.ip().is_loopback()).unwrap_or(false);
     let url = request.url().to_string();
+    let header = |name: &str| request.headers().iter().find(|h| h.field.as_str().as_str().eq_ignore_ascii_case(name)).map(|h| h.value.as_str().to_string());
+    let (origin, fetch_site, host) = (header("Origin"), header("Sec-Fetch-Site"), header("Host"));
+    if let Some(why) = refused(origin.as_deref(), fetch_site.as_deref(), host.as_deref(), app().setting_bool("WebServer", "AllowExternalConnections")) {
+        let _ = request.respond(tiny_http::Response::from_string(why).with_status_code(403));
+        return;
+    }
     let mut body = String::new();
     let _ = request.as_reader().read_to_string(&mut body);
 
@@ -120,7 +144,13 @@ pub fn handle(app: &App, url: &str, local: bool, body: &str) -> Reply {
         return reply("1.0.0".into(), true, None, None);
     }
 
-    if ["GetCookie", "GetAccounts", "LaunchAccount", "FollowUser", "KillProcess"].contains(&method) && !password_ok {
+    // reading cookies, launching, and every method that changes something (an account, the Roblox account's
+    // settings) needs the password; so does the CSRF token, which lets a caller act as the account
+    const NEEDS_PASSWORD: &[&str] = &[
+        "GetCookie", "GetAccounts", "LaunchAccount", "FollowUser", "KillProcess", "ImportCookie", "GetCSRFToken", "BlockUser", "UnblockUser",
+        "UnblockEveryone", "SetServer", "SetRecommendedServer", "SetField", "RemoveField", "SetAvatar", "SetAlias", "SetDescription", "AppendDescription",
+    ];
+    if NEEDS_PASSWORD.contains(&method) && !password_ok {
         return invalid_password();
     }
 
@@ -151,7 +181,7 @@ pub fn handle(app: &App, url: &str, local: bool, body: &str) -> Reply {
             .map(|a| {
                 serde_json::json!({
                     "Username": a.username, "UserID": a.user_id, "Alias": a.alias, "Description": a.description, "Group": a.group,
-                    "CSRFToken": sessions.get(&a.user_id).map(|s| s.csrf.clone()), "LastUsed": a.last_use.roblox_tick(),
+                    "CSRFToken": if password_ok { sessions.get(&a.user_id).map(|s| s.csrf.clone()) } else { None }, "LastUsed": a.last_use.roblox_tick(),
                     "Cookie": if cookies { Some(a.security_token.clone()) } else { None }, "Fields": a.fields,
                 })
             })
@@ -313,6 +343,9 @@ pub fn handle(app: &App, url: &str, local: bool, body: &str) -> Reply {
             return reply(format!("Removed Field {} from {}", get("Field"), account.username), true, None, None);
         }
         "SetAvatar" if serde_json::from_str::<serde_json::Value>(body).is_ok() => {
+            if !app.setting_bool("WebServer", "AllowAccountEditing") {
+                return not_allowed("SetAvatar");
+            }
             let avatar: serde_json::Value = serde_json::from_str(body).unwrap();
             let token = account.security_token.clone();
             tauri::async_runtime::spawn(async move {
@@ -373,5 +406,23 @@ mod tests {
         assert_eq!(q["PlaceId"], "1");
         assert_eq!(q["JobId"], "");
         assert_eq!(q["Password"], "a b");
+    }
+
+    #[test]
+    fn web_pages_and_other_hosts_are_refused() {
+        // a script or curl on this PC
+        assert_eq!(refused(None, None, Some("127.0.0.1:7963"), false), None);
+        assert_eq!(refused(None, None, Some("localhost:7963"), false), None);
+        assert_eq!(refused(None, None, Some("[::1]:7963"), false), None);
+        assert_eq!(refused(None, Some("none"), Some("localhost"), false), None);
+        // a page in a browser, even on this PC
+        assert!(refused(Some("https://evil.example"), None, Some("127.0.0.1:7963"), false).is_some());
+        assert!(refused(None, Some("cross-site"), Some("127.0.0.1:7963"), false).is_some());
+        // DNS rebinding: the page's own name pointed at 127.0.0.1
+        assert!(refused(None, None, Some("evil.example:7963"), false).is_some());
+        assert!(refused(None, None, None, false).is_some());
+        // other PCs, when allowed on purpose
+        assert_eq!(refused(None, None, Some("192.168.1.20:7963"), true), None);
+        assert!(refused(Some("https://evil.example"), None, Some("192.168.1.20:7963"), true).is_some());
     }
 }

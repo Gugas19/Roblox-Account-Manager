@@ -48,19 +48,10 @@ fn default_matches() -> HashMap<String, String> {
     .collect()
 }
 
-/// The patterns can change with Roblox updates, the repository keeps them current
+/// The built-in patterns. They used to be downloaded from the repository at run time (a C# leftover): nothing from
+/// the internet decides how the watcher reads Roblox's logs anymore, a Roblox change ships in an app update
 pub async fn update_matches(app: &App) {
-    let mut matches = default_matches();
-    if let Ok(r) = app.api.get("https://raw.githubusercontent.com/Gugas19/Roblox-Account-Manager/master/RBX%20Alt%20Manager/Resources/WatcherRegexMatches.txt", None).await {
-        if r.ok() {
-            for line in r.body.lines() {
-                if let Some((name, value)) = line.split_once('=') {
-                    matches.insert(name.trim().to_string(), value.trim_end_matches('\r').to_string());
-                }
-            }
-        }
-    }
-    *app.watcher.matches.lock().unwrap() = matches;
+    *app.watcher.matches.lock().unwrap() = default_matches();
 }
 
 fn logs_folder() -> PathBuf {

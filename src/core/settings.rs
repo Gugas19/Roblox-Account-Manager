@@ -58,9 +58,18 @@ impl Settings {
             w.set_default(key, value);
         }
 
+        // Updates are checked, but only downloaded and installed when the user says so (4.1.15): nothing replaces the
+        // exe on its own. Copies from before have "AutoInstall=true" written as the old default, not as a choice:
+        // changed once, then the marker keeps whatever the user picks afterwards
         let updates = self.ini.section_mut("Updates");
+        if !updates.exists("AskBeforeInstallDefault") {
+            if updates.exists("AutoInstall") {
+                updates.set("AutoInstall", "false");
+            }
+            updates.set("AskBeforeInstallDefault", "true");
+        }
         updates.set_default("Check", "true");
-        updates.set_default("AutoInstall", "true");
+        updates.set_default("AutoInstall", "false");
 
         let afk = self.ini.section_mut("AntiAFK");
         // Rejoining became on by default (4.1.13). Copies from before have "AutoRejoin=false" written as the old
@@ -227,6 +236,31 @@ mod tests {
         s.ini.section_mut("AntiAFK").set("AutoRejoin", "false");
         s.save();
         assert!(!Settings::load(&dir).get_bool("AntiAFK", "AutoRejoin"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn updates_ask_before_installing_then_keep_the_choice() {
+        let dir = std::env::temp_dir().join(format!("ram-updates-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("RAMSettings.ini");
+
+        // a new install: checks, doesn't install by itself
+        let _ = std::fs::remove_file(&file);
+        let s = Settings::load(&dir);
+        assert!(s.get_bool("Updates", "Check") && !s.get_bool("Updates", "AutoInstall"));
+
+        // a copy from before, with the old default written: asks before installing, once
+        std::fs::write(&file, "[Updates]\nCheck=true\nAutoInstall=true\n").unwrap();
+        let s = Settings::load(&dir);
+        assert!(!s.get_bool("Updates", "AutoInstall"));
+        s.save();
+
+        // "Automatic" chosen afterwards: stays
+        let mut s = Settings::load(&dir);
+        s.ini.section_mut("Updates").set("AutoInstall", "true");
+        s.save();
+        assert!(Settings::load(&dir).get_bool("Updates", "AutoInstall"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

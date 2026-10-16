@@ -90,6 +90,7 @@ pub fn run() {
         return;
     }
     services::updater::clean_old(dir.clone());
+    std::thread::spawn(services::browser::clean_stale_profiles);
 
     let test_copy = is_test_copy(&dir);
     if test_copy {

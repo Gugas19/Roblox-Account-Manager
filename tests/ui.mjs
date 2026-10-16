@@ -410,13 +410,18 @@ async function main() {
       const updates = () => /\[Updates\][^[]*/.exec(ini())?.[0] ?? ''
       await click('Settings', 'button')
       await evaluate(`[...document.querySelectorAll('[data-slot=setting-row], div')].find((e) => e.innerText?.startsWith('Automatic updates'))?.scrollIntoView()`)
-      await click('Automatic', '[role=combobox]')
+      // the default: told about a new version, nothing installed without a click
+      assert(/Check=true/.test(updates()) && /AutoInstall=false/.test(updates()), `the default isn't "Only tell me":\n${updates()}`)
+      await click('Only tell me', '[role=combobox]')
       await click('Off', '[role=option]')
       await until(async () => /Check=false/.test(updates()) && /AutoInstall=false/.test(updates()), `not saved as off:\n${updates()}`)
       assert((await text()).includes('never contacts GitHub'), 'no explanation for "Off"')
       await click('Off', '[role=combobox]')
       await click('Automatic', '[role=option]')
       await until(async () => /Check=true/.test(updates()) && /AutoInstall=true/.test(updates()), `not saved as automatic:\n${updates()}`)
+      await click('Automatic', '[role=combobox]')
+      await click('Only tell me', '[role=option]')
+      await until(async () => /Check=true/.test(updates()) && /AutoInstall=false/.test(updates()), `not back to "Only tell me":\n${updates()}`)
       await key('Escape')
     })
 

@@ -18,6 +18,25 @@ mod install;
 pub use cdp::Cdp;
 pub use install::{browser_folder, install, installed_browser};
 
+/// The pid of the app a login browser profile ("ram-browser-<pid>-<random>" in %TEMP%) belongs to
+fn profile_owner(name: &str) -> Option<u32> {
+    name.strip_prefix("ram-browser-")?.split('-').next()?.parse().ok()
+}
+
+/// Deletes the login browser profiles left in %TEMP% by an app that crashed or was killed (each one holds that
+/// session's cookie). The profiles of apps still open are left alone
+pub fn clean_stale_profiles() {
+    let Ok(entries) = std::fs::read_dir(std::env::temp_dir()) else { return };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if let Some(pid) = profile_owner(&name) {
+            if !crate::platform::win::process_alive(pid) && std::fs::remove_dir_all(entry.path()).is_ok() {
+                log::info!("Deleted a login browser profile left behind: {name}");
+            }
+        }
+    }
+}
+
 /// Settings of BrowserConfig.json next to the exe (same file the C# version read)
 #[derive(Default, serde::Deserialize)]
 #[serde(default)]
@@ -385,6 +404,14 @@ pub fn centered(width: i32, height: i32) -> (i32, i32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn login_profiles_belong_to_an_app() {
+        assert_eq!(profile_owner("ram-browser-4120-998877"), Some(4120));
+        assert_eq!(profile_owner("ram-browser-x-1"), None);
+        assert_eq!(profile_owner("ram-update-test-AbC"), None);
+        assert_eq!(profile_owner("something-else"), None);
+    }
 
     #[test]
     fn proxies() {

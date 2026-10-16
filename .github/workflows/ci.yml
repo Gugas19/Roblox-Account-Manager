@@ -1,5 +1,6 @@
 # Every push and pull request: the interface and the app build, the unit tests pass, every text is translated.
 # No secrets here: releases are signed on the maintainer's PC (tools/release.ps1), never on GitHub.
+# The actions are pinned to a commit: a tag can be moved to other code, a commit can't.
 name: CI
 
 on:
@@ -14,22 +15,22 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: ui/package-lock.json
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
 
       - name: Rust
         run: rustup toolchain install stable --profile minimal --component clippy && rustup default stable
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
 
       - name: Translations
         run: python tools/strings.py
