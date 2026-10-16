@@ -18,11 +18,20 @@ impl Settings {
 
     fn apply_defaults(&mut self) {
         let g = self.ini.section_mut("General");
+        // Passwords typed when logging in are only saved when the user turns it on (4.1.17). Copies from before have
+        // "SavePasswords=true" written as the old default, not as a choice: turned off once (the passwords already
+        // saved stay), then the marker keeps whatever the user picks afterwards
+        if !g.exists("SavePasswordsDefaultOff") {
+            if g.exists("SavePasswords") {
+                g.set("SavePasswords", "false");
+            }
+            g.set("SavePasswordsDefaultOff", "true");
+        }
         for (key, value) in [
             ("AccountJoinDelay", "8"),
             ("AsyncJoin", "false"),
             ("DisableAgingAlert", "false"),
-            ("SavePasswords", "true"),
+            ("SavePasswords", "false"),
             ("EnableMultiRbx", "true"),
             ("MaxRecentGames", "8"),
             ("ShuffleChoosesLowestServer", "false"),
@@ -236,6 +245,29 @@ mod tests {
         s.ini.section_mut("AntiAFK").set("AutoRejoin", "false");
         s.save();
         assert!(!Settings::load(&dir).get_bool("AntiAFK", "AutoRejoin"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn passwords_arent_saved_unless_turned_on() {
+        let dir = std::env::temp_dir().join(format!("ram-passwords-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("RAMSettings.ini");
+
+        let _ = std::fs::remove_file(&file);
+        assert!(!Settings::load(&dir).get_bool("General", "SavePasswords"), "a new install saves passwords");
+
+        // a copy from before, with the old default written: off, once
+        std::fs::write(&file, "[General]\nSavePasswords=true\n").unwrap();
+        let s = Settings::load(&dir);
+        assert!(!s.get_bool("General", "SavePasswords"));
+        s.save();
+
+        // turned on afterwards: stays on
+        let mut s = Settings::load(&dir);
+        s.ini.section_mut("General").set("SavePasswords", "true");
+        s.save();
+        assert!(Settings::load(&dir).get_bool("General", "SavePasswords"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

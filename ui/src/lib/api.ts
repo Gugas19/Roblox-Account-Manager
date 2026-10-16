@@ -40,6 +40,7 @@ export const api = {
   sortAlphabetically: () => call<void>('sort_alphabetically'),
   savePlace: (names: string[], placeId: string, jobId: string) => call<void>('save_place', { names, placeId, jobId }),
   clearSavedPlaces: () => call<number>('clear_saved_places'),
+  clearSavedPasswords: () => call<number>('clear_saved_passwords'),
   importCookies: (text: string) => call<{ text: string; ok: boolean }[]>('import_cookies', { text }),
   accountFields: (name: string) => call<Record<string, string>>('account_fields', { name }),
   setField: (name: string, field: string, value: string) => call<void>('set_field', { name, field, value }),

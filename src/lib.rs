@@ -165,6 +165,7 @@ pub fn run() {
             commands::accounts::sort_alphabetically,
             commands::accounts::save_place,
             commands::accounts::clear_saved_places,
+            commands::accounts::clear_saved_passwords,
             commands::accounts::import_cookies,
             commands::accounts::account_fields,
             commands::accounts::set_field,

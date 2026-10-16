@@ -58,6 +58,7 @@ the same time: they refuse to start while the other is open.
 - **Undo** after removing accounts, and double click an alias to edit it in place.
 - Paste a game link straight into Place ID. Recent games are one click away.
 - A progress bar with a cancel button while several accounts launch.
+- Drag the divider between the account list and the side panel to make either one wider (double click it to go back).
 - A guided first start, and every setting explained where you change it. Changes apply instantly, no restart.
 
 ### Anti-AFK built in
@@ -85,7 +86,7 @@ right, and the whole app changes instantly.
 
 ### Updates
 The app checks the [releases](https://github.com/Gugas19/Roblox-Account-Manager/releases) when it starts and every
-6 hours and tells you when there's a new version. **Nothing is downloaded or installed until you click**: `Update` in
+6 hours and tells you when there's a new version. On the first start it asks how you want updates to arrive. **Nothing is downloaded or installed until you click**: `Update` in
 the top bar downloads it, then `Restart to update` installs it. If you'd rather have it happen by itself, choose
 `Automatic` in `Settings` > `General` (it then installs on the next start and never restarts while you use it), or
 `Off` to never contact GitHub.
@@ -99,7 +100,7 @@ the top bar downloads it, then `Restart to update` installs it. If you'd rather 
 
 ### Security
 - Your accounts file is encrypted for your Windows user, or with a password if you choose one.
-  A password-protected file works on any PC.
+  A password-protected file works on any PC. Account passwords are only kept if you turn on *Save Passwords*.
 - The local web API (off by default) only listens to this PC unless you allow other devices, refuses web pages open in
   your browser and other host names (so a website can't use it behind your back), and needs its password for anything
   that changes an account or reveals a cookie or token.
@@ -373,7 +374,7 @@ The account needs *Who can invite me to private servers* set to Everyone in its 
 | Roblox Watcher | Close Roblox on the beta home menu, without connection, with too little memory or the wrong window title | `Utilities` > `Watcher` |
 | Prevent Duplicate Instances | Closes the account's previous Roblox when you launch it again | Each account gets a `BrowserTrackerID` so the app knows which Roblox is whose |
 | Save Window Positions | Each account's Roblox opens where it was last time | `Utilities` > `Watcher` |
-| Save Passwords | The password you type when logging in is saved, to copy it later | Right click the account > `Copy Password`. Turn it off in `Settings` > `General` |
+| Save Passwords | Off by default. When on, the password you type when logging in is saved, to copy it later or log in again when the cookie expires. Turning it off offers to forget the saved ones | Turn it on in `Settings` > `General`, then right click the account > `Copy Password` |
 | Themes | Dark, Midnight, Forest, Light, and your own colors | The palette button in the top right |
 | Developer Mode | Extra account menu items: fields, authentication tickets, cookies and launch links | `Settings` > `Developer` > `Enable Developer Mode` |
 | Local Web API | Use the app from scripts with plain http requests | [Documentation](https://ic3w0lf22.gitbook.io/roblox-account-manager/), [`RAMAccount.lua`](RAMAccount.lua) |

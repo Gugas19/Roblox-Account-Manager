@@ -64,10 +64,17 @@ function useProtectionChange() {
 
 export function SettingsDialog() {
   const { t, language, setTable } = useI18n()
-  const { panel, setPanel, boot, setting, updateSetting, flag } = useStore()
+  const { panel, setPanel, boot, setting, updateSetting, flag, accounts } = useStore()
   const [startup, setStartup] = useState(boot.startup)
   const dialogs = useDialogs()
   const notify = notifier(t)
+
+  // turning "Save Passwords" off offers to forget the ones already saved
+  const savePasswordsChanged = async (on: boolean) => {
+    if (on || !accounts.some((a) => a.hasPassword)) return
+    const remove = await dialogs.confirm({ title: 'Remove saved passwords?', description: 'Do you also want to remove every password that is already saved?', destructive: true })
+    if (remove) notify.success(t('Removed the password of {0} accounts', await api.clearSavedPasswords()))
+  }
 
   // backups: always encrypted, with a password chosen here
   const exportBackup = async () => {
@@ -137,7 +144,7 @@ export function SettingsDialog() {
               <Toggle section="General" name="EnableMultiRbx" title="Multi Roblox" hint="Play several accounts at the same time. Works once every Roblox window is closed." />
               <Toggle section="General" name="AsyncJoin" title="Async Launching" hint="When launching several accounts, start the next one as soon as the previous opened instead of waiting the delay." />
               <NumberSetting section="General" name="AccountJoinDelay" title="Launch Delay" hint="Seconds between accounts when launching several." min={0} max={120} fallback={8} />
-              <Toggle section="General" name="SavePasswords" title="Save Passwords" hint="Remember the password typed when logging in, to copy it later." />
+              <Toggle section="General" name="SavePasswords" title="Save Passwords" hint="Remember the password typed when logging in, to copy it later or log in again when the cookie expires. Off by default." onChange={savePasswordsChanged} />
               <Toggle section="General" name="AutoCookieRefresh" title="Auto Refresh Cookies" hint="Accounts unused for 20 days get a new cookie so they don't get logged out (signs out their other sessions)." />
               <Toggle section="General" name="DisableAgingAlert" title="Disable Aging Alert" hint="Hide the yellow/red dot on accounts unused for over 20 days." />
               <Toggle section="General" name="ShuffleChoosesLowestServer" title="Shuffle Chooses Lowest Server" hint="Shuffle picks the emptiest server instead of a random one." />

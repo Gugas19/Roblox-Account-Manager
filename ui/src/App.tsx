@@ -13,12 +13,13 @@ import { CommandPalette } from '@/components/layout/CommandPalette'
 import { TopBar } from '@/components/layout/TopBar'
 import { ProtectionScreen } from '@/components/protection/ProtectionScreen'
 import { SettingsDialog } from '@/components/settings/SettingsDialog'
+import { UpdateChoice } from '@/components/settings/UpdateChoice'
 import { ThemeDialog } from '@/components/settings/ThemeDialog'
 import { Sidebar } from '@/components/sidebar/Sidebar'
 import { UtilitiesDialog } from '@/components/utilities/UtilitiesDialog'
 import { useActions } from '@/hooks/useActions'
 import { api } from '@/lib/api'
-import { I18nProvider } from '@/lib/i18n'
+import { I18nProvider, useT } from '@/lib/i18n'
 import { StoreProvider, useStore } from '@/lib/store'
 import type { Bootstrap } from '@/lib/types'
 
@@ -51,8 +52,72 @@ function useShortcuts(searchRef: React.RefObject<HTMLInputElement | null>, openP
   }, [actions, panel, searchRef, openPalette])
 }
 
+/** The right panel's width: dragged with the divider, kept in RAMSettings.ini, double click for the default */
+const SIDEBAR_DEFAULT = 360
+const SIDEBAR_MIN = 320
+const LIST_MIN = 360
+
+function clampSidebar(width: number) {
+  return Math.round(Math.max(SIDEBAR_MIN, Math.min(width, window.innerWidth - 32 - 12 - LIST_MIN)))
+}
+
+function useSidebarWidth() {
+  const { setting, updateSetting } = useStore()
+  const saved = Number(setting('General', 'SidebarWidth')) || SIDEBAR_DEFAULT
+  const [width, setWidth] = useState(saved)
+  // a smaller window keeps the list usable
+  const [, redraw] = useState(0)
+  useEffect(() => {
+    const onResize = () => redraw((n) => n + 1)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  const save = (w: number) => void updateSetting('General', 'SidebarWidth', String(clampSidebar(w)))
+  return { width: clampSidebar(width), setWidth, save }
+}
+
+function PanelDivider({ sidebar }: { sidebar: ReturnType<typeof useSidebarWidth> }) {
+  const t = useT()
+  const start = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    const handle = e.currentTarget
+    handle.setPointerCapture(e.pointerId)
+    let last = sidebar.width
+    const move = (ev: PointerEvent) => {
+      // the panel ends 16 px from the right edge, the divider sits in the middle of its 12 px
+      last = clampSidebar(window.innerWidth - 16 - ev.clientX - 6)
+      sidebar.setWidth(last)
+    }
+    const up = () => {
+      handle.removeEventListener('pointermove', move)
+      handle.removeEventListener('pointerup', up)
+      sidebar.save(last)
+    }
+    handle.addEventListener('pointermove', move)
+    handle.addEventListener('pointerup', up)
+  }
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={t('Drag to resize the panels, double click for the default size')}
+      title={t('Drag to resize the panels, double click for the default size')}
+      className="group flex w-3 shrink-0 cursor-col-resize touch-none items-center justify-center"
+      onPointerDown={start}
+      onDoubleClick={() => {
+        sidebar.setWidth(SIDEBAR_DEFAULT)
+        sidebar.save(SIDEBAR_DEFAULT)
+      }}
+    >
+      <div className="h-10 w-1 rounded-full bg-border opacity-0 transition-opacity group-hover:opacity-100 group-active:opacity-100" />
+    </div>
+  )
+}
+
 function Main() {
   const { setAccounts } = useStore()
+  const sidebar = useSidebarWidth()
+  const sidebarWidth = sidebar.width
   const searchRef = useRef<HTMLInputElement>(null)
   const [palette, setPalette] = useState(false)
 
@@ -62,11 +127,12 @@ function Main() {
   return (
     <div className="flex h-screen flex-col bg-background">
       <TopBar onPalette={() => setPalette(true)} />
-      <main className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_360px] gap-3 px-4 pb-4">
-        <div className="min-h-0 overflow-hidden rounded-xl border bg-card">
+      <main className="flex min-h-0 flex-1 px-4 pb-4">
+        <div className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border bg-card">
           <AccountList searchRef={searchRef} />
         </div>
-        <div className="min-h-0 overflow-hidden rounded-xl border bg-card">
+        <PanelDivider sidebar={sidebar} />
+        <div className="min-h-0 shrink-0 overflow-hidden rounded-xl border bg-card" style={{ width: sidebarWidth }}>
           <Sidebar />
         </div>
       </main>
@@ -79,6 +145,7 @@ function Main() {
       <FieldsDialog />
       <AntiAfkDialog />
       <CommandPalette open={palette} onOpenChange={setPalette} />
+      <UpdateChoice />
     </div>
   )
 }

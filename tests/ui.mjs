@@ -41,13 +41,13 @@ function prepare() {
   fs.writeFileSync(path.join(work, 'AccountData.json'), JSON.stringify([
     demo('NightFalcon_07', 1, '1Main', 'Main', now, 'Main account'), demo('PixelBuilderBR', 2, '1Main', 'Builder'),
     demo('StorageAlt01', 3, '2Storage', 'Bank', old), demo('StorageAlt02', 4, '2Storage', ''),
-    demo('GrindBot_A', 5, '3Farm', 'Farm A'), demo('GrindBot_B', 6, '3Farm', 'Farm B'),
+    demo('GrindBot_A', 5, '3Farm', 'Farm A'), { ...demo('GrindBot_B', 6, '3Farm', 'Farm B'), Password: 'saved-demo-password' },
   ]))
   // the README's pictures show the normal settings. Still safe: Anti-AFK only takes a made-up account, so it never
   // finds a window of its own to switch to or press keys in
   const settings = args.includes('--readme')
-    ? '[General]\r\nLanguage=en\r\nSavedPlaceId=5315046213\r\n' + SAFE_ANTI_AFK.replace('IdleSeconds=86400', 'IdleSeconds=5').replace('MaxWaitSeconds=86400', 'MaxWaitSeconds=90').replace('AutoRejoin=false', 'AutoRejoin=true')
-    : '[General]\r\nLanguage=en\r\nSavedPlaceId=5315046213\r\nEnableMultiRbx=false\r\n' + SAFE_ANTI_AFK
+    ? '[General]\r\nLanguage=en\r\nSavedPlaceId=5315046213\r\n[Updates]\r\nChosen=true\r\n' + SAFE_ANTI_AFK.replace('IdleSeconds=86400', 'IdleSeconds=5').replace('MaxWaitSeconds=86400', 'MaxWaitSeconds=90').replace('AutoRejoin=false', 'AutoRejoin=true')
+    : '[General]\r\nLanguage=en\r\nSavedPlaceId=5315046213\r\nEnableMultiRbx=false\r\n[Updates]\r\nChosen=true\r\n' + SAFE_ANTI_AFK
   fs.writeFileSync(path.join(work, 'RAMSettings.ini'), settings)
 }
 
@@ -296,6 +296,22 @@ async function main() {
       await click('NightFalcon_07', '[role=row]')
     })
 
+    await test('the divider resizes the panels and remembers it', async () => {
+      const sidebarWidth = () => evaluate(`Math.round(document.querySelector('[role=separator]').nextElementSibling.getBoundingClientRect().width)`)
+      const saved = () => /SidebarWidth=(\d+)/.exec(fs.readFileSync(path.join(work, 'RAMSettings.ini'), 'utf8'))?.[1]
+      const before = await sidebarWidth()
+      const p = await evaluate(`(() => { const r = document.querySelector('[role=separator]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })()`)
+      await mouse('mouseMoved', p.x, p.y)
+      await mouse('mousePressed', p.x, p.y)
+      for (let dx = 20; dx <= 120; dx += 20) await mouse('mouseMoved', p.x - dx, p.y)
+      await mouse('mouseReleased', p.x - 120, p.y)
+      await until(async () => (await sidebarWidth()) >= before + 110, `the panel didn't grow: ${before} -> ${await sidebarWidth()}`)
+      await until(async () => Number(saved()) === (await sidebarWidth()), `width not saved: ${saved()}`)
+      // double click: back to the default
+      await evaluate(`document.querySelector('[role=separator]').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`)
+      await until(async () => (await sidebarWidth()) === 360 && saved() === '360', `not back to 360: ${await sidebarWidth()}`)
+    })
+
     await test('search filters and counts', async () => {
       await evaluate(`(() => { const i = document.querySelector('input[placeholder="Search accounts..."]'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(i, 'storage'); i.dispatchEvent(new Event('input', { bubbles: true })) })()`)
       await until(async () => (await text()).includes('2 of 6 accounts'), 'counter')
@@ -402,6 +418,23 @@ async function main() {
       await shot('settings-developer')
       await click('Miscellaneous', '[role=tab]')
       await shot('settings-misc')
+      await key('Escape')
+    })
+
+    await test('turning "Save Passwords" off offers to forget the saved ones', async () => {
+      const passwordOf = (name) => JSON.parse(fs.readFileSync(path.join(work, 'AccountData.json'), 'utf8')).find((a) => a.Username === name)?.Password
+      const ini = () => fs.readFileSync(path.join(work, 'RAMSettings.ini'), 'utf8')
+      const toggle = () => evaluate(`[...document.querySelectorAll('[role=dialog] [role=switch]')].find((s) => s.closest('div.flex')?.innerText?.includes('Save Passwords'))?.click()`)
+      // off by default
+      assert(/SavePasswords=false/.test(ini()), 'passwords are saved by default')
+      await click('Settings', 'button')
+      await toggle()
+      await until(async () => /SavePasswords=true/.test(ini()), 'not turned on')
+      await toggle()
+      await until(async () => (await text()).includes('Remove saved passwords?'), 'no offer to remove the saved passwords')
+      await click('Yes', 'button')
+      await until(async () => passwordOf('GrindBot_B') === '', `the saved password is still there: ${passwordOf('GrindBot_B')}`)
+      assert(/SavePasswords=false/.test(ini()), 'not turned off')
       await key('Escape')
     })
 

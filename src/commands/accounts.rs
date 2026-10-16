@@ -216,6 +216,19 @@ pub fn save_place(names: Vec<String>, place_id: String, job_id: String) {
     app.save_accounts(false);
 }
 
+/// Forgets every saved password (offered when "Save Passwords" is turned off), how many accounts had one
+#[tauri::command]
+pub fn clear_saved_passwords() -> usize {
+    let app = app();
+    let mut count = 0;
+    for a in app.store.lock().unwrap().accounts.iter_mut().filter(|a| !a.password.is_empty()) {
+        a.password.clear();
+        count += 1;
+    }
+    app.save_accounts(true);
+    count
+}
+
 #[tauri::command]
 pub fn clear_saved_places() -> usize {
     let app = app();
