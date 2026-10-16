@@ -438,6 +438,28 @@ async function main() {
       await key('Escape')
     })
 
+    await test('anti-afk interval: fixed minutes or random between two', async () => {
+      const afk = () => /\[AntiAFK\][^[]*/.exec(fs.readFileSync(path.join(work, 'RAMSettings.ini'), 'utf8'))?.[0] ?? ''
+      // types into the n-th minutes box of the Behaviour tab and leaves it (that saves)
+      const minutes = (n, value) => evaluate(`(() => { const i = document.querySelectorAll('[role=dialog] input[type=number][step="0.5"]')[${n}]; i.focus(); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, '${value}'); i.dispatchEvent(new Event('input', { bubbles: true })); i.blur() })()`)
+      await click('Anti-AFK', 'button')
+      await click('Behaviour', '[role=tab]')
+      await minutes(0, '7.5')
+      await until(async () => /\nInterval=450\r?\n/.test(afk()), `fixed 7.5 minutes not saved:\n${afk()}`)
+      await click('Fixed', '[role=combobox]')
+      await click('Random', '[role=option]')
+      await until(async () => (await text()).includes('Between (minutes)'), 'no random limits')
+      await minutes(0, '4')
+      await minutes(1, '25')
+      // the high limit can't go past 19 minutes
+      await until(async () => /IntervalMode=random/.test(afk()) && /IntervalMin=240/.test(afk()) && /IntervalMax=1140/.test(afk()), `random limits not saved:\n${afk()}`)
+      await shot('antiafk-random-interval')
+      await click('Random', '[role=combobox]')
+      await click('Fixed', '[role=option]')
+      await until(async () => /IntervalMode=fixed/.test(afk()), 'not back to fixed')
+      await key('Escape')
+    })
+
     await test('anti-afk start and stop update by themselves', async () => {
       await click('Anti-AFK', 'button')
       const windowsOpen = !(await text()).includes('0 Roblox windows open')

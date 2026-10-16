@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -17,7 +18,29 @@ import { useT } from '@/lib/i18n'
 import { notifier } from '@/lib/notify'
 import { useStore } from '@/lib/store'
 
-const INTERVALS = [3, 6, 9, 12, 15, 18]
+/** Minutes in the box, seconds in RAMSettings.ini; from half a minute to 19 (Roblox kicks after 20) */
+function MinutesInput({ name, fallback }: { name: string; fallback: number }) {
+  const { setting, updateSetting } = useStore()
+  const seconds = Number(setting('AntiAFK', name)) || fallback
+  return (
+    <Input
+      type="number"
+      className="w-20"
+      min={0.5}
+      max={19}
+      step={0.5}
+      defaultValue={Math.round((seconds / 60) * 10) / 10}
+      key={seconds}
+      onBlur={(e) => {
+        const minutes = Math.min(19, Math.max(0.5, Number(e.target.value.replace(',', '.')) || fallback / 60))
+        const next = Math.round(minutes * 60)
+        e.target.value = String(Math.round((next / 60) * 10) / 10)
+        if (next !== seconds) void updateSetting('AntiAFK', name, String(next))
+      }}
+      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+    />
+  )
+}
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   const t = useT()
@@ -36,7 +59,7 @@ export function AntiAfkDialog() {
   const status = useAntiAfk()
   const { panel, setPanel, setting, updateSetting, flag } = useStore()
   const included = setting('AntiAFK', 'Accounts').split(',').map((s) => s.trim()).filter(Boolean)
-  const interval = Number(setting('AntiAFK', 'Interval') || 540)
+  const randomInterval = setting('AntiAFK', 'IntervalMode') === 'random'
 
   const tool = async (kind: Parameters<typeof api.antiAfkTool>[0]) => {
     try {
@@ -141,14 +164,27 @@ export function AntiAfkDialog() {
 
             <TabsContent value="behaviour" className="divide-y">
               <SettingRow title="Interval" hint="How often each window gets a key press. Roblox kicks after 20 minutes.">
-                <Select value={String(interval)} onValueChange={(v) => updateSetting('AntiAFK', 'Interval', v)}>
+                <Select value={randomInterval ? 'random' : 'fixed'} onValueChange={(v) => updateSetting('AntiAFK', 'IntervalMode', v)}>
                   <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {INTERVALS.map((m) => <SelectItem key={m} value={String(m * 60)}>{t('{0} minutes', m)}</SelectItem>)}
-                    {!INTERVALS.includes(interval / 60) && <SelectItem value={String(interval)}>{t('{0} seconds', interval)}</SelectItem>}
+                    <SelectItem value="fixed">{t('Fixed')}</SelectItem>
+                    <SelectItem value="random">{t('Random')}</SelectItem>
                   </SelectContent>
                 </Select>
               </SettingRow>
+              {randomInterval ? (
+                <SettingRow title="Between (minutes)" hint="Each round waits a different time between these two, so it's less regular.">
+                  <div className="flex items-center gap-2">
+                    <MinutesInput name="IntervalMin" fallback={360} />
+                    <span className="text-sm text-muted-foreground">{t('and')}</span>
+                    <MinutesInput name="IntervalMax" fallback={900} />
+                  </div>
+                </SettingRow>
+              ) : (
+                <SettingRow title="Every (minutes)" hint="From half a minute to 19.">
+                  <MinutesInput name="Interval" fallback={540} />
+                </SettingRow>
+              )}
               <SettingRow title="Action" hint="What is pressed in each window.">
                 <Select value={setting('AntiAFK', 'Action') || 'space'} onValueChange={(v) => updateSetting('AntiAFK', 'Action', v)}>
                   <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>

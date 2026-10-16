@@ -434,6 +434,18 @@ fn rejoin(app: &Arc<App>, pid: u32, account: &str, place: i64, job: Option<Strin
     });
 }
 
+/// Seconds until the next round: the fixed interval, or with "random" a different one each time between the two
+/// limits (`roll` from 0 to 1). Always from 30 seconds to a minute before Roblox's idle kick
+fn pick_interval(mode: &str, fixed: u64, min: u64, max: u64, roll: f64) -> u64 {
+    let limit = |s: u64| s.clamp(30, ROBLOX_IDLE_KICK - 60);
+    if mode.eq_ignore_ascii_case("random") {
+        let (low, high) = (limit(min.min(max)), limit(min.max(max)));
+        low + ((high - low) as f64 * roll.clamp(0.0, 1.0)).round() as u64
+    } else {
+        limit(fixed)
+    }
+}
+
 /// The engine, one tick per second on its own thread (Windows' keep awake request is per thread)
 pub fn spawn(app: Arc<App>) {
     let state = app.anti_afk();
@@ -584,8 +596,8 @@ fn tick(app: &Arc<App>) {
                     std::thread::spawn(move || {
                         cycle(&app, &roblox_windows(), forced);
                         let state = app.anti_afk();
-                        let interval = Duration::from_secs(app.afk_number("Interval").clamp(30, ROBLOX_IDLE_KICK - 60));
-                        *state.next_action.lock().unwrap() = Some(Instant::now() + interval);
+                        let interval = pick_interval(&app.afk("IntervalMode"), app.afk_number("Interval"), app.afk_number("IntervalMin"), app.afk_number("IntervalMax"), rand::random());
+                        *state.next_action.lock().unwrap() = Some(Instant::now() + Duration::from_secs(interval));
                         state.acting.store(false, Ordering::SeqCst);
                         app.emit("antiafk", status(&app));
                     });
@@ -702,6 +714,19 @@ pub fn restore_all(app: &App) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_interval_is_fixed_or_random_between_limits() {
+        assert_eq!(pick_interval("fixed", 540, 0, 0, 0.7), 540);
+        // never under 30 seconds or past a minute before Roblox's kick
+        assert_eq!(pick_interval("fixed", 5, 0, 0, 0.0), 30);
+        assert_eq!(pick_interval("fixed", 5000, 0, 0, 0.0), ROBLOX_IDLE_KICK - 60);
+        // random: from the low limit to the high one, whichever way round they were typed
+        assert_eq!(pick_interval("random", 0, 300, 900, 0.0), 300);
+        assert_eq!(pick_interval("random", 0, 300, 900, 1.0), 900);
+        assert_eq!(pick_interval("random", 0, 900, 300, 0.5), 600);
+        assert_eq!(pick_interval("Random", 0, 300, 5000, 1.0), ROBLOX_IDLE_KICK - 60);
+    }
 
     #[test]
     fn a_due_round_waits_for_the_user_then_gives_up() {

@@ -68,7 +68,7 @@ Roblox kicks you after 20 minutes without input. Anti-AFK keeps every Roblox win
 - **Rejoins disconnected accounts** (on by default, in Rejoin & extras): it reads the Roblox log, closes the
   disconnected window and launches that account into the same game again, into the same server if you want. When that
   server closed (a game update, for example) or is full, it joins any server of the game instead.
-- Choice of key (jump, walk, turn the camera, zoom), interval, presses per window, and resetting the character every round.
+- Choice of key (jump, walk, turn the camera, zoom), interval (fixed, or random between two limits so the rounds aren't regular), presses per window, and resetting the character every round.
 - Mute the windows you're not looking at, put background windows in Windows' efficiency mode (less CPU and fan noise),
   arrange them in a grid, hide them or make them see-through.
 - Discord notifications when it starts, stops, an account disconnects or something fails.

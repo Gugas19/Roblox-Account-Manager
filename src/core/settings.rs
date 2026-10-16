@@ -111,6 +111,10 @@ impl Settings {
 /// Anti-AFK ([AntiAFK]): interval in seconds, Roblox kicks after 20 minutes idle
 pub const ANTI_AFK_DEFAULTS: &[(&str, &str)] = &[
     ("Interval", "540"),
+    // "fixed" (Interval) or "random" (a different one each round, from IntervalMin to IntervalMax)
+    ("IntervalMode", "fixed"),
+    ("IntervalMin", "360"),
+    ("IntervalMax", "900"),
     ("Action", "space"),
     ("Repeat", "3"),
     ("UserSafe", "true"),
