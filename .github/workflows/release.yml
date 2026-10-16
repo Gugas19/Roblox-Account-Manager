@@ -1,0 +1,76 @@
+# A release, built by GitHub from the tagged commit (push a tag v<version>, tools/publish.ps1 does it).
+#
+# The exes and the zip get a build provenance attestation: a public, signed record (Sigstore) that they were built
+# here, from this repository, at that commit, by this workflow. Anyone can check a download with
+#     gh attestation verify RobloxAccountManager.exe --repo Gugas19/Roblox-Account-Manager
+#
+# The release is left as a draft, which the app's updater doesn't see. The maintainer's tools/publish.ps1 then checks
+# the attestations, signs the zip for the updater on their own PC (the signing key never comes to GitHub) and
+# publishes it. No cache is used, so nothing from an earlier run ends up in a release.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write # the draft release
+      id-token: write # Sigstore, for the attestation
+      attestations: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+
+      - name: Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+
+      - name: The tag matches the version
+        run: |
+          $version = (Select-String -Path Cargo.toml -Pattern '^version = "(.+)"' | Select-Object -First 1).Matches.Groups[1].Value
+          if ("v$version" -ne $env:GITHUB_REF_NAME) { throw "Tag $env:GITHUB_REF_NAME but Cargo.toml says $version" }
+          "VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Translations
+        run: python tools/strings.py
+
+      - name: Interface
+        run: |
+          npm --prefix ui ci
+          npm --prefix ui run build
+
+      - name: Build
+        run: cargo build --release --locked --bins
+
+      - name: Package
+        run: |
+          New-Item -ItemType Directory -Force dist, pack | Out-Null
+          Copy-Item target\release\RobloxAccountManager.exe, target\release\ram-cli.exe pack
+          Copy-Item LICENSE pack\LICENSE.txt
+          Compress-Archive -Path pack\* -DestinationPath "dist\RobloxAccountManager-$env:VERSION.zip"
+          Copy-Item target\release\RobloxAccountManager.exe, target\release\ram-cli.exe dist
+          Get-ChildItem dist | ForEach-Object { "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash, $_.Name }
+
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/*
+
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create $env:GITHUB_REF_NAME (Get-ChildItem dist).FullName --draft --title $env:VERSION --notes "Built by GitHub Actions from commit $env:GITHUB_SHA. Waiting for the updater signature."

@@ -1,12 +1,12 @@
 <#
 .SYNOPSIS
-    Builds a release and signs it for the auto updater. Doesn't publish anything.
+    Checks a release before it's published: builds it and runs every test. Doesn't publish anything.
 
     pwsh -File tools\release.ps1
 
-    Leaves target\dist\RobloxAccountManager-<version>.zip and .zip.sig: upload both to the GitHub release
-    tagged v<version>. Installed apps only accept the zip with its signature, made with the key in
-    %USERPROFILE%\.roblox-account-manager\release-signing-key.txt (keep a backup of it).
+    The files people download are then built by GitHub from the pushed commit (.github\workflows\release.yml), with an
+    attestation of where they were built, and tools\publish.ps1 signs the zip for the updater with the key in
+    %USERPROFILE%\.roblox-account-manager\release-signing-key.txt (keep a backup of it) and publishes the release.
 
     The app can stay open: the tests run their own copies, which never take the focus. What doesn't depend on
     each other runs at the same time (the final build uses one core for a while, the PC has more).
@@ -77,31 +77,6 @@ if ((Compare-Object $Built ($Exes | ForEach-Object { (Get-FileHash $_).Hash })))
     throw "The exes were built again while the tests ran, so the tested ones aren't the ones that would ship. Run the release again."
 }
 
-# Windows code signing (Authenticode), optional: with a certificate in the Windows certificate store and its
-# thumbprint in RAM_CODESIGN_THUMBPRINT, the exes are signed (fewer antivirus / SmartScreen warnings for users)
-if ($env:RAM_CODESIGN_THUMBPRINT) {
-    Step "Code signing" {
-        $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1
-        if (-not $signtool) { throw "signtool.exe wasn't found, install the Windows SDK" }
-        & $signtool.FullName sign /fd sha256 /tr http://timestamp.digicert.com /td sha256 /sha1 $env:RAM_CODESIGN_THUMBPRINT target\release\RobloxAccountManager.exe target\release\ram-cli.exe
-    }
-} else {
-    Write-Host "`nCode signing: skipped (no certificate set up, see Releasing in the README)" -ForegroundColor DarkGray
-}
-
-$Dist = Join-Path $Root "target\dist"
-$Pack = Join-Path $Dist "pack"
-Remove-Item -Recurse -Force $Dist -ErrorAction SilentlyContinue
-New-Item -ItemType Directory -Force $Pack | Out-Null
-Copy-Item target\release\RobloxAccountManager.exe, target\release\ram-cli.exe $Pack
-Copy-Item LICENSE (Join-Path $Pack "LICENSE.txt")
-$Zip = Join-Path $Dist "RobloxAccountManager-$Version.zip"
-Compress-Archive -Path "$Pack\*" -DestinationPath $Zip
-Remove-Item -Recurse -Force $Pack
-
-# signs, then checks the signature the same way the app does
-Step "Signature" { & target\release\examples\sign-release.exe $Zip }
-
-Write-Host ("`nReady to upload, in {0:N1} minutes:" -f ((Get-Date) - $Started).TotalMinutes) -ForegroundColor Green
-Get-ChildItem $Dist | ForEach-Object { "  $($_.FullName)" }
-"  SHA-256 $((Get-FileHash $Zip -Algorithm SHA256).Hash)"
+Write-Host ("`nAll tests passed in {0:N1} minutes. Commit, push, then publish (GitHub builds the release):" -f ((Get-Date) - $Started).TotalMinutes) -ForegroundColor Green
+"  git push fork modernized:master"
+"  pwsh -File tools\publish.ps1 -Notes <notes.md>"

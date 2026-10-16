@@ -24,9 +24,18 @@ hours with the built in Anti-AFK, or drive everything from scripts with `ram-cli
 
 ## Download
 
-1. Download the zip from the [latest release](https://github.com/Gugas19/Roblox-Account-Manager/releases/latest).
-2. Extract it into a folder of its own, for example on your desktop (it won't run from inside the zip).
+1. From the [latest release](https://github.com/Gugas19/Roblox-Account-Manager/releases/latest), download
+   `RobloxAccountManager.exe` (just the app) or the zip (the app, `ram-cli.exe` and the license).
+2. Put it in a folder of its own, for example on your desktop (extract the zip first, it won't run from inside it).
 3. Run `RobloxAccountManager.exe`.
+
+The files in a release are built by GitHub from this repository, not on anyone's PC, and GitHub publicly records it
+(a [build provenance attestation](https://docs.github.com/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds)).
+To check a download with the [GitHub CLI](https://cli.github.com/):
+
+```
+gh attestation verify RobloxAccountManager.exe --repo Gugas19/Roblox-Account-Manager
+```
 
 In the zip, besides the license:
 
@@ -229,21 +238,22 @@ python tools/strings.py             # every text translated
 ```
 
 The tests run copies of the app with demo accounts. They never launch Roblox, close it or press keys, and they
-refuse to run while your own Roblox Account Manager is open, so your accounts and a game you have open are left alone.
+run next to your own Roblox Account Manager without touching it or taking the focus, so your accounts and a game you have open are left alone.
 
 ### Releasing
 
 ```powershell
-cargo run --example sign-release -- new-key   # once: makes the signing key (keep a backup of it)
-pwsh -File tools\release.ps1                  # builds, tests, zips and signs target\dist\RobloxAccountManager-<version>.zip
+cargo run --example sign-release -- new-key       # once: makes the signing key (keep a backup of it)
+pwsh -File tools\release.ps1                      # builds and runs every test (the app can stay open, ~3 minutes)
+git push fork modernized:master
+pwsh -File tools\publish.ps1 -Notes notes.md      # GitHub builds it, then it's signed and published
 ```
 
-Upload the zip and its `.sig` to a GitHub release tagged `v<version>`. The private key stays in
-`%USERPROFILE%\.roblox-account-manager\`, never in the repository; installed apps only accept updates signed with it.
-
-The release runs while the app is open (the tests use their own copies, which never take the focus) and takes about
-3 minutes. Optional: with a Windows code signing certificate installed, set `RAM_CODESIGN_THUMBPRINT` to its thumbprint
-and the exes are signed with it too, so Windows and antivirus software trust them more.
+`publish.ps1` tags the commit, and [the release workflow](.github/workflows/release.yml) builds the exes and the zip on
+GitHub from that commit, attests where they were built, and leaves a draft (the updater doesn't see drafts). The
+script then checks the attestations, signs the zip for the updater with the private key, which stays in
+`%USERPROFILE%\.roblox-account-manager\` and never goes to GitHub, uploads the `.sig` and publishes the release with
+the notes, how to verify the files and their SHA-256. Installed apps only accept updates signed with that key.
 
 Every push is also built and unit tested on GitHub ([CI](.github/workflows/ci.yml)), without any secret.
 
