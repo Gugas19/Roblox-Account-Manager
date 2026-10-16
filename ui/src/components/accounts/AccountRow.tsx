@@ -83,7 +83,7 @@ export function AccountRow({ account, selected, hideUsername, showAging, showPre
           )}
         </span>
         <span className="truncate font-medium" style={account.color ? { color: account.color } : undefined}>{hideUsername ? '••••••••' : account.username}</span>
-        {account.fpsLimit != null && <span className="shrink-0 rounded bg-muted px-1 text-[10px] text-muted-foreground tabular-nums" title={t('FPS limit')}>{t('{0} FPS', account.fpsLimit)}</span>}
+        {account.cpuLimit != null && <span className="shrink-0 rounded bg-muted px-1 text-[10px] text-muted-foreground tabular-nums" title={t('CPU limit')}>CPU {account.cpuLimit}%</span>}
       </div>
 
       <div className="min-w-0" onDoubleClick={(e) => { e.stopPropagation(); setAlias(account.alias); setEditing(true) }}>

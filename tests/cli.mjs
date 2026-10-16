@@ -82,14 +82,14 @@ await test('list --json and --group', () => {
   const farm = JSON.parse(cli(work, ['list', '--group', 'farm', '--json']).out)
   if (farm.map((a) => a.username).join() !== 'GrindBot_A,GrindBot_B') throw new Error(JSON.stringify(farm))
 })
-await test('frame rate limit per account', () => {
-  const fpsOf = () => JSON.parse(cli(work, ['list', '--json']).out).find((a) => a.username === 'NightFalcon_07').fpsLimit
-  expect(cli(work, ['fps', 'Main', '30']), 0, 'NightFalcon_07 now use 30 FPS')
-  if (fpsOf() !== 30) throw new Error(`fpsLimit is ${fpsOf()}`)
-  expect(cli(work, ['fps', 'Main', 'fast']), 2, 'from 5 to 1000')
-  expect(cli(work, ['fps', 'Main', '2']), 1, 'from 5 to 1000')
-  expect(cli(work, ['fps', 'Main', 'default']), 0, "the settings' limit")
-  if (fpsOf() !== null) throw new Error(`fpsLimit is ${fpsOf()}`)
+await test('CPU limit per account', () => {
+  const cpuOf = () => JSON.parse(cli(work, ['list', '--json']).out).find((a) => a.username === 'NightFalcon_07').cpuLimit
+  expect(cli(work, ['cpu', 'Main', '10']), 0, 'NightFalcon_07 now have a CPU limit of 10%')
+  if (cpuOf() !== 10) throw new Error(`cpuLimit is ${cpuOf()}`)
+  expect(cli(work, ['cpu', 'Main', 'fast']), 2, 'from 1 to 99')
+  expect(cli(work, ['cpu', 'Main', '100']), 1, 'from 1% to 99%')
+  expect(cli(work, ['cpu', 'Main', 'none']), 0, 'no CPU limit')
+  if (cpuOf() !== null) throw new Error(`cpuLimit is ${cpuOf()}`)
 })
 await test('status', () => expect(cli(work, ['status']), 0, 'not open', 'Accounts: 5', 'Anti-AFK: off'))
 await test('wrong command lines exit with 2', () => {

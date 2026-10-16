@@ -362,19 +362,18 @@ async function main() {
       await until(async () => (await style(other))?.endsWith('|'), 'the colors did not go away')
     })
 
-    await test('FPS limit for an account, from the right click menu', async () => {
-      const badge = () => evaluate(`[...document.querySelectorAll('[role=row]')].find((r) => r.innerText.includes('PixelBuilderBR'))?.innerText.includes('30 FPS')`)
+    await test('CPU limit for an account, from the right click menu', async () => {
+      const badge = () => evaluate(`[...document.querySelectorAll('[role=row]')].find((r) => r.innerText.includes('PixelBuilderBR'))?.innerText.includes('CPU 10%')`)
       await click('PixelBuilderBR', '[role=row]', 'right')
-      await openSub('FPS limit')
-      await shot('fps-menu')
-      await click('30 FPS', '[role=menuitem]')
-      await until(badge, 'no "30 FPS" on the account')
+      await openSub('CPU limit')
+      await shot('cpu-menu')
+      await click('10%', '[role=menuitem]')
+      await until(badge, 'no "CPU 10%" on the account')
       await click('PixelBuilderBR', '[role=row]', 'right')
-      await openSub('FPS limit')
-      await click('Like in the settings', '[role=menuitem]')
+      await openSub('CPU limit')
+      await click('No limit', '[role=menuitem]')
       await until(async () => !(await badge()), 'the limit did not go away')
     })
-
     await test('rename a group from its header', async () => {
       await menuItem('FARM', 'button', 'Rename group…')
       await evaluate(`(() => { const i = document.querySelector('[role=dialog] input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(i, '3Grinders'); i.dispatchEvent(new Event('input', { bubbles: true })) })()`)
@@ -583,7 +582,7 @@ function updateReadmeImages() {
     palette: 'command-palette', 'antiafk-behaviour': 'antiafk', 'antiafk-rejoin': 'antiafk-rejoin',
     search: 'search', 'account-menu': 'account-menu', 'account-utilities': 'account-utilities',
     'settings-general': 'settings', theme: 'theme', 'utilities-servers': 'utilities',
-    colors: 'colors', 'fps-menu': 'fps-limit',
+    colors: 'colors', 'cpu-menu': 'cpu-limit',
   }
   const images = path.join(root, 'Images')
   fs.mkdirSync(images, { recursive: true })

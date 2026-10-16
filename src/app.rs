@@ -116,7 +116,8 @@ pub struct AccountView {
     /// its group's color
     pub group_color: Option<String>,
     /// its own frame rate limit
-    pub fps_limit: Option<i64>,
+    /// the CPU limit of its Roblox window, percent of the PC
+    pub cpu_limit: Option<u32>,
 }
 
 /// A color as the app keeps it: "#rrggbb", anything else is refused
@@ -171,7 +172,7 @@ impl App {
                 has_password: !a.password.is_empty(),
                 color: valid_color(a.field("Color")),
                 group_color: group_colors.get(&a.group).and_then(|c| valid_color(c)),
-                fps_limit: crate::services::launcher::fps_limit_of(a),
+                cpu_limit: crate::services::antiafk::cpu_limit_of(a),
             })
             .collect()
     }
@@ -327,8 +328,6 @@ impl App {
             shuffle_lowest: s.get_bool("General", "ShuffleChoosesLowestServer"),
             shuffle_pages: s.get_i64("General", "ShufflePageCount", 5),
             auto_close_last: s.get_bool("General", "AutoCloseLastProcess"),
-            unlock_fps: s.get_bool("General", "UnlockFPS"),
-            max_fps: s.get_i64("General", "MaxFPSValue", 120),
             custom_client_settings: Some(s.get("General", "CustomClientSettings")).filter(|c| !c.is_empty()),
             ..Default::default()
         }

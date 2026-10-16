@@ -22,16 +22,7 @@ pub struct JoinOptions {
     pub is_teleport: bool,
     /// the user already agreed to open the account's private server privacy
     pub privacy_ok: bool,
-    pub unlock_fps: bool,
-    pub max_fps: i64,
     pub custom_client_settings: Option<String>,
-    /// this account's own frame rate limit, wins over the global one
-    pub fps_limit: Option<i64>,
-}
-
-/// The frame rate limit an account has (its "FPSLimit" field), if any
-pub fn fps_limit_of(account: &crate::core::accounts::Account) -> Option<i64> {
-    account.field("FPSLimit").parse::<i64>().ok().filter(|n| (FPS_MIN..=FPS_MAX).contains(n))
 }
 
 /// How long a join waits for the Roblox launcher to finish
@@ -39,8 +30,8 @@ const LAUNCH_WAIT: Duration = Duration::from_secs(30);
 /// A whole join (Roblox's answers and the launcher) at most, then the app stops waiting
 pub const JOIN_TIMEOUT: Duration = Duration::from_secs(60);
 
-pub const FPS_MIN: i64 = 5;
-pub const FPS_MAX: i64 = 1000;
+/// The frame rate flag Roblox ignores since its September 2025 allowlist of client flags: the app no longer writes it,
+/// it only takes away what it wrote before (the "FPS limit" per account and "Unlock FPS")
 const FPS_FLAG: &str = "DFIntTaskSchedulerTargetFps";
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -90,56 +81,51 @@ pub fn place_launcher_url(opts: &JoinOptions, tracker: &str, access_code: &str, 
     }
 }
 
-/// Copies the custom ClientAppSettings.json or sets the FPS cap, like ClientSettingsPatcher.PatchSettings
+/// Copies the custom ClientAppSettings.json, like ClientSettingsPatcher.PatchSettings
 pub fn patch_client_settings(opts: &JoinOptions) -> Result<()> {
-    let folder = winutil::roblox_version_folder().ok_or_else(|| anyhow::anyhow!("Can't patch ClientAppSettings, folder doesn't exist"))?;
-
-    if !folder.file_name().map(|n| n.to_string_lossy().starts_with("version-")).unwrap_or(false) {
-        anyhow::bail!("Can't patch ClientAppSettings, folder doesn't start with 'version-'");
-    }
-
-    let settings_folder = folder.join("ClientSettings");
-    std::fs::create_dir_all(&settings_folder)?;
-    write_client_settings(&settings_folder, opts)
-}
-
-/// ClientAppSettings.json in `settings_folder`: the custom file, the account's frame rate or the global one
-fn write_client_settings(settings_folder: &Path, opts: &JoinOptions) -> Result<()> {
-    let file = settings_folder.join("ClientAppSettings.json");
-    // next to Roblox's settings: the frame rate in there was written by this app (so it can take it away again)
-    let marker = settings_folder.join("ram-fps-limit");
-
-    let custom = opts.custom_client_settings.as_ref().filter(|c| !c.is_empty() && Path::new(c).exists());
-    if let Some(custom) = custom {
-        std::fs::copy(custom, &file)?;
-        let _ = std::fs::remove_file(&marker);
-    }
-
-    // the account's own limit, otherwise the global unlock (not over a custom file, it has its own)
-    let wanted = opts.fps_limit.or_else(|| (opts.unlock_fps && custom.is_none()).then_some(if opts.max_fps > 0 { opts.max_fps } else { 240 }));
-    let read = || std::fs::read_to_string(&file).ok().and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok()).filter(|v| v.is_object()).unwrap_or_else(|| serde_json::json!({}));
-
-    match wanted {
-        Some(fps) => {
-            let mut settings = read();
-            settings[FPS_FLAG] = serde_json::json!(fps);
-            std::fs::write(&file, serde_json::to_string(&settings)?)?;
-            std::fs::write(&marker, fps.to_string())?;
-        }
-        // an account without a limit after one with: what this app wrote goes, the rest of the file stays
-        None if marker.exists() => {
-            let mut settings = read();
-            if let Some(o) = settings.as_object_mut() {
-                o.remove(FPS_FLAG);
-            }
-            std::fs::write(&file, serde_json::to_string(&settings)?)?;
-            let _ = std::fs::remove_file(&marker);
-        }
-        None => {}
-    }
+    let Some(custom) = opts.custom_client_settings.as_ref().filter(|c| !c.is_empty() && Path::new(c).exists()) else { return Ok(()) };
+    let settings_folder = client_settings_folder()?;
+    std::fs::copy(custom, settings_folder.join("ClientAppSettings.json"))?;
+    let _ = std::fs::remove_file(settings_folder.join("ram-fps-limit"));
     Ok(())
 }
 
+fn client_settings_folder() -> Result<std::path::PathBuf> {
+    let folder = winutil::roblox_version_folder().ok_or_else(|| anyhow::anyhow!("Can't patch ClientAppSettings, folder doesn't exist"))?;
+    if !folder.file_name().map(|n| n.to_string_lossy().starts_with("version-")).unwrap_or(false) {
+        anyhow::bail!("Can't patch ClientAppSettings, folder doesn't start with 'version-'");
+    }
+    let settings_folder = folder.join("ClientSettings");
+    std::fs::create_dir_all(&settings_folder)?;
+    Ok(settings_folder)
+}
+
+/// Takes the frame rate flag this app wrote out of Roblox's ClientAppSettings.json (once, at start): the one marked
+/// as written by the per-account FPS limit, or any, when "Unlock FPS" was on (it wrote it without a marker)
+pub fn remove_dead_fps_flag(unlock_fps_was_on: bool) {
+    if let Ok(folder) = client_settings_folder() {
+        if let Err(e) = remove_fps_flag(&folder, unlock_fps_was_on) {
+            log::warn!("Couldn't clean ClientAppSettings.json: {e}");
+        }
+    }
+}
+
+fn remove_fps_flag(settings_folder: &Path, unlock_fps_was_on: bool) -> Result<()> {
+    let file = settings_folder.join("ClientAppSettings.json");
+    let marker = settings_folder.join("ram-fps-limit");
+    if !marker.exists() && !unlock_fps_was_on {
+        return Ok(());
+    }
+    if let Some(mut settings) = std::fs::read_to_string(&file).ok().and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok()) {
+        if let Some(o) = settings.as_object_mut() {
+            if o.remove(FPS_FLAG).is_some() {
+                std::fs::write(&file, serde_json::to_string(&settings)?)?;
+            }
+        }
+    }
+    let _ = std::fs::remove_file(&marker);
+    Ok(())
+}
 /// Closes the Roblox window this account opened last time, so Roblox doesn't kick it for "same account launched"
 async fn close_last_process(tracker: &str) {
     for process in winutil::roblox_processes() {
@@ -274,51 +260,44 @@ pub fn app_link(ticket: &str) -> String {
 mod fps_tests {
     use super::*;
 
-    fn folder() -> std::path::PathBuf {
+    fn folder(settings: &str) -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!("ram-fps-test-{}-{}", std::process::id(), rand::random::<u32>()));
         std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("ClientAppSettings.json"), settings).unwrap();
         dir
     }
 
     fn settings(dir: &Path) -> serde_json::Value {
-        serde_json::from_str(&std::fs::read_to_string(dir.join("ClientAppSettings.json")).unwrap_or_else(|_| "{}".into())).unwrap()
+        serde_json::from_str(&std::fs::read_to_string(dir.join("ClientAppSettings.json")).unwrap()).unwrap()
     }
 
     #[test]
-    fn an_account_limit_then_an_account_without() {
-        let dir = folder();
-        std::fs::write(dir.join("ClientAppSettings.json"), r#"{"FFlagSomethingElse":true}"#).unwrap();
-
-        // the account with a limit
-        write_client_settings(&dir, &JoinOptions { fps_limit: Some(30), ..Default::default() }).unwrap();
-        assert_eq!(settings(&dir)[FPS_FLAG], 30);
-        // the next one has none and the global unlock is off: the 30 goes, the user's own flags stay
-        write_client_settings(&dir, &JoinOptions::default()).unwrap();
+    fn the_flag_this_app_wrote_goes_the_rest_stays() {
+        let dir = folder(r#"{"DFIntTaskSchedulerTargetFps":30,"FIntDebugForceMSAASamples":4}"#);
+        std::fs::write(dir.join("ram-fps-limit"), "30").unwrap();
+        remove_fps_flag(&dir, false).unwrap();
         assert!(settings(&dir).get(FPS_FLAG).is_none());
-        assert_eq!(settings(&dir)["FFlagSomethingElse"], true);
+        assert_eq!(settings(&dir)["FIntDebugForceMSAASamples"], 4);
+        assert!(!dir.join("ram-fps-limit").exists());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
-    fn the_account_limit_wins_over_the_global_one() {
-        let dir = folder();
-        write_client_settings(&dir, &JoinOptions { unlock_fps: true, max_fps: 144, fps_limit: Some(60), ..Default::default() }).unwrap();
-        assert_eq!(settings(&dir)[FPS_FLAG], 60);
-        write_client_settings(&dir, &JoinOptions { unlock_fps: true, max_fps: 144, ..Default::default() }).unwrap();
-        assert_eq!(settings(&dir)[FPS_FLAG], 144);
+    fn unlock_fps_wrote_it_without_a_marker() {
+        let dir = folder(r#"{"DFIntTaskSchedulerTargetFps":144}"#);
+        remove_fps_flag(&dir, true).unwrap();
+        assert!(settings(&dir).get(FPS_FLAG).is_none());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
     fn a_frame_rate_the_app_did_not_write_is_left_alone() {
-        let dir = folder();
-        std::fs::write(dir.join("ClientAppSettings.json"), r#"{"DFIntTaskSchedulerTargetFps":75}"#).unwrap();
-        write_client_settings(&dir, &JoinOptions::default()).unwrap();
+        let dir = folder(r#"{"DFIntTaskSchedulerTargetFps":75}"#);
+        remove_fps_flag(&dir, false).unwrap();
         assert_eq!(settings(&dir)[FPS_FLAG], 75);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;

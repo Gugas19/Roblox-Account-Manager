@@ -20,6 +20,7 @@ use crate::core::accounts::{Account, LoadState};
 use crate::core::lang;
 use crate::platform::win as winutil;
 use crate::services::browser::{self, Browser, LaunchOptions};
+use crate::services::antiafk::cpu;
 use crate::services::launcher::{self, JoinOptions, JoinResult};
 use crate::services::webserver;
 use serde::Serialize;

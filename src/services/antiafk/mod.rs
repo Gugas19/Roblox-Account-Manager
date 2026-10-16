@@ -6,6 +6,7 @@
 //! Settings live in RAMSettings.ini, section [AntiAFK].
 
 pub mod audio;
+pub mod cpu;
 pub mod efficiency;
 pub mod input;
 pub mod layout;
@@ -62,6 +63,8 @@ pub struct State {
     layout: Mutex<Vec<u32>>,
     muted: Mutex<HashSet<u32>>,
     efficient: Mutex<HashSet<u32>>,
+    /// each window's CPU limit as last applied (pid -> percent, None = no limit)
+    cpu_limits: Mutex<HashMap<u32, Option<u32>>>,
     hidden: AtomicBool,
     reminded: AtomicBool,
     run_now: AtomicBool,
@@ -255,6 +258,11 @@ fn included_accounts(app: &App) -> Vec<String> {
     app.afk("Accounts").split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()
 }
 
+/// The CPU limit an account has (its "CPULimit" field, percent of the PC), if any
+pub fn cpu_limit_of(account: &crate::core::accounts::Account) -> Option<u32> {
+    account.field("CPULimit").parse::<u32>().ok().filter(|n| (cpu::MIN..=cpu::MAX).contains(n))
+}
+
 fn account_for(app: &App, tracker: &Option<String>) -> Option<String> {
     let tracker = tracker.as_ref()?;
     app.store.lock().unwrap().accounts.iter().find(|a| a.browser_tracker_id.as_deref() == Some(tracker.as_str())).map(|a| a.username.clone())
@@ -389,26 +397,48 @@ fn cycle(app: &Arc<App>, windows: &[Window], forced: bool) {
     }
 }
 
-/// Relaunches an account into the game it was disconnected from
-fn rejoin(app: &Arc<App>, pid: u32, account: &str, place: i64, job: Option<String>) {
-    {
-        let mut rejoins = app.anti_afk().rejoins.lock().unwrap();
-        let recent = rejoins.entry(account.to_string()).or_default();
-        recent.retain(|t| t.elapsed() < Duration::from_secs(600));
-        if recent.len() >= 3 {
-            notify(app, webhook::Event::Error, format!("{account} keeps getting disconnected, stopped rejoining it for now"));
-            return;
-        }
-        recent.push(Instant::now());
-    }
+/// How long a rejoin waits for the internet to come back, checking every few seconds
+const OFFLINE_WAIT: Duration = Duration::from_secs(30 * 60);
 
+/// Relaunches an account into the game it was disconnected from. It waits for the internet first: a lost connection is
+/// often the internet dropping, and closing the window before Roblox can be reached left the account with none
+fn rejoin(app: &Arc<App>, pid: u32, account: &str, place: i64, job: Option<String>) {
     let Some(acc) = app.account(account) else { return };
     let same_server = app.afk_flag("RejoinSameServer");
-    winutil::kill(pid);
-
     let app = app.clone();
     let account = account.to_string();
     tauri::async_runtime::spawn(async move {
+        let started = Instant::now();
+        let mut told = false;
+        while app.api.client_version().await.is_err() {
+            if started.elapsed() > OFFLINE_WAIT {
+                notify(&app, webhook::Event::Error, format!("{account}: {}", app.tr(crate::text!("Roblox couldn't be reached for 30 minutes, not rejoining"))));
+                return;
+            }
+            if !told {
+                told = true;
+                log::info!("{account} lost the connection, waiting for Roblox to be reachable before rejoining");
+            }
+            tokio::time::sleep(Duration::from_secs(10)).await;
+        }
+
+        // still disconnected? (Roblox's own Reconnect, or the window closed, while waiting)
+        let still = app.anti_afk().tracked.lock().unwrap().get(&pid).map(|t| t.disconnected_since.is_some()).unwrap_or(false);
+        if !still {
+            return;
+        }
+        {
+            let mut rejoins = app.anti_afk().rejoins.lock().unwrap();
+            let recent = rejoins.entry(account.clone()).or_default();
+            recent.retain(|t| t.elapsed() < Duration::from_secs(600));
+            if recent.len() >= 3 {
+                notify(&app, webhook::Event::Error, format!("{account} keeps getting disconnected, stopped rejoining it for now"));
+                return;
+            }
+            recent.push(Instant::now());
+        }
+
+        winutil::kill(pid);
         tokio::time::sleep(Duration::from_secs(3)).await;
         let tracker = app.ensure_tracker(&acc.username);
         let mut job_id = if same_server { job.unwrap_or_default() } else { String::new() };
@@ -421,7 +451,7 @@ fn rejoin(app: &Arc<App>, pid: u32, account: &str, place: i64, job: Option<Strin
                 job_id.clear();
             }
         }
-        let opts = JoinOptions { place_id: place, job_id, privacy_ok: true, fps_limit: launcher::fps_limit_of(&acc), ..app.join_options() };
+        let opts = JoinOptions { place_id: place, job_id, privacy_ok: true, ..app.join_options() };
         match launcher::join(&app.api, &acc.security_token, &tracker, opts).await {
             JoinResult::Success => {
                 add_stat(&app, "StatRejoins", 1);
@@ -524,6 +554,26 @@ fn tick(app: &Arc<App>) {
         }
         for (pid, account, place, job) in todo {
             rejoin(app, pid, &account, place, job);
+        }
+    }
+
+    // each account's CPU limit on its window (it can change while the game runs)
+    {
+        let mut applied = state.cpu_limits.lock().unwrap();
+        applied.retain(|pid, _| pids.contains(pid));
+        cpu::forget_except(&pids);
+        for (pid, t) in state.tracked.lock().unwrap().iter() {
+            let Some(account) = t.account.as_ref().and_then(|name| app.account(name)) else { continue };
+            let wanted = cpu_limit_of(&account);
+            // a window without a limit that was never capped needs nothing
+            if applied.get(pid) == Some(&wanted) || (wanted.is_none() && !applied.contains_key(pid)) {
+                continue;
+            }
+            if let Err(e) = cpu::set(*pid, wanted) {
+                log::warn!("{}: {e}", account.username);
+            }
+            // tried once per change, not every second
+            applied.insert(*pid, wanted);
         }
     }
 

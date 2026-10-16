@@ -39,7 +39,7 @@ Commands:
   antiafk [start|stop|now|status]    Anti-AFK (start, stop and now need the app open)
   status                             the app, accounts, Roblox and Anti-AFK at a glance
   open                               show the app window, starting it if needed
-  fps <accounts> <5-1000|default>     frame rate limit per account, applied when it launches
+  cpu <accounts> <1-99|none>          CPU limit per account (percent of the PC), right away
   update                             download a new version (signed), installed on the next start
   help, version
 

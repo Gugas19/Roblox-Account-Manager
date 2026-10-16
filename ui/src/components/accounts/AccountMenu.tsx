@@ -28,7 +28,8 @@ interface Props {
 }
 
 /** Frame rate limits offered in the menu (a custom one is possible too) */
-const FPS_CHOICES = [15, 30, 45, 60, 90, 120, 144, 240]
+/** Percent of the whole PC's CPU, as Task Manager counts it */
+const CPU_CHOICES = [3, 5, 10, 15, 25, 50]
 
 export function AccountMenu({ showGroups, toggleGroups, group, onCustomColor }: Props) {
   const t = useT()
@@ -39,15 +40,15 @@ export function AccountMenu({ showGroups, toggleGroups, group, onCustomColor }: 
   const none = selected.length === 0
   const noPassword = !selectedAccounts.some((a) => a.hasPassword)
   // the accounts' frame rate limit when they all have the same one
-  const sameFps = selectedAccounts.length > 0 && selectedAccounts.every((a) => a.fpsLimit === selectedAccounts[0].fpsLimit)
-  const fps = sameFps ? selectedAccounts[0].fpsLimit : undefined
-  const setFps = (limit: number | null) => api.setFpsLimit(selected, limit).catch(notify.error)
-  const customFps = async () => {
-    const text = await dialogs.prompt({ title: 'FPS limit', label: 'Frames per second, from 5 to 1000. Applied the next time the account launches.', defaultValue: fps ? String(fps) : '60' })
+  const sameCpu = selectedAccounts.length > 0 && selectedAccounts.every((a) => a.cpuLimit === selectedAccounts[0].cpuLimit)
+  const cpu = sameCpu ? selectedAccounts[0].cpuLimit : undefined
+  const setCpu = (limit: number | null) => api.setCpuLimit(selected, limit).catch(notify.error)
+  const customCpu = async () => {
+    const text = await dialogs.prompt({ title: 'CPU limit', label: 'Percent of the whole PC, as Task Manager counts it, from 1 to 99. It applies right away to the account\'s Roblox window.', defaultValue: cpu ? String(cpu) : '10' })
     if (text === null) return
-    const n = Number(text)
-    if (!Number.isInteger(n) || n < 5 || n > 1000) return notify.error(t('The frame rate limit goes from {0} to {1}', 5, 1000))
-    await setFps(n)
+    const n = Number(text.replace('%', '').trim())
+    if (!Number.isInteger(n) || n < 1 || n > 99) return notify.error(t('The CPU limit goes from {0}% to {1}%', 1, 99))
+    await setCpu(n)
   }
 
   // the accounts' color when they all have the same one
@@ -107,23 +108,23 @@ export function AccountMenu({ showGroups, toggleGroups, group, onCustomColor }: 
         </ContextMenuSubContent>
       </ContextMenuSub>
       <ContextMenuSub>
-        <ContextMenuSubTrigger disabled={none}><Gauge /> {t('FPS limit')}</ContextMenuSubTrigger>
+        <ContextMenuSubTrigger disabled={none}><Gauge /> {t('CPU limit')}</ContextMenuSubTrigger>
         <ContextMenuSubContent className="w-52">
-          <ContextMenuItem onClick={() => setFps(null)}>
-            {t('Like in the settings')}
-            {fps === null && <Check className="ml-auto" />}
+          <ContextMenuItem onClick={() => setCpu(null)}>
+            {t('No limit')}
+            {cpu === null && <Check className="ml-auto" />}
           </ContextMenuItem>
           <ContextMenuSeparator />
-          {FPS_CHOICES.map((n) => (
-            <ContextMenuItem key={n} onClick={() => setFps(n)}>
-              {t('{0} FPS', n)}
-              {fps === n && <Check className="ml-auto" />}
+          {CPU_CHOICES.map((n) => (
+            <ContextMenuItem key={n} onClick={() => setCpu(n)}>
+              {n}%
+              {cpu === n && <Check className="ml-auto" />}
             </ContextMenuItem>
           ))}
           <ContextMenuSeparator />
-          <ContextMenuItem onClick={customFps}>
+          <ContextMenuItem onClick={customCpu}>
             {t('Custom…')}
-            {fps != null && !FPS_CHOICES.includes(fps) && <span className="ml-auto text-xs text-muted-foreground">{t('{0} FPS', fps)}</span>}
+            {cpu != null && !CPU_CHOICES.includes(cpu) && <span className="ml-auto text-xs text-muted-foreground">{cpu}%</span>}
           </ContextMenuItem>
         </ContextMenuSubContent>
       </ContextMenuSub>

@@ -99,6 +99,9 @@ pub fn run() {
     }
 
     let state = app::init(dir);
+    // Roblox ignores the frame rate flag now: what this app wrote there goes
+    let unlock_fps_was_on = state.settings.lock().unwrap().unlock_fps_was_on;
+    std::thread::spawn(move || services::launcher::remove_dead_fps_flag(unlock_fps_was_on));
     if !test_copy {
         win::fix_startup_path();
     }
@@ -155,7 +158,7 @@ pub fn run() {
             commands::accounts::set_alias,
             commands::accounts::set_description,
             commands::accounts::set_account_color,
-            commands::accounts::set_fps_limit,
+            commands::accounts::set_cpu_limit,
             commands::accounts::rename_group,
             commands::backup::export_accounts,
             commands::backup::import_backup,

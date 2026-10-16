@@ -29,9 +29,18 @@ fn disconnect() -> Regex {
     Regex::new(r"Sending disconnect with reason: (\d+)").unwrap()
 }
 
+/// How newer clients log a dropped connection (error 277), without the "Sending disconnect" line. Only this reason:
+/// a teleport also logs a disconnect, and must not be mistaken for one
+fn lost_connection() -> Regex {
+    Regex::new(r"\[FLog::Network\] Lost connection with reason\s*:").unwrap()
+}
+
+/// Roblox's code for a lost connection
+const LOST_CONNECTION: i64 = 277;
+
 /// Reads one chunk of log text into the state (last join wins, a later join clears a disconnect)
 pub fn apply(state: &mut LogState, text: &str) {
-    let (join, leave) = (joining(), disconnect());
+    let (join, leave, lost) = (joining(), disconnect(), lost_connection());
     for line in text.lines() {
         if let Some(c) = join.captures(line) {
             state.job_id = Some(c[1].to_string());
@@ -39,6 +48,8 @@ pub fn apply(state: &mut LogState, text: &str) {
             state.disconnected = None;
         } else if let Some(c) = leave.captures(line) {
             state.disconnected = c[1].parse().ok();
+        } else if lost.is_match(line) {
+            state.disconnected = Some(LOST_CONNECTION);
         }
     }
 }
@@ -127,5 +138,25 @@ mod tests {
         apply(&mut s, "x [FLog::Output] ! Joining game '11111111-2222-3333-4444-555555555555' place 42 at 1.1.1.1");
         assert_eq!(s.disconnected, None);
         assert_eq!(s.place_id, Some(42));
+    }
+
+    #[test]
+    fn reads_a_lost_connection_from_newer_clients() {
+        // lines from a real 2026 client log: no "Sending disconnect" line any more
+        let mut s = LogState::default();
+        apply(&mut s, "2026-10-16T18:22:32.343Z,161217.343750,e514,6 [FLog::Output] ! Joining game '8305bcf4-2d1f-48c4-8b79-c4f4e5b647e1' place 131346454575416 at 10.34.6.7\n\
+                       2026-10-16T20:02:19.421Z,167204.421875,e514,7 [FLog::Network] Client has been disconnected with reason: Lost connection to the game server, please reconnect\n\
+                       2026-10-16T20:02:19.453Z,167204.453125,e514,7,Warning [FLog::Network] Lost connection with reason : Lost connection to the game server, please reconnect\n");
+        assert_eq!(s.disconnected, Some(277));
+        assert_eq!(s.place_id, Some(131346454575416));
+        assert_eq!(s.job_id.as_deref(), Some("8305bcf4-2d1f-48c4-8b79-c4f4e5b647e1"));
+    }
+
+    #[test]
+    fn a_teleport_is_not_a_lost_connection() {
+        let mut s = LogState::default();
+        apply(&mut s, "x [FLog::Output] ! Joining game '8305bcf4-2d1f-48c4-8b79-c4f4e5b647e1' place 1 at 1.1.1.1\n\
+                       x [FLog::Network] Client has been disconnected with reason: Teleport\n");
+        assert_eq!(s.disconnected, None);
     }
 }

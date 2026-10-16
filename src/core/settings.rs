@@ -6,18 +6,24 @@ use std::path::{Path, PathBuf};
 pub struct Settings {
     pub ini: IniFile,
     path: PathBuf,
+    /// "Unlock FPS" was on: it wrote Roblox's frame rate flag, which the app takes away once (Roblox ignores it now)
+    pub unlock_fps_was_on: bool,
 }
 
 impl Settings {
     pub fn load(dir: &Path) -> Settings {
         let path = dir.join("RAMSettings.ini");
-        let mut settings = Settings { ini: IniFile::load(&path), path };
+        let mut settings = Settings { ini: IniFile::load(&path), path, unlock_fps_was_on: false };
         settings.apply_defaults();
         settings
     }
 
     fn apply_defaults(&mut self) {
         let g = self.ini.section_mut("General");
+        // gone: Roblox ignores the frame rate flag since its September 2025 client flag allowlist
+        self.unlock_fps_was_on = g.get_bool("UnlockFPS");
+        g.remove("UnlockFPS");
+        g.remove("MaxFPSValue");
         // Passwords typed when logging in are only saved when the user turns it on (4.1.17). Copies from before have
         // "SavePasswords=true" written as the old default, not as a choice: turned off once (the passwords already
         // saved stay), then the marker keeps whatever the user picks afterwards
@@ -41,8 +47,6 @@ impl Settings {
             ("AutoCloseLastProcess", "true"),
             ("ShowPresence", "true"),
             ("PresenceUpdateRate", "5"),
-            ("UnlockFPS", "false"),
-            ("MaxFPSValue", "120"),
         ] {
             g.set_default(key, value);
         }

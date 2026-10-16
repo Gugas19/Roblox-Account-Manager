@@ -41,9 +41,9 @@ async fn command(app: &Arc<App>, request: Request, out: &Out, in_app: bool) -> R
         "antiafk" | "anti-afk" => anti_afk(app, rest, out, in_app),
         "status" => status(app, out, in_app),
         "update" => update(app, out).await,
-        "fps" => {
-            let (value, accounts) = rest.split_last().ok_or_else(|| usage("ram-cli fps <accounts> <5-1000 or default>"))?;
-            fps(app, &Args::parse(accounts, &["all"], &["group"])?, value, out)
+        "cpu" => {
+            let (value, accounts) = rest.split_last().ok_or_else(|| usage("ram-cli cpu <accounts> <1-99 or none>"))?;
+            cpu(app, &Args::parse(accounts, &["all"], &["group"])?, value, out)
         }
         "open" | "show" => {
             if let Some(handle) = app.handle.get() {
@@ -253,17 +253,18 @@ fn anti_afk(app: &Arc<App>, rest: &[String], out: &Out, in_app: bool) -> Result<
     Ok(())
 }
 
-/// The frame rate limit of accounts, applied when they launch ("default": the one in the settings)
-fn fps(app: &App, args: &Args, value: &str, out: &Out) -> Result<()> {
+/// The CPU limit of accounts' Roblox windows, percent of the PC ("none" lifts it); open windows follow right away
+/// when the app is open
+fn cpu(app: &App, args: &Args, value: &str, out: &Out) -> Result<()> {
     ready(app)?;
-    let limit = match value.to_ascii_lowercase().as_str() {
-        "default" | "none" | "off" => None,
-        v => Some(v.parse::<i64>().map_err(|_| usage("The limit is a number from 5 to 1000, or default"))?),
+    let limit = match value.trim_end_matches('%').to_ascii_lowercase().as_str() {
+        "none" | "off" | "default" => None,
+        v => Some(v.parse::<u32>().map_err(|_| usage("The limit is a percent from 1 to 99, or none"))?),
     };
     let names: Vec<String> = pick(app, args)?.into_iter().map(|a| a.username).collect();
-    crate::commands::accounts::set_fps_limit(names.clone(), limit).map_err(|e| anyhow!(e))?;
-    let what = limit.map(|n| format!("{n} FPS")).unwrap_or_else(|| "the settings' limit".into());
-    out.line(format!("{} now use {what}, from their next launch", names.join(", ")));
+    crate::commands::accounts::set_cpu_limit(names.clone(), limit).map_err(|e| anyhow!(e))?;
+    let what = limit.map(|n| format!("a CPU limit of {n}%")).unwrap_or_else(|| "no CPU limit".into());
+    out.line(format!("{} now have {what}", names.join(", ")));
     Ok(())
 }
 

@@ -57,25 +57,24 @@ pub fn set_alias(names: Vec<String>, alias: String) -> R<()> {
     Ok(())
 }
 
-/// The frame rate limit of the accounts (applied when they launch), `None` goes back to the global setting
+/// The CPU limit of the accounts' Roblox windows, percent of the PC (applied right away to open windows), `None` lifts it
 #[tauri::command]
-pub fn set_fps_limit(names: Vec<String>, limit: Option<i64>) -> R<()> {
+pub fn set_cpu_limit(names: Vec<String>, limit: Option<u32>) -> R<()> {
     let app = app();
     if let Some(n) = limit {
-        if !(launcher::FPS_MIN..=launcher::FPS_MAX).contains(&n) {
-            return Err(format!("The frame rate limit goes from {} to {}", launcher::FPS_MIN, launcher::FPS_MAX));
+        if !(cpu::MIN..=cpu::MAX).contains(&n) {
+            return Err(format!("The CPU limit goes from {}% to {}%", cpu::MIN, cpu::MAX));
         }
     }
     for n in &names {
         app.update_account(n, |a| match limit {
-            Some(fps) => drop(a.fields.insert("FPSLimit".into(), fps.to_string())),
-            None => drop(a.fields.shift_remove("FPSLimit")),
+            Some(p) => drop(a.fields.insert("CPULimit".into(), p.to_string())),
+            None => drop(a.fields.shift_remove("CPULimit")),
         });
     }
     app.save_accounts(true);
     Ok(())
 }
-
 /// The color of the accounts, `None` takes it away
 #[tauri::command]
 pub fn set_account_color(names: Vec<String>, color: Option<String>) -> R<()> {

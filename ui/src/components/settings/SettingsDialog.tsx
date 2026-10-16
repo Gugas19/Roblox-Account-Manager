@@ -183,9 +183,7 @@ export function SettingsDialog() {
             <TabsContent value="misc" className="divide-y">
               <Toggle section="General" name="ShowPresence" title="Show Account Presence" hint="Colored dot when an account is online, in game or in Studio." />
               <NumberSetting section="General" name="PresenceUpdateRate" title="Refresh (min)" min={1} max={60} fallback={5} />
-              <Toggle section="General" name="UnlockFPS" title="Unlock FPS" hint="Raise Roblox's 60 FPS cap (ClientAppSettings.json)." disabled={!!customSettings} />
-              <NumberSetting section="General" name="MaxFPSValue" title="Max FPS" min={30} max={1000} fallback={120} />
-              <SettingRow title="Use Custom ClientAppSettings" hint={customSettings || 'Copy your own ClientAppSettings.json into Roblox before every launch.'}>
+              <SettingRow title="Use Custom ClientAppSettings" hint={customSettings || 'Copy your own ClientAppSettings.json into Roblox before every launch. Roblox only applies the flags on its allowlist.'}>
                 <div className="flex gap-2">
                   {customSettings && <Button variant="ghost" onClick={() => updateSetting('General', 'CustomClientSettings', '')}>{t('Remove')}</Button>}
                   <Button variant="secondary" onClick={async () => { const file = await api.pickFile(t('Use Custom ClientAppSettings')); if (file) void updateSetting('General', 'CustomClientSettings', file) }}>

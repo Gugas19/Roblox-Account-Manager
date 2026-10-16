@@ -18,7 +18,8 @@ export interface Account {
   /** its group's color */
   groupColor: string | null
   /** its own frame rate limit, applied when it launches */
-  fpsLimit: number | null
+  /** CPU limit of its Roblox window, percent of the PC */
+  cpuLimit: number | null
 }
 
 export type LoadState =

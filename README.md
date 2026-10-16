@@ -134,7 +134,7 @@ ram-cli antiafk [start|stop|now|status]
 ram-cli status
 ram-cli open
 ram-cli update
-ram-cli fps <accounts> <5-1000|default>
+ram-cli cpu <accounts> <1-99|none>
 ```
 
 Accounts are named by username, user id or alias (any case). `--all` picks every account, `--group <name>` a group.
@@ -188,7 +188,7 @@ that every language has the same keys and placeholders.
 | ![Command palette](Images/command-palette.png) Command palette (`Ctrl+K`) | ![Search](Images/search.png) Search |
 | ![Account menu](Images/account-menu.png) Account menu | ![Account utilities](Images/account-utilities.png) Account utilities |
 | ![Utilities](Images/utilities.png) Utilities: servers, games, favorites, universes, outfits, watcher | ![Theme editor](Images/theme.png) Theme editor |
-| ![Colors](Images/colors.png) Colors for accounts and groups | ![FPS limit](Images/fps-limit.png) FPS limit per account |
+| ![Colors](Images/colors.png) Colors for accounts and groups | ![CPU limit](Images/cpu-limit.png) CPU limit per account |
 
 ![Settings](Images/settings.png)
 
@@ -390,8 +390,8 @@ The account needs *Who can invite me to private servers* set to Everyone in its 
 | Local Web API | Use the app from scripts with plain http requests | [Documentation](https://ic3w0lf22.gitbook.io/roblox-account-manager/), [`RAMAccount.lua`](RAMAccount.lua) |
 | Import Cookies | Add accounts from their .ROBLOSECURITY cookies | Drop cookies onto the app, the arrow next to `Add Account` > `Cookie(s)`, or `ram-cli import` |
 | Bulk User Importing | Add accounts from username:password lines | The arrow next to `Add Account` > `User:Pass` |
-| FPS Unlocker | Raise Roblox's FPS cap, or use your own ClientAppSettings.json | `Settings` > `Miscellaneous` |
-| FPS Limit per Account | Each account can have its own frame rate limit (15 for storage alts, 144 for your main), applied when it launches | Right click an account > `FPS limit`, or `ram-cli fps` |
+| Custom ClientAppSettings | Use your own ClientAppSettings.json (Roblox only applies the flags on its allowlist; raise the FPS cap in Roblox's own settings, *Maximum Frame Rate*) | `Settings` > `Miscellaneous` |
+| CPU Limit per Account | Each account's Roblox window can be held to a share of the PC's CPU (5% for an alt that just stays online, none for your main), by Windows itself, right away | Right click an account > `CPU limit`, or `ram-cli cpu` |
 | Colors | Give accounts and groups a color | Right click an account > `Color`, or a group's header > `Group color` |
 | Backups | Export your accounts encrypted with a password, import them on any PC | `Settings` > `General` > `Backup` |
 | Proxies | Browsers use a random proxy from `proxies.txt` | `Settings` > `Miscellaneous` > `Use proxies` |
