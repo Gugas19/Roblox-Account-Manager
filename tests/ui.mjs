@@ -46,8 +46,8 @@ function prepare() {
   // the README's pictures show the normal settings. Still safe: Anti-AFK only takes a made-up account, so it never
   // finds a window of its own to switch to or press keys in
   const settings = args.includes('--readme')
-    ? '[General]\r\nLanguage=en\r\nSavedPlaceId=5315046213\r\n[Updates]\r\nChosen=true\r\n' + SAFE_ANTI_AFK.replace('IdleSeconds=86400', 'IdleSeconds=5').replace('MaxWaitSeconds=86400', 'MaxWaitSeconds=90').replace('AutoRejoin=false', 'AutoRejoin=true')
-    : '[General]\r\nLanguage=en\r\nSavedPlaceId=5315046213\r\nEnableMultiRbx=false\r\n[Updates]\r\nChosen=true\r\n' + SAFE_ANTI_AFK
+    ? '[General]\r\nLanguage=en\r\n[Updates]\r\nChosen=true\r\n' + SAFE_ANTI_AFK.replace('IdleSeconds=86400', 'IdleSeconds=5').replace('MaxWaitSeconds=86400', 'MaxWaitSeconds=90').replace('AutoRejoin=false', 'AutoRejoin=true')
+    : '[General]\r\nLanguage=en\r\nEnableMultiRbx=false\r\n[Updates]\r\nChosen=true\r\n' + SAFE_ANTI_AFK
   fs.writeFileSync(path.join(work, 'RAMSettings.ini'), settings)
 }
 
@@ -240,8 +240,8 @@ async function main() {
     await test('main window lists the accounts by group', async () => {
       const t = await text()
       for (const name of ['NightFalcon_07', 'StorageAlt01', 'GrindBot_B', 'MAIN', 'STORAGE', 'FARM', '6 accounts']) assert(t.includes(name), `missing ${name}`)
-      // the game's name and icon come from Roblox half a second after the Place ID: the picture waits for them (if online)
-      await until(async () => !(await text()).includes('Current Place') && (await evaluate(`!!document.querySelector('img.size-11')?.complete`)), '', 5000).catch(() => {})
+      // no game chosen: the README pictures don't show any game
+      assert(t.includes('No game chosen'), 'a game is preset')
       await shot('main')
     })
 
@@ -250,8 +250,8 @@ async function main() {
       const type = (value) => evaluate(`(() => { const i = document.querySelector('#place'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, '${value}'); i.dispatchEvent(new Event('input', { bubbles: true })) })()`)
       await type('1818')
       await until(async () => saved() === '1818', `not saved: ${saved()}`)
-      await type('5315046213')
-      await until(async () => saved() === '5315046213', `not saved back: ${saved()}`)
+      await type('')
+      await until(async () => (saved() ?? '') === '', `not emptied: ${saved()}`)
       // the server box too, by itself (there's no save button)
       const savedJob = () => /SavedJobId=(.*)/.exec(fs.readFileSync(path.join(work, 'RAMSettings.ini'), 'utf8'))?.[1]?.trim()
       const typeJob = (value) => evaluate(`(() => { const i = document.querySelector('#job'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, '${value}'); i.dispatchEvent(new Event('input', { bubbles: true })) })()`)
@@ -281,8 +281,8 @@ async function main() {
       await click('StorageAlt01', '[role=row]')
       await until(async () => (await placeBox()) === '1818', `StorageAlt01 shows ${await placeBox()}`)
       assert(savedOf('StorageAlt01') === undefined, 'saved into an account just by choosing it')
-      await type('5315046213')
-      await until(async () => savedOf('StorageAlt01') === '5315046213', 'not saved into StorageAlt01')
+      await type('920587237')
+      await until(async () => savedOf('StorageAlt01') === '920587237', 'not saved into StorageAlt01')
       await click('NightFalcon_07', '[role=row]')
       await until(async () => (await placeBox()) === '1818', `NightFalcon_07 shows ${await placeBox()}`)
       // same for all: choosing another account doesn't change the game
@@ -293,7 +293,12 @@ async function main() {
       assert((await placeBox()) === '1818', `the game changed with "same for all": ${await placeBox()}`)
       await click('Same for all', 'label')
       await until(async () => /SameGameForAll=false/.test(fs.readFileSync(path.join(work, 'RAMSettings.ini'), 'utf8')), 'switch not turned off')
+      // empty again, so no picture after this shows a game
+      await type('')
+      await until(async () => savedOf('StorageAlt01') === undefined, 'StorageAlt01 kept its game')
       await click('NightFalcon_07', '[role=row]')
+      await type('')
+      await until(async () => savedOf('NightFalcon_07') === undefined && (await text()).includes('No game chosen'), 'NightFalcon_07 kept its game')
     })
 
     await test('the divider resizes the panels and remembers it', async () => {
