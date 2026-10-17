@@ -39,7 +39,7 @@ function prepare() {
   const old = new Date(Date.now() - 27 * 86400e3).toISOString()
   const demo = (Username, UserID, Group, Alias, LastUse = now, Description = '') => ({ Username, UserID, Group, Alias, LastUse, SecurityToken: `fake-token-${UserID}`, Description, Password: '', Fields: {} })
   fs.writeFileSync(path.join(work, 'AccountData.json'), JSON.stringify([
-    demo('NightFalcon_07', 1, '1Main', 'Main', now, 'Main account'), demo('PixelBuilderBR', 2, '1Main', 'Builder'),
+    demo('MainAccount', 1, '1Main', 'Main', now, 'Main account'), demo('BuilderAccount', 2, '1Main', 'Builder'),
     demo('StorageAlt01', 3, '2Storage', 'Bank', old), demo('StorageAlt02', 4, '2Storage', ''),
     demo('GrindBot_A', 5, '3Farm', 'Farm A'), { ...demo('GrindBot_B', 6, '3Farm', 'Farm B'), Password: 'saved-demo-password' },
   ]))
@@ -239,7 +239,7 @@ async function main() {
 
     await test('main window lists the accounts by group', async () => {
       const t = await text()
-      for (const name of ['NightFalcon_07', 'StorageAlt01', 'GrindBot_B', 'MAIN', 'STORAGE', 'FARM', '6 accounts']) assert(t.includes(name), `missing ${name}`)
+      for (const name of ['MainAccount', 'StorageAlt01', 'GrindBot_B', 'MAIN', 'STORAGE', 'FARM', '6 accounts']) assert(t.includes(name), `missing ${name}`)
       // no game chosen: the README pictures don't show any game
       assert(t.includes('No game chosen'), 'a game is preset')
       await shot('main')
@@ -263,7 +263,7 @@ async function main() {
     })
     await test('selecting enables the account buttons', async () => {
       await checkCursors('button, [role=row]')
-      await click('NightFalcon_07', '[role=row]')
+      await click('MainAccount', '[role=row]')
       await checkCursors('button, [role=row]')
       const disabled = await evaluate(`[...document.querySelectorAll('button')].find(b => b.innerText.includes('Remove')).disabled`)
       assert(!disabled, 'Remove still disabled')
@@ -274,17 +274,17 @@ async function main() {
       const savedOf = (name) => JSON.parse(fs.readFileSync(path.join(work, 'AccountData.json'), 'utf8')).find((a) => a.Username === name)?.Fields?.SavedPlaceId
       const placeBox = () => evaluate(`document.querySelector('#place').value`)
       const type = (value) => evaluate(`(() => { const i = document.querySelector('#place'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, '${value}'); i.dispatchEvent(new Event('input', { bubbles: true })) })()`)
-      // NightFalcon_07 is selected: what's typed is saved into it
+      // MainAccount is selected: what's typed is saved into it
       await type('1818')
-      await until(async () => savedOf('NightFalcon_07') === '1818', `not saved into the account: ${savedOf('NightFalcon_07')}`)
+      await until(async () => savedOf('MainAccount') === '1818', `not saved into the account: ${savedOf('MainAccount')}`)
       // an account without its own game shows the last one used, and choosing back shows its own
       await click('StorageAlt01', '[role=row]')
       await until(async () => (await placeBox()) === '1818', `StorageAlt01 shows ${await placeBox()}`)
       assert(savedOf('StorageAlt01') === undefined, 'saved into an account just by choosing it')
       await type('920587237')
       await until(async () => savedOf('StorageAlt01') === '920587237', 'not saved into StorageAlt01')
-      await click('NightFalcon_07', '[role=row]')
-      await until(async () => (await placeBox()) === '1818', `NightFalcon_07 shows ${await placeBox()}`)
+      await click('MainAccount', '[role=row]')
+      await until(async () => (await placeBox()) === '1818', `MainAccount shows ${await placeBox()}`)
       // same for all: choosing another account doesn't change the game
       await click('Same for all', 'label')
       await until(async () => /SameGameForAll=true/.test(fs.readFileSync(path.join(work, 'RAMSettings.ini'), 'utf8')), 'switch not saved')
@@ -296,9 +296,9 @@ async function main() {
       // empty again, so no picture after this shows a game
       await type('')
       await until(async () => savedOf('StorageAlt01') === undefined, 'StorageAlt01 kept its game')
-      await click('NightFalcon_07', '[role=row]')
+      await click('MainAccount', '[role=row]')
       await type('')
-      await until(async () => savedOf('NightFalcon_07') === undefined && (await text()).includes('No game chosen'), 'NightFalcon_07 kept its game')
+      await until(async () => savedOf('MainAccount') === undefined && (await text()).includes('No game chosen'), 'MainAccount kept its game')
     })
 
     await test('the divider resizes the panels and remembers it', async () => {
@@ -368,13 +368,13 @@ async function main() {
     })
 
     await test('CPU limit for an account, from the right click menu', async () => {
-      const badge = () => evaluate(`[...document.querySelectorAll('[role=row]')].find((r) => r.innerText.includes('PixelBuilderBR'))?.innerText.includes('CPU 10%')`)
-      await click('PixelBuilderBR', '[role=row]', 'right')
+      const badge = () => evaluate(`[...document.querySelectorAll('[role=row]')].find((r) => r.innerText.includes('BuilderAccount'))?.innerText.includes('CPU 10%')`)
+      await click('BuilderAccount', '[role=row]', 'right')
       await openSub('CPU limit')
       await shot('cpu-menu')
       await click('10%', '[role=menuitem]')
       await until(badge, 'no "CPU 10%" on the account')
-      await click('PixelBuilderBR', '[role=row]', 'right')
+      await click('BuilderAccount', '[role=row]', 'right')
       await openSub('CPU limit')
       await click('No limit', '[role=menuitem]')
       await until(async () => !(await badge()), 'the limit did not go away')
@@ -549,7 +549,7 @@ async function main() {
     })
 
     await test('account utilities', async () => {
-      await click('NightFalcon_07', '[role=row]')
+      await click('MainAccount', '[role=row]')
       await click('Account Utilities', 'button')
       assert((await text()).includes('Change Password'), 'not open')
       await shot('account-utilities')
