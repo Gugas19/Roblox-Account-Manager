@@ -507,6 +507,16 @@ fn tick(app: &Arc<App>) {
             if let Some(l) = *last {
                 add_stat(app, "StatSeconds", l.elapsed().as_secs_f64().round() as u64);
             }
+            // the longest session as it goes: a session that ends with the app closing or updating counts too
+            if let Some(session) = state.session_start.lock().unwrap().map(|s| s.elapsed().as_secs()) {
+                if session > app.afk_number("StatLongest") {
+                    let mut settings = app.settings.lock().unwrap();
+                    settings.set(SECTION, "StatLongest", &session.to_string());
+                    if session % 60 == 0 {
+                        settings.save();
+                    }
+                }
+            }
         }
         *last = Some(Instant::now());
     }

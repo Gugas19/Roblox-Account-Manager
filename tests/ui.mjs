@@ -521,6 +521,12 @@ async function main() {
         await until(async () => (await text()).includes('Waiting for a Roblox window'), 'no "waiting for a Roblox window" state')
       }
 
+      // the session that's running already counts as the longest one (a session ended by the app closing used to be lost)
+      const longest = () => evaluate(`window.__TAURI_INTERNALS__.invoke('antiafk_status').then((s) => s.stats.longest)`)
+      await sleep(2500)
+      const seconds = await longest()
+      assert(seconds >= 2, `the running session doesn't count as the longest: ${seconds}`)
+
       await click('Stop', 'button')
       await until(async () => (await text()).includes('Stopped') && (await find('Start', 'button')) !== null, 'Stop did not change to Stopped / Start')
       await key('Escape')
