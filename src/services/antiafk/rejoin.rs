@@ -13,6 +13,9 @@ pub struct LogState {
     pub place_id: Option<i64>,
     pub job_id: Option<String>,
     pub disconnected: Option<i64>,
+    /// the Roblox user playing in this window (the join report has it): finds the account for a window this app
+    /// didn't open, from the Roblox app or the website
+    pub user_id: Option<i64>,
 }
 
 pub struct LogReader {
@@ -38,9 +41,13 @@ fn lost_connection() -> Regex {
 /// Roblox's code for a lost connection
 const LOST_CONNECTION: i64 = 277;
 
+fn join_report() -> Regex {
+    Regex::new(r"Report game_join_loadtime: .*\buserid:(\d+)").unwrap()
+}
+
 /// Reads one chunk of log text into the state (last join wins, a later join clears a disconnect)
 pub fn apply(state: &mut LogState, text: &str) {
-    let (join, leave, lost) = (joining(), disconnect(), lost_connection());
+    let (join, leave, lost, report) = (joining(), disconnect(), lost_connection(), join_report());
     for line in text.lines() {
         if let Some(c) = join.captures(line) {
             state.job_id = Some(c[1].to_string());
@@ -50,6 +57,8 @@ pub fn apply(state: &mut LogState, text: &str) {
             state.disconnected = c[1].parse().ok();
         } else if lost.is_match(line) {
             state.disconnected = Some(LOST_CONNECTION);
+        } else if let Some(c) = report.captures(line) {
+            state.user_id = c[1].parse().ok();
         }
     }
 }
@@ -150,6 +159,13 @@ mod tests {
         assert_eq!(s.disconnected, Some(277));
         assert_eq!(s.place_id, Some(131346454575416));
         assert_eq!(s.job_id.as_deref(), Some("8305bcf4-2d1f-48c4-8b79-c4f4e5b647e1"));
+    }
+
+    #[test]
+    fn reads_the_user_from_the_join_report() {
+        let mut s = LogState::default();
+        apply(&mut s, "2026-10-18T23:35:48.311Z,2.311052,4a60,6 [FLog::GameJoinLoadTime] Report game_join_loadtime: placeid:1818, join_time:0.95, universeid:42, referral_page:RequestPrivateGame, sid:x, clienttime:1.9, userid:123456789, \n");
+        assert_eq!(s.user_id, Some(123456789));
     }
 
     #[test]

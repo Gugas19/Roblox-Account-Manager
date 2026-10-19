@@ -106,6 +106,8 @@ struct Window {
     pid: u32,
     hwnd: HWND,
     tracker: Option<String>,
+    /// the private server it was launched into (its access code), to rejoin that same server
+    private_access_code: Option<String>,
     seconds_running: u64,
 }
 
@@ -117,7 +119,7 @@ fn roblox_windows() -> Vec<Window> {
         .into_iter()
         .filter_map(|(pid, hwnd)| {
             let info = winutil::roblox_info(pid)?;
-            Some(Window { pid, hwnd, tracker: info.tracker_id, seconds_running: now.saturating_sub(info.started) })
+            Some(Window { pid, hwnd, tracker: info.tracker_id, private_access_code: info.private_access_code, seconds_running: now.saturating_sub(info.started) })
         })
         .collect()
 }
@@ -402,7 +404,7 @@ const OFFLINE_WAIT: Duration = Duration::from_secs(30 * 60);
 
 /// Relaunches an account into the game it was disconnected from. It waits for the internet first: a lost connection is
 /// often the internet dropping, and closing the window before Roblox can be reached left the account with none
-fn rejoin(app: &Arc<App>, pid: u32, account: &str, place: i64, job: Option<String>) {
+fn rejoin(app: &Arc<App>, pid: u32, account: &str, place: i64, job: Option<String>, private: Option<String>) {
     let Some(acc) = app.account(account) else { return };
     let same_server = app.afk_flag("RejoinSameServer");
     let app = app.clone();
@@ -442,6 +444,13 @@ fn rejoin(app: &Arc<App>, pid: u32, account: &str, place: i64, job: Option<Strin
         tokio::time::sleep(Duration::from_secs(3)).await;
         let tracker = app.ensure_tracker(&acc.username);
         let mut job_id = if same_server { job.unwrap_or_default() } else { String::new() };
+        // a private server: back into it with its access code, like Roblox's Reconnect (its instance id alone can't
+        // be joined, and "any server" would be a public one)
+        if let Some(code) = private {
+            log::info!("{account}: rejoining the private server it was in");
+            let opts = JoinOptions { place_id: place, job_id: code, join_vip: true, privacy_ok: true, ..app.join_options() };
+            return finish_rejoin(&app, &account, place, launcher::join(&app.api, &acc.security_token, &tracker, opts).await);
+        }
         // the same server, unless Roblox says it can't be joined anymore (it shut down, e.g. for a game update, or
         // it's full): then any server of the game
         if !job_id.is_empty() {
@@ -452,16 +461,24 @@ fn rejoin(app: &Arc<App>, pid: u32, account: &str, place: i64, job: Option<Strin
             }
         }
         let opts = JoinOptions { place_id: place, job_id, privacy_ok: true, ..app.join_options() };
-        match launcher::join(&app.api, &acc.security_token, &tracker, opts).await {
-            JoinResult::Success => {
-                add_stat(&app, "StatRejoins", 1);
-                app.toast("success", format!("Rejoined {account}"));
-                notify(&app, webhook::Event::Rejoined, format!("{account} rejoined place {place}"));
-            }
-            JoinResult::Error(message) => notify(&app, webhook::Event::Error, format!("{account}: {}", app.tr(&message))),
-            JoinResult::NeedsPrivacy => notify(&app, webhook::Event::Error, format!("{account}: {}", app.tr(crate::text!("Could not rejoin")))),
-        }
+        finish_rejoin(&app, &account, place, launcher::join(&app.api, &acc.security_token, &tracker, opts).await);
     });
+}
+
+fn finish_rejoin(app: &Arc<App>, account: &str, place: i64, result: JoinResult) {
+    match result {
+        JoinResult::Success => {
+            add_stat(app, "StatRejoins", 1);
+            log::info!("{account} rejoined place {place}");
+            app.toast("success", format!("Rejoined {account}"));
+            notify(app, webhook::Event::Rejoined, format!("{account} rejoined place {place}"));
+        }
+        JoinResult::Error(message) => {
+            log::warn!("{account}: rejoining failed: {message}");
+            notify(app, webhook::Event::Error, format!("{account}: {}", app.tr(&message)));
+        }
+        JoinResult::NeedsPrivacy => notify(app, webhook::Event::Error, format!("{account}: {}", app.tr(crate::text!("Could not rejoin")))),
+    }
 }
 
 /// Seconds until the next round: the fixed interval, or with "random" a different one each time between the two
@@ -536,9 +553,15 @@ fn tick(app: &Arc<App>) {
             }
             if let Some(log) = t.log.as_mut() {
                 log.update();
+                // opened from the Roblox app or the website: the user in its log tells the account
+                if t.account.is_none() {
+                    t.account = log.state.user_id.and_then(|id| app.store.lock().unwrap().accounts.iter().find(|a| a.user_id == id).map(|a| a.username.clone()));
+                }
                 match log.state.disconnected {
                     Some(_) if t.disconnected_since.is_none() => {
                         t.disconnected_since = Some(Instant::now());
+                        let who = t.account.as_deref().unwrap_or("not one of the app's accounts, not rejoining");
+                        log::info!("Roblox {} lost the connection (account: {who})", w.pid);
                         t.handled_disconnect = false;
                         notify(app, webhook::Event::Disconnected, format!("{} lost the connection", t.account.clone().unwrap_or_else(|| format!("Roblox {}", w.pid))));
                     }
@@ -557,13 +580,14 @@ fn tick(app: &Arc<App>) {
                 if !t.handled_disconnect && since.elapsed() > Duration::from_secs(8) {
                     if let Some(place) = log.state.place_id {
                         t.handled_disconnect = true;
-                        todo.push((*pid, account, place, log.state.job_id.clone()));
+                        let private = windows.iter().find(|w| w.pid == *pid).and_then(|w| w.private_access_code.clone());
+                        todo.push((*pid, account, place, log.state.job_id.clone(), private));
                     }
                 }
             }
         }
-        for (pid, account, place, job) in todo {
-            rejoin(app, pid, &account, place, job);
+        for (pid, account, place, job, private) in todo {
+            rejoin(app, pid, &account, place, job, private);
         }
     }
 

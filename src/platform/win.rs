@@ -25,11 +25,31 @@ pub struct RobloxProcess {
 }
 
 impl RobloxProcess {
-    /// The browser tracker id the process was launched with ("-b 123456")
+    /// The browser tracker id the process was launched with: "browsertrackerid:123456" in today's roblox-player: link,
+    /// "-b 123456" in older launches (only the old form was read, so no window was ever matched to its account)
     pub fn tracker_id(&self) -> Option<String> {
-        let re = regex::Regex::new(r"-b (\d+)").unwrap();
-        re.captures(&self.command_line).map(|c| c[1].to_string())
+        tracker_id_of(&self.command_line)
     }
+
+    /// The private server's access code, when the process was launched into one (its place launcher URL asks for
+    /// RequestPrivateGame): rejoining with it goes back to the same private server, like Roblox's own Reconnect
+    pub fn private_access_code(&self) -> Option<String> {
+        private_access_code_of(&self.command_line)
+    }
+}
+
+fn tracker_id_of(command_line: &str) -> Option<String> {
+    let re = regex::Regex::new(r"(?:browsertrackerid:|-b )(\d+)").unwrap();
+    re.captures(command_line).map(|c| c[1].to_string())
+}
+
+fn private_access_code_of(command_line: &str) -> Option<String> {
+    let url = urlencoding::decode(command_line).map(|s| s.into_owned()).unwrap_or_else(|_| command_line.to_string());
+    if !url.contains("request=RequestPrivateGame") {
+        return None;
+    }
+    let re = regex::Regex::new(r"[?&]accessCode=([0-9A-Za-z\-]+)").unwrap();
+    re.captures(&url).map(|c| c[1].to_string())
 }
 
 pub fn roblox_processes() -> Vec<RobloxProcess> {
@@ -57,6 +77,7 @@ const ROBLOX_WINDOW_CLASS: &str = "WINDOWSCLIENT";
 #[derive(Clone)]
 pub struct RobloxInfo {
     pub tracker_id: Option<String>,
+    pub private_access_code: Option<String>,
     /// unix seconds
     pub started: u64,
 }
@@ -104,7 +125,7 @@ fn read_roblox_info(pid: u32) -> Option<RobloxInfo> {
         return None;
     }
     let process = RobloxProcess { pid, command_line: p.cmd().iter().map(|a| a.to_string_lossy().to_string()).collect::<Vec<_>>().join(" "), memory_mb: 0, seconds_running: 0 };
-    Some(RobloxInfo { tracker_id: process.tracker_id(), started: p.start_time() })
+    Some(RobloxInfo { tracker_id: process.tracker_id(), private_access_code: process.private_access_code(), started: p.start_time() })
 }
 
 /// Whether a process still runs (without listing every process)
@@ -323,3 +344,25 @@ pub fn message_box(text: &str, title: &str) {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // shaped like real command lines, made-up values
+    const FROM_THIS_APP: &str = r#""C:\Roblox\RobloxPlayerBeta.exe" roblox-player:1+launchmode:play+gameinfo:TICKET+launchtime:1+placelauncherurl:https%3A%2F%2Fassetgame.roblox.com%2Fgame%2FPlaceLauncher.ashx%3Frequest%3DRequestGameJob%26browserTrackerId%3D123456789012%26placeId%3D1818%26gameId%3Dabc+browsertrackerid:123456789012+robloxLocale:en_us"#;
+    const PRIVATE_FROM_ROBLOX_APP: &str = r#""C:\Roblox\RobloxPlayerBeta.exe" roblox-player:1+launchmode:play+gameinfo:TICKET+launchtime:1+placelauncherurl:https%3A%2F%2Fwww.roblox.com%2FGame%2FPlaceLauncher.ashx%3Frequest%3DRequestPrivateGame%26browserTrackerId%3D1760000000000001%26placeId%3D1818%26accessCode%3D0a1b2c3d-5642-4eb7-9501-7078f7dcc7f0%26linkCode%3D%26joinAttemptId%3Dx+browsertrackerid:1760000000000001+robloxLocale:en_us"#;
+
+    #[test]
+    fn tracker_ids_in_both_forms() {
+        assert_eq!(tracker_id_of(FROM_THIS_APP).as_deref(), Some("123456789012"));
+        assert_eq!(tracker_id_of(PRIVATE_FROM_ROBLOX_APP).as_deref(), Some("1760000000000001"));
+        assert_eq!(tracker_id_of(r#"RobloxPlayerBeta.exe --play -t TICKET -j https://x -b 987654321"#).as_deref(), Some("987654321"));
+        assert_eq!(tracker_id_of("RobloxPlayerBeta.exe"), None);
+    }
+
+    #[test]
+    fn private_servers_give_their_access_code() {
+        assert_eq!(private_access_code_of(PRIVATE_FROM_ROBLOX_APP).as_deref(), Some("0a1b2c3d-5642-4eb7-9501-7078f7dcc7f0"));
+        assert_eq!(private_access_code_of(FROM_THIS_APP), None);
+    }
+}
