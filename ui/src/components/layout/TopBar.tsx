@@ -1,8 +1,9 @@
-/** The bar above everything: add/remove/open browser on the left, language, theme and settings on the right.
+/** The bar above everything: add/remove/open browser on the left, updates, Anti-AFK, the palette and the language on
+ *  the right (the pages, Settings among them, are in the navigation rail).
  *  The less used buttons are icons with a tooltip, so the bar fits in every language with the update and Anti-AFK
  *  buttons showing. */
 
-import { ChevronDown, Command, Download, Eye, EyeOff, Globe, Palette, Plus, Settings, Trash2, UserRoundPlus } from 'lucide-react'
+import { ChevronDown, Command, Download, Eye, EyeOff, Globe, Plus, Trash2, UserRoundPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Progress } from '@/components/ui/progress'
@@ -111,12 +112,6 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
           </TooltipContent>
         </Tooltip>
         <LanguageMenu />
-        <IconButton label="Theme Editor" onClick={() => actions.open('theme')}>
-          <Palette />
-        </IconButton>
-        <IconButton label="Settings" onClick={() => actions.open('settings')}>
-          <Settings />
-        </IconButton>
       </div>
     </header>
   )

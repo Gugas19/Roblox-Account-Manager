@@ -1,23 +1,25 @@
-/** The window: protection screens first, then the account list, the side panel and the windows that open over them */
+/** The window: protection screens first, then the navigation rail and its pages (the account list and the side panel
+ *  first), and the windows that open over them */
 
 import { useEffect, useRef, useState } from 'react'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { AccountList } from '@/components/accounts/AccountList'
-import { AntiAfkDialog } from '@/components/antiafk/AntiAfkDialog'
+import { AntiAfkPage } from '@/components/antiafk/AntiAfkPage'
 import { AccountUtilsDialog } from '@/components/dialogs/AccountUtilsDialog'
 import { DialogHost } from '@/components/dialogs/DialogHost'
 import { WhatsNewHost } from '@/components/dialogs/WhatsNew'
 import { FieldsDialog } from '@/components/dialogs/FieldsDialog'
 import { ImportDialog } from '@/components/dialogs/ImportDialog'
 import { CommandPalette } from '@/components/layout/CommandPalette'
+import { NavRail } from '@/components/layout/NavRail'
 import { TopBar } from '@/components/layout/TopBar'
 import { ProtectionScreen } from '@/components/protection/ProtectionScreen'
-import { SettingsDialog } from '@/components/settings/SettingsDialog'
+import { SettingsPage } from '@/components/settings/SettingsPage'
 import { UpdateChoice } from '@/components/settings/UpdateChoice'
-import { ThemeDialog } from '@/components/settings/ThemeDialog'
 import { Sidebar } from '@/components/sidebar/Sidebar'
-import { UtilitiesDialog } from '@/components/utilities/UtilitiesDialog'
+import { AvatarPage } from '@/components/utilities/AvatarPage'
+import { GamesPage } from '@/components/utilities/GamesPage'
 import { useActions } from '@/hooks/useActions'
 import { api } from '@/lib/api'
 import { I18nProvider, useT } from '@/lib/i18n'
@@ -27,7 +29,7 @@ import type { Bootstrap } from '@/lib/types'
 /** Keyboard: Ctrl+K palette, Ctrl+F search, Ctrl+A select all, Enter join, Delete remove, Esc clear selection */
 function useShortcuts(searchRef: React.RefObject<HTMLInputElement | null>, openPalette: () => void) {
   const actions = useActions()
-  const { panel } = useStore()
+  const { panel, page } = useStore()
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -39,7 +41,7 @@ function useShortcuts(searchRef: React.RefObject<HTMLInputElement | null>, openP
         e.preventDefault()
         searchRef.current?.focus()
         searchRef.current?.select()
-      } else if (!typing && !panel) {
+      } else if (!typing && !panel && page === 'accounts') {
         if (e.ctrlKey && e.key.toLowerCase() === 'a') {
           e.preventDefault()
           actions.selectAll()
@@ -50,16 +52,18 @@ function useShortcuts(searchRef: React.RefObject<HTMLInputElement | null>, openP
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [actions, panel, searchRef, openPalette])
+  }, [actions, panel, page, searchRef, openPalette])
 }
 
 /** The right panel's width: dragged with the divider, kept in RAMSettings.ini, double click for the default */
 const SIDEBAR_DEFAULT = 360
 const SIDEBAR_MIN = 320
 const LIST_MIN = 360
+/** the navigation rail on the left, and the 16 px gutter on the right */
+const RAIL = 56
 
 function clampSidebar(width: number) {
-  return Math.round(Math.max(SIDEBAR_MIN, Math.min(width, window.innerWidth - 32 - 12 - LIST_MIN)))
+  return Math.round(Math.max(SIDEBAR_MIN, Math.min(width, window.innerWidth - RAIL - 16 - 12 - LIST_MIN)))
 }
 
 function useSidebarWidth() {
@@ -116,7 +120,7 @@ function PanelDivider({ sidebar }: { sidebar: ReturnType<typeof useSidebarWidth>
 }
 
 function Main() {
-  const { setAccounts } = useStore()
+  const { setAccounts, page } = useStore()
   const sidebar = useSidebarWidth()
   const sidebarWidth = sidebar.width
   const searchRef = useRef<HTMLInputElement>(null)
@@ -128,23 +132,32 @@ function Main() {
   return (
     <div className="flex h-screen flex-col bg-background">
       <TopBar onPalette={() => setPalette(true)} />
-      <main className="flex min-h-0 flex-1 px-4 pb-4">
-        <div className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border bg-card">
-          <AccountList searchRef={searchRef} />
-        </div>
-        <PanelDivider sidebar={sidebar} />
-        <div className="min-h-0 shrink-0 overflow-hidden rounded-xl border bg-card" style={{ width: sidebarWidth }}>
-          <Sidebar />
-        </div>
+      <main className="flex min-h-0 flex-1 pr-4 pb-4">
+        <NavRail />
+        {page === 'accounts' ? (
+          <>
+            <div className="@container min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border bg-card">
+              <AccountList searchRef={searchRef} />
+            </div>
+            <PanelDivider sidebar={sidebar} />
+            <div className="min-h-0 shrink-0 overflow-hidden rounded-xl border bg-card" style={{ width: sidebarWidth }}>
+              <Sidebar />
+            </div>
+          </>
+        ) : page === 'games' ? (
+          <GamesPage />
+        ) : page === 'avatar' ? (
+          <AvatarPage />
+        ) : page === 'antiafk' ? (
+          <AntiAfkPage />
+        ) : (
+          <SettingsPage />
+        )}
       </main>
 
-      <SettingsDialog />
-      <ThemeDialog />
-      <UtilitiesDialog />
       <AccountUtilsDialog />
       <ImportDialog />
       <FieldsDialog />
-      <AntiAfkDialog />
       <CommandPalette open={palette} onOpenChange={setPalette} />
       <UpdateChoice />
     </div>

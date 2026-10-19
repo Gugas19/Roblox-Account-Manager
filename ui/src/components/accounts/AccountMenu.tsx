@@ -1,6 +1,6 @@
 /** Right click menu of the account list (same items as the C# version, developer ones only in developer mode) */
 
-import { ArrowDownAZ, Check, ClipboardCopy, Code, FileText, FolderInput, Gauge, Info, KeyRound, LogIn, Palette, PenLine, Trash2, UserPlus } from 'lucide-react'
+import { ArrowDownAZ, Check, ClipboardCopy, Code, FileText, FolderInput, Gauge, House, Info, KeyRound, LogIn, Palette, PenLine, Trash2, UserPlus } from 'lucide-react'
 import { ContextMenuContent, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger } from '@/components/ui/context-menu'
 import { ColorItems } from '@/components/accounts/ColorItems'
 import { useDialogs } from '@/components/dialogs/DialogHost'
@@ -86,6 +86,7 @@ export function AccountMenu({ showGroups, toggleGroups, group, onCustomColor }: 
 
   return (
     <ContextMenuContent className="w-60">
+      <ContextMenuItem disabled={none} onClick={actions.openHome}><House /> {t('Open Roblox home')}</ContextMenuItem>
       <ContextMenuItem onClick={actions.addAccount}><UserPlus /> {t('Add Account')}</ContextMenuItem>
       <ContextMenuItem disabled={none} onClick={actions.remove} className="text-destructive focus:text-destructive"><Trash2 /> {t('Remove Account')}</ContextMenuItem>
       <ContextMenuSeparator />

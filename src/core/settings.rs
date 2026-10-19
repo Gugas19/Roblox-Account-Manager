@@ -47,6 +47,8 @@ impl Settings {
             ("AutoCloseLastProcess", "true"),
             ("ShowPresence", "true"),
             ("PresenceUpdateRate", "5"),
+            ("RenameRobloxWindows", "true"),
+            ("HideFromCaptures", "false"),
         ] {
             g.set_default(key, value);
         }

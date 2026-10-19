@@ -88,6 +88,9 @@ pub(crate) async fn join_one(app: &Arc<App>, account: &Account, opts: JoinOption
         }
         app.update_account(&account.username, |a| a.last_use = crate::core::netdate::NetDate::now());
         app.save_accounts(false);
+        if app.setting_bool("General", "RenameRobloxWindows") {
+            tauri::async_runtime::spawn(launcher::name_window(tracker.clone(), launcher::window_name(&account.username, &account.alias)));
+        }
         if app.setting_bool("Watcher", "SaveWindowPositions") {
             if let Some(rect) = window_rect(account) {
                 tauri::async_runtime::spawn(launcher::restore_window_position(tracker, rect));
@@ -152,6 +155,20 @@ pub(crate) async fn launch_sequence(app: &Arc<App>, accounts: &[Account], opts: 
             }
         }
     }
+}
+
+/// The Roblox app's home screen for the accounts, no game
+#[tauri::command]
+pub async fn open_home(names: Vec<String>) -> R<JoinResult> {
+    let app = app();
+    let accounts = app.accounts_named(&names);
+    let opts = JoinOptions { home: true, privacy_ok: true, ..app.join_options() };
+    if accounts.len() > 1 {
+        launch_many(app, accounts, opts, false);
+        return Ok(JoinResult::Success);
+    }
+    let account = accounts.into_iter().next().ok_or("No Account Selected!")?;
+    Ok(join_one(&app, &account, opts).await)
 }
 
 #[tauri::command]

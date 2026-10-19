@@ -1,6 +1,6 @@
-/** Ctrl+K: find any account or action and run it */
+/** Ctrl+K: find any account, action or page and go to it */
 
-import { ArrowDownAZ, Cookie, Globe, Languages, Palette, Play, Settings, ShieldAlert, Trash2, UserRoundPlus, Users, Wrench } from 'lucide-react'
+import { ArrowDownAZ, Cookie, Gamepad2, Globe, House, Languages, Palette, Play, Settings, ShieldCheck, Shirt, Trash2, UserRoundPlus, Users } from 'lucide-react'
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command'
 import { useActions } from '@/hooks/useActions'
 import { api } from '@/lib/api'
@@ -10,7 +10,7 @@ import { useStore } from '@/lib/store'
 export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const { t, setTable } = useI18n()
   const actions = useActions()
-  const { accounts, select, boot, selected } = useStore()
+  const { accounts, select, boot, selected, setPage } = useStore()
 
   const run = (work: () => unknown) => () => {
     onOpenChange(false)
@@ -27,18 +27,24 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
           <CommandItem onSelect={run(actions.join)} disabled={!selected.length}><Play /> {t('Join Server')}</CommandItem>
           <CommandItem onSelect={run(actions.addAccount)}><UserRoundPlus /> {t('Add Account')}</CommandItem>
           <CommandItem onSelect={run(actions.importCookies)}><Cookie /> {t('Cookie(s)')}</CommandItem>
+          <CommandItem onSelect={run(actions.openHome)} disabled={!selected.length}><House /> {t('Open Roblox home')}</CommandItem>
           <CommandItem onSelect={run(() => actions.openBrowser('home'))} disabled={!selected.length}><Globe /> {t('Open Browser')}</CommandItem>
           <CommandItem onSelect={run(actions.remove)} disabled={!selected.length}><Trash2 /> {t('Remove')}</CommandItem>
           <CommandItem onSelect={run(actions.sortAlphabetically)}><ArrowDownAZ /> {t('Sort Alphabetically')}</CommandItem>
-          <CommandItem onSelect={run(() => actions.open('antiafk'))}><ShieldAlert /> {t('Anti-AFK')}</CommandItem>
-          <CommandItem onSelect={run(() => actions.open('utilities'))}><Wrench /> {t('Utilities')}</CommandItem>
-          <CommandItem onSelect={run(() => actions.open('settings'))}><Settings /> {t('Settings')}</CommandItem>
-          <CommandItem onSelect={run(() => actions.open('theme'))}><Palette /> {t('Theme Editor')}</CommandItem>
+        </CommandGroup>
+        <CommandSeparator />
+        <CommandGroup heading={t('Pages')}>
+          <CommandItem onSelect={run(() => setPage('accounts'))}><Users /> {t('Accounts')}</CommandItem>
+          <CommandItem onSelect={run(() => setPage('games'))}><Gamepad2 /> {t('Games')}</CommandItem>
+          <CommandItem onSelect={run(() => setPage('avatar'))}><Shirt /> {t('Avatar')}</CommandItem>
+          <CommandItem onSelect={run(() => setPage('antiafk'))}><ShieldCheck /> {t('Anti-AFK')}</CommandItem>
+          <CommandItem onSelect={run(() => setPage('settings'))}><Settings /> {t('Settings')}</CommandItem>
+          <CommandItem onSelect={run(() => setPage('settings', 'appearance'))}><Palette /> {t('Appearance')}</CommandItem>
         </CommandGroup>
         <CommandSeparator />
         <CommandGroup heading={t('Accounts')}>
           {accounts.map((a) => (
-            <CommandItem key={a.username} value={`${a.username} ${a.alias} ${a.groupTitle}`} onSelect={run(() => select(a.username))}>
+            <CommandItem key={a.username} value={`${a.username} ${a.alias} ${a.groupTitle}`} onSelect={run(() => { setPage('accounts'); select(a.username) })}>
               <Users /> {a.username}
               {a.alias && <span className="text-muted-foreground">· {a.alias}</span>}
             </CommandItem>

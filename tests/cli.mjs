@@ -23,9 +23,15 @@ function stopTestApps() {
 // input first. The real Roblox on this PC (if open) is listed but never touched.
 const SAFE_ANTI_AFK = '[AntiAFK]\r\nAccounts=__test_nobody__\r\nUserSafe=true\r\nIdleSeconds=86400\r\nMaxWaitSeconds=86400\r\nKeepAwake=false\r\nAutoStart=false\r\nAutoStartIdle=false\r\nAutoRejoin=false\r\nAutoRejoinDefaultOn=true\r\nMuteBackground=false\r\nEfficiency=false\r\nAutoGrid=false\r\n'
 
+/** The copy in `dir` and its browser (WebView2 outlives the app by a few seconds and holds the folder); nothing else */
+function stopCopy(dir) {
+  try { execSync(`powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { ($_.Name -eq 'RobloxAccountManager.exe' -and $_.ExecutablePath -like '${dir}\\*') -or ($_.Name -eq 'msedgewebview2.exe' -and $_.CommandLine -like '*${dir}*') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"`) } catch {}
+}
+
 function prepare(dir) {
+  stopCopy(dir)
   // a just closed copy (or the antivirus) can hold its files a moment
-  fs.rmSync(dir, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 })
+  fs.rmSync(dir, { recursive: true, force: true, maxRetries: 40, retryDelay: 250 })
   fs.mkdirSync(dir, { recursive: true })
   for (const exe of ['RobloxAccountManager.exe', 'ram-cli.exe']) fs.copyFileSync(path.join(target, exe), path.join(dir, exe))
   // a test copy: its own lock and browser data, so it runs next to your own app without touching it

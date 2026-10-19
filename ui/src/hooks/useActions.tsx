@@ -162,6 +162,16 @@ export function useActions() {
         notify.error(e)
       }
     },
+    /** the Roblox app's home screen for the selected accounts, no game */
+    openHome: async () => {
+      if (!needSelection()) return
+      try {
+        const result = await api.openHome([...selected])
+        if (result.result === 'error') notify.error(result.message)
+      } catch (e) {
+        notify.error(e)
+      }
+    },
     follow: async (username: string) => {
       if (!needSelection() || !username.trim()) return
       try {

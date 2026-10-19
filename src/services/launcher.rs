@@ -23,6 +23,8 @@ pub struct JoinOptions {
     /// the user already agreed to open the account's private server privacy
     pub privacy_ok: bool,
     pub custom_client_settings: Option<String>,
+    /// the Roblox app's home screen, no game
+    pub home: bool,
 }
 
 /// How long a join waits for the Roblox launcher to finish
@@ -61,6 +63,11 @@ pub fn player_link(ticket: &str, tracker: &str, place_launcher: &str) -> String 
         urlencoding::encode(place_launcher),
         tracker
     )
+}
+
+/// The roblox-player: link of the Roblox app's home screen, signed in, no game
+pub fn home_link(ticket: &str, tracker: &str) -> String {
+    format!("roblox-player:1+launchmode:app+gameinfo:{ticket}+launchtime:{}+browsertrackerid:{tracker}+robloxLocale:en_us+gameLocale:en_us+channel:+LaunchExp:InApp", launch_time())
 }
 
 pub fn place_launcher_url(opts: &JoinOptions, tracker: &str, access_code: &str, link_code: &str) -> String {
@@ -142,6 +149,34 @@ async fn close_last_process(tracker: &str) {
     }
 }
 
+/// The title the account's Roblox window gets, so each one is easy to tell apart
+pub fn window_name(username: &str, alias: &str) -> String {
+    // the same in every language: not a format! text (tools/strings.py would ask for its translation)
+    let mut name = ["Roblox - ", username].concat();
+    if !alias.trim().is_empty() {
+        name += &[" (", alias.trim(), ")"].concat();
+    }
+    name
+}
+
+/// Puts the account's name on its new Roblox window; for two minutes, in case Roblox sets its own title again
+pub async fn name_window(tracker: String, title: String) {
+    let ends = Instant::now() + Duration::from_secs(120);
+    while Instant::now() < ends {
+        tokio::time::sleep(Duration::from_millis(1500)).await;
+        for process in winutil::roblox_processes() {
+            if process.tracker_id().as_deref() != Some(tracker.as_str()) {
+                continue;
+            }
+            if let Some(hwnd) = winutil::main_window(process.pid) {
+                if winutil::window_title(hwnd) != title {
+                    winutil::set_window_title(hwnd, &title);
+                }
+            }
+        }
+    }
+}
+
 /// Moves the new Roblox window to where this account's window was last time
 pub async fn restore_window_position(tracker: String, rect: (i32, i32, i32, i32)) {
     let ends = Instant::now() + Duration::from_secs(45);
@@ -194,7 +229,7 @@ async fn join_now(api: &Api, token: &str, tracker: &str, mut opts: JoinOptions) 
         }
     }
 
-    if opts.shuffle && opts.job_id.is_empty() && !opts.follow_user {
+    if opts.shuffle && opts.job_id.is_empty() && !opts.follow_user && !opts.home {
         opts.job_id = api.random_job_id(opts.place_id, opts.shuffle_lowest, opts.shuffle_pages).await.unwrap_or_default();
     }
 
@@ -205,6 +240,15 @@ async fn join_now(api: &Api, token: &str, tracker: &str, mut opts: JoinOptions) 
 
     if opts.auto_close_last {
         close_last_process(tracker).await;
+    }
+
+    if opts.home {
+        let link = home_link(&ticket, tracker);
+        return match tokio::task::spawn_blocking(move || winutil::shell_open(&link, Some(LAUNCH_WAIT))).await {
+            Ok(Ok(())) => JoinResult::Success,
+            Ok(Err(e)) => JoinResult::Error(format!("ERROR: Failed to launch Roblox! Try re-installing Roblox.\n\n{e}")),
+            Err(e) => JoinResult::Error(format!("ERROR: {e}")),
+        };
     }
 
     let link_code = regex::Regex::new(r"privateServerLinkCode=([^&#\s]+)").unwrap().captures(&opts.job_id).map(|c| c[1].to_string()).unwrap_or_default();
@@ -318,6 +362,10 @@ mod tests {
     fn player_link_encodes_the_launcher_url() {
         let link = player_link("TICKET", "42", "https://a.b/c?x=1&y=2");
         assert!(link.starts_with("roblox-player:1+launchmode:play+gameinfo:TICKET+launchtime:"));
+        let home = home_link("TICKET", "42");
+        assert!(home.starts_with("roblox-player:1+launchmode:app+gameinfo:TICKET+launchtime:") && home.contains("+browsertrackerid:42+") && !home.contains("placelauncherurl"));
+        assert_eq!(window_name("Main", ""), "Roblox - Main");
+        assert_eq!(window_name("Main", " Farm "), "Roblox - Main (Farm)");
         assert!(link.contains("+placelauncherurl:https%3A%2F%2Fa.b%2Fc%3Fx%3D1%26y%3D2+browsertrackerid:42+"));
     }
 

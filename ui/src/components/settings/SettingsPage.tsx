@@ -3,7 +3,6 @@
 import { AlertTriangle, Download, FileJson, FolderOpen, Lock, Upload, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
@@ -12,6 +11,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Flag } from '@/components/common/Flag'
 import { NumberSetting, SettingRow, TextSetting, Toggle } from '@/components/common/SettingRow'
 import { UpdatesSection } from './UpdatesSection'
+import { ThemeSection } from './ThemeSection'
+import { Page } from '@/components/layout/Page'
+import { WatcherTab } from '@/components/utilities/WatcherTab'
 import { useDialogs } from '@/components/dialogs/DialogHost'
 import { api } from '@/lib/api'
 import { useI18n } from '@/lib/i18n'
@@ -100,9 +102,9 @@ function MultiRobloxStatus() {
   )
 }
 
-export function SettingsDialog() {
+export function SettingsPage() {
   const { t, language, setTable } = useI18n()
-  const { panel, setPanel, boot, setting, updateSetting, flag, accounts } = useStore()
+  const { pageTab, boot, setting, updateSetting, flag, accounts } = useStore()
   const [startup, setStartup] = useState(boot.startup)
   const dialogs = useDialogs()
   const notify = notifier(t)
@@ -149,21 +151,25 @@ export function SettingsDialog() {
   }
 
   return (
-    <Dialog open={panel === 'settings'} onOpenChange={(open) => !open && setPanel(null)}>
-      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{t('Settings')}</DialogTitle>
-          <DialogDescription>{t('Changes are saved and applied right away.')}</DialogDescription>
-        </DialogHeader>
-
-        <Tabs defaultValue="general" className="min-h-0 flex-1">
+    <Page name="settings" title="Settings" description="Changes are saved and applied right away.">
+        <Tabs key={pageTab} defaultValue={pageTab ?? 'general'} className="flex min-h-0 flex-1 flex-col">
           <TabsList>
             <TabsTrigger value="general">{t('General')}</TabsTrigger>
+            <TabsTrigger value="appearance">{t('Appearance')}</TabsTrigger>
+            <TabsTrigger value="watcher">{t('Watcher')}</TabsTrigger>
             <TabsTrigger value="developer">{t('Developer')}</TabsTrigger>
             <TabsTrigger value="misc">{t('Miscellaneous')}</TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="mt-2 h-[52vh] pr-3">
+          <ScrollArea className="mt-2 min-h-0 flex-1 pr-3">
+            {/* room at the end: the last rows can scroll up above the notifications in the corner */}
+            <div className="mx-auto max-w-3xl pb-24">
+            <TabsContent value="appearance">
+              <ThemeSection />
+            </TabsContent>
+            <TabsContent value="watcher">
+              <WatcherTab />
+            </TabsContent>
             <TabsContent value="general" className="divide-y">
               <SettingRow title="Language">
                 <Select value={language} onValueChange={changeLanguage}>
@@ -181,6 +187,8 @@ export function SettingsDialog() {
               </SettingRow>
               <Toggle section="General" name="EnableMultiRbx" title="Multi Roblox" hint="Play several accounts at the same time. Works once every Roblox window is closed." />
               <MultiRobloxStatus />
+              <Toggle section="General" name="RenameRobloxWindows" title="Name Roblox windows after their account" hint="Each Roblox window the app opens shows the account (and its alias) in its title, to tell them apart." />
+              <Toggle section="General" name="HideFromCaptures" title="Hide this app from screen captures" hint="Screenshots, recordings and screen sharing (OBS, Discord, the Snipping Tool) leave this window out. Roblox itself still shows." />
               <Toggle section="General" name="AsyncJoin" title="Async Launching" hint="When launching several accounts, start the next one as soon as the previous opened instead of waiting the delay." />
               <NumberSetting section="General" name="AccountJoinDelay" title="Launch Delay" hint="Seconds between accounts when launching several." min={0} max={120} fallback={8} />
               <Toggle section="General" name="SavePasswords" title="Save Passwords" hint="Remember the password typed when logging in, to copy it later or log in again when the cookie expires. Off by default." onChange={savePasswordsChanged} />
@@ -239,9 +247,9 @@ export function SettingsDialog() {
               </SettingRow>
               {flag('General', 'UseProxies') && <p className="py-2 text-xs text-muted-foreground">proxies.txt: [protocol://]ip:port[@user:pass]</p>}
             </TabsContent>
+            </div>
           </ScrollArea>
         </Tabs>
-      </DialogContent>
-    </Dialog>
+    </Page>
   )
 }

@@ -26,9 +26,10 @@ const SAFE_ANTI_AFK = '[AntiAFK]\r\nAccounts=__test_nobody__\r\nUserSafe=true\r\
 // ---------- demo data ----------
 
 function prepare() {
-  try { execSync(`powershell -NoProfile -Command "Get-Process RobloxAccountManager -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '*\\target\\test-run\\*' } | Stop-Process -Force"`) } catch {}
+  // the copy and its browser (WebView2 outlives the app by a few seconds and holds the folder); nothing else
+  try { execSync(`powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { ($_.Name -eq 'RobloxAccountManager.exe' -and $_.ExecutablePath -like '*\\target\\test-run\\*') -or ($_.Name -eq 'msedgewebview2.exe' -and $_.CommandLine -like '*\\target\\test-run\\*') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"`) } catch {}
   // a just closed copy (or the antivirus) can hold its files a moment
-  fs.rmSync(work, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 })
+  fs.rmSync(work, { recursive: true, force: true, maxRetries: 40, retryDelay: 250 })
   fs.mkdirSync(shots, { recursive: true })
   fs.mkdirSync(work, { recursive: true })
   const exe = path.join(root, 'target', fs.existsSync(path.join(root, 'target', 'release', 'RobloxAccountManager.exe')) && args.includes('--release') ? 'release' : 'debug', 'RobloxAccountManager.exe')
@@ -534,7 +535,7 @@ async function main() {
       const passwordOf = (name) => JSON.parse(fs.readFileSync(path.join(work, 'AccountData.json'), 'utf8')).find((a) => a.Username === name)?.Password
       const ini = () => fs.readFileSync(path.join(work, 'RAMSettings.ini'), 'utf8')
       // the switch whose row (its first parent with any text) is the Save Passwords one
-      const toggle = () => evaluate(`[...document.querySelectorAll('[role=dialog] [role=switch]')].find((s) => {
+      const toggle = () => evaluate(`[...document.querySelectorAll('[data-page] [role=switch]')].find((s) => {
         let row = s.parentElement
         while (row && !row.innerText.trim()) row = row.parentElement
         return row?.innerText.includes('Save Passwords')
@@ -556,7 +557,8 @@ async function main() {
       const ini = () => fs.readFileSync(path.join(work, 'RAMSettings.ini'), 'utf8')
       const updates = () => /\[Updates\][^[]*/.exec(ini())?.[0] ?? ''
       await click('Settings', 'button')
-      await evaluate(`[...document.querySelectorAll('[data-slot=setting-row], div')].find((e) => e.innerText?.startsWith('Automatic updates'))?.scrollIntoView()`)
+      // to the middle: a notification in the bottom right corner could be over it
+      await evaluate(`[...document.querySelectorAll('[data-slot=setting-row], div')].find((e) => e.innerText?.startsWith('Automatic updates'))?.scrollIntoView({ block: 'center' })`)
       // the default: told about a new version, nothing installed without a click
       assert(/Check=true/.test(updates()) && /AutoInstall=false/.test(updates()), `the default isn't "Only tell me":\n${updates()}`)
       await click('Only tell me', '[role=combobox]')
@@ -572,8 +574,9 @@ async function main() {
       await key('Escape')
     })
 
-    await test('theme editor', async () => {
-      await click('Theme Editor', 'button')
+    await test('theme editor, in Settings > Appearance', async () => {
+      await click('Settings', 'button')
+      await click('Appearance', '[role=tab]')
       assert((await text()).includes('Midnight'), 'presets')
       await shot('theme')
       await key('Escape')
@@ -593,7 +596,7 @@ async function main() {
     await test('anti-afk interval: fixed minutes or random between two', async () => {
       const afk = () => /\[AntiAFK\][^[]*/.exec(fs.readFileSync(path.join(work, 'RAMSettings.ini'), 'utf8'))?.[0] ?? ''
       // types into the n-th minutes box of the Behaviour tab and leaves it (that saves)
-      const minutes = (n, value) => evaluate(`(() => { const i = document.querySelectorAll('[role=dialog] input[type=number][step="0.5"]')[${n}]; i.focus(); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, '${value}'); i.dispatchEvent(new Event('input', { bubbles: true })); i.blur() })()`)
+      const minutes = (n, value) => evaluate(`(() => { const i = document.querySelectorAll('[data-page] input[type=number][step="0.5"]')[${n}]; i.focus(); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, '${value}'); i.dispatchEvent(new Event('input', { bubbles: true })); i.blur() })()`)
       await click('Anti-AFK', 'button')
       await click('Behaviour', '[role=tab]')
       await minutes(0, '7.5')
@@ -666,17 +669,37 @@ async function main() {
       await key('Escape')
     })
 
-    await test('utilities tabs', async () => {
-      await click('Utilities', 'button')
-      for (const tab of ['Servers', 'Favorites', 'Universe', 'Outfits', 'Watcher']) {
+    await test('the pages of the navigation rail, and Esc back to the accounts', async () => {
+      const page = () => evaluate(`document.querySelector('[data-page]')?.getAttribute('data-page') ?? 'accounts'`)
+      await click('Games', 'button')
+      assert((await page()) === 'games', 'no Games page')
+      for (const tab of ['Servers', 'Favorites', 'Universe']) {
         await click(tab, '[role=tab]')
         await shot(`utilities-${tab.toLowerCase()}`)
       }
+      await click('Avatar', 'button')
+      assert((await page()) === 'avatar', 'no Avatar page')
+      await shot('utilities-outfits')
+      await click('Settings', 'button')
+      await click('Watcher', '[role=tab]')
+      await shot('utilities-watcher')
+      await key('Escape')
+      await until(async () => (await page()) === 'accounts', 'Esc did not go back to the accounts')
+      assert((await text()).includes('MainAccount'), 'the account list is not back')
+    })
+
+    await test('Roblox home, window names and capture privacy are there', async () => {
+      await click('MainAccount', '[role=row]')
+      assert(await find('Open Roblox home', 'button'), 'no Roblox home button next to Join Server')
+      await click('Settings', 'button')
+      const body = await text()
+      assert(body.includes('Name Roblox windows after their account') && body.includes('Hide this app from screen captures'), 'settings missing')
       await key('Escape')
     })
 
     await test('a notification closes with its X while a window is open', async () => {
-      await click('Utilities', 'button')
+      await click('MainAccount', '[role=row]')
+      await click('Account Utilities', 'button')
       // the same event Rust sends for an error
       await evaluate(`window.__TAURI_INTERNALS__.invoke('plugin:event|emit', { event: 'toast', payload: { kind: 'error', message: 'Test notification' } })`)
       await until(async () => !!(await evaluate(`!!document.querySelector('[data-close-button]')`)), 'no notification')
@@ -684,7 +707,7 @@ async function main() {
       const p = await evaluate(`(() => { const r = document.querySelector('[data-close-button]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })()`)
       for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await mouse(type, p.x, p.y)
       await until(async () => !(await text()).includes('Test notification'), 'the X did not close the notification')
-      assert((await text()).includes('Servers'), 'the window closed instead')
+      assert((await text()).includes('Change Password'), 'the window closed instead')
       await key('Escape')
     })
 
@@ -727,7 +750,7 @@ async function main() {
           if (code === 'de') await shot('main-de-900')
           await call('Emulation.clearDeviceMetricsOverride')
           await sleep(SETTLE)
-          for (const [button, selector] of [[tr('Settings'), 'button'], ['Anti-AFK', 'button'], [tr('Utilities'), 'button'], [tr('Account Utilities'), 'button'], [tr('Theme Editor'), 'button']]) {
+          for (const [button, selector] of [[tr('Settings'), 'button'], ['Anti-AFK', 'button'], [tr('Games'), 'button'], [tr('Avatar'), 'button'], [tr('Account Utilities'), 'button']]) {
             await click(button, selector)
             const tabs = await evaluate(`document.querySelectorAll('[role=tab]').length`)
             if (tabs) await eachTab((tab) => look(`${code} ${button} > ${tab}`))

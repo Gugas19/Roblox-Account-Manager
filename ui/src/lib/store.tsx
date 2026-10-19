@@ -1,4 +1,4 @@
-/** App wide state: accounts, selection, settings, theme, open windows, and the events Rust sends */
+/** App wide state: accounts, selection, settings, theme, the page shown, open windows, and the events Rust sends */
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
@@ -7,7 +7,20 @@ import { useI18n } from './i18n'
 import { applyTheme } from './theme'
 import type { Account, Bootstrap, Settings, Theme } from './types'
 
+/** The pages of the navigation rail; Accounts is home */
+export type Page = 'accounts' | 'games' | 'avatar' | 'antiafk' | 'settings'
+
+/** Windows over the page. 'settings', 'theme', 'utilities' and 'antiafk' were windows before the pages, they open
+ *  their page (and tab) now, so every way of opening them still works */
 export type Panel = 'settings' | 'theme' | 'utilities' | 'accountUtils' | 'import' | 'fields' | 'antiafk' | null
+
+/** Old window → its page and tab */
+const PANEL_PAGES: Partial<Record<NonNullable<Panel>, [Page, string?]>> = {
+  settings: ['settings'],
+  theme: ['settings', 'appearance'],
+  utilities: ['games'],
+  antiafk: ['antiafk'],
+}
 
 interface Store {
   boot: Bootstrap
@@ -30,6 +43,10 @@ interface Store {
   setJob: (job: string) => void
   panel: Panel
   setPanel: (panel: Panel) => void
+  page: Page
+  /** the tab a page opens on, when something asked for one (e.g. the theme opens Settings > Appearance) */
+  pageTab: string | undefined
+  setPage: (page: Page, tab?: string) => void
   launching: { total: number; done: number }
   download: number | null
   hideUsernames: boolean
@@ -48,7 +65,20 @@ export function StoreProvider({ boot, children }: { boot: Bootstrap; children: R
   const [theme, setTheme] = useState<Theme>(boot.theme)
   const [place, setPlace] = useState(boot.placeId)
   const [job, setJob] = useState(boot.jobId ?? '')
-  const [panel, setPanel] = useState<Panel>(null)
+  const [panel, setPanelState] = useState<Panel>(null)
+  const [pageState, setPageState] = useState<{ page: Page; tab?: string }>({ page: 'accounts' })
+  const setPage = useCallback((page: Page, tab?: string) => {
+    setPanelState(null)
+    setPageState({ page, tab })
+  }, [])
+  const setPanel = useCallback(
+    (next: Panel) => {
+      const target = next ? PANEL_PAGES[next] : undefined
+      if (target) setPage(target[0], target[1])
+      else setPanelState(next)
+    },
+    [setPage],
+  )
   const [launching, setLaunching] = useState({ total: 0, done: 0 })
   const [download, setDownload] = useState<number | null>(null)
   const anchor = useRef<string | null>(null)
@@ -146,6 +176,9 @@ export function StoreProvider({ boot, children }: { boot: Bootstrap; children: R
     setJob,
     panel,
     setPanel,
+    page: pageState.page,
+    pageTab: pageState.tab,
+    setPage,
     launching,
     download,
     hideUsernames: flag('General', 'HideUsernames'),

@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Page } from '@/components/layout/Page'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -84,12 +84,12 @@ function PastStatsCard({ past, onDelete }: { past: PastStats; onDelete: () => vo
   )
 }
 
-export function AntiAfkDialog() {
+export function AntiAfkPage() {
   const t = useT()
   const notify = notifier(t)
   const dialogs = useDialogs()
   const status = useAntiAfk()
-  const { panel, setPanel, setting, updateSetting, flag } = useStore()
+  const { pageTab, setting, updateSetting, flag } = useStore()
   const included = setting('AntiAFK', 'Accounts').split(',').map((s) => s.trim()).filter(Boolean)
   const randomInterval = setting('AntiAFK', 'IntervalMode') === 'random'
 
@@ -116,8 +116,8 @@ export function AntiAfkDialog() {
   // statistics kept from earlier resets
   const [history, setHistory] = useState<PastStats[]>([])
   useEffect(() => {
-    if (panel === 'antiafk') api.antiAfkStatsHistory().then(setHistory, () => {})
-  }, [panel])
+    api.antiAfkStatsHistory().then(setHistory, () => {})
+  }, [])
   const reset = async () => {
     if (!(await dialogs.confirm({ title: 'Reset the statistics?', description: 'They start again from zero. The current ones are kept in the history below, where you can delete them.' }))) return
     await api.antiAfkResetStats()
@@ -129,12 +129,8 @@ export function AntiAfkDialog() {
   }
 
   return (
-    <Dialog open={panel === 'antiafk'} onOpenChange={(open) => !open && setPanel(null)}>
-      <DialogContent className="flex h-[85vh] flex-col sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>{t('Anti-AFK')}</DialogTitle>
-          <DialogDescription>{t('Keeps your Roblox windows from being kicked for being idle (20 minutes), without getting in your way.')}</DialogDescription>
-        </DialogHeader>
+    <Page name="antiafk" title="Anti-AFK" description="Keeps your Roblox windows from being kicked for being idle (20 minutes), without getting in your way.">
+      <div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col gap-4">
 
         <div className={`flex items-center gap-4 rounded-xl border p-4 ${running ? 'border-emerald-500/40 bg-emerald-500/5' : ''}`}>
           <div className={`grid size-12 place-items-center rounded-full ${running ? 'bg-emerald-500/15 text-emerald-500' : 'bg-muted text-muted-foreground'}`}>
@@ -166,7 +162,7 @@ export function AntiAfkDialog() {
           </Button>
         </div>
 
-        <Tabs defaultValue="windows" className="flex min-h-0 flex-1 flex-col">
+        <Tabs key={pageTab} defaultValue={pageTab ?? "windows"} className="flex min-h-0 flex-1 flex-col">
           <TabsList>
             <TabsTrigger value="windows">{t('Windows')}</TabsTrigger>
             <TabsTrigger value="behaviour">{t('Behaviour')}</TabsTrigger>
@@ -302,7 +298,7 @@ export function AntiAfkDialog() {
             </TabsContent>
           </ScrollArea>
         </Tabs>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </Page>
   )
 }

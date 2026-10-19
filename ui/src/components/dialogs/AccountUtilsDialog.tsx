@@ -56,7 +56,7 @@ export function AccountUtilsDialog() {
 
   return (
     <Dialog open={panel === 'accountUtils'} onOpenChange={(open) => !open && setPanel(null)}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t('Account Utilities')}</DialogTitle>
           <DialogDescription>{t('Changes apply to {0}', name)}</DialogDescription>

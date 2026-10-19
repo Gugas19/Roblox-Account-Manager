@@ -2,7 +2,6 @@
 
 import { RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
 import { SettingRow } from '@/components/common/SettingRow'
 import { useT } from '@/lib/i18n'
@@ -26,21 +25,17 @@ const PRESETS: { name: string; colors: Record<string, string> }[] = [
   { name: 'Light', colors: { FormsBG: '#F4F5F8', FormsFG: '#16181D', AccountsBG: '#FFFFFF', AccountsFG: '#16181D', ButtonsBG: '#E8EAF0', ButtonsFG: '#16181D', TextBoxesBG: '#FFFFFF', AccentColor: '#2563EB' } },
 ]
 
-export function ThemeDialog() {
+/** Settings > Appearance: ready-made themes, each color, the list's headers */
+export function ThemeSection() {
   const t = useT()
-  const { panel, setPanel, theme, updateTheme, resetTheme } = useStore()
+  const { theme, updateTheme, resetTheme } = useStore()
 
   const apply = async (colors: Record<string, string>) => {
     for (const [key, value] of Object.entries(colors)) await updateTheme(key, value)
   }
 
   return (
-    <Dialog open={panel === 'theme'} onOpenChange={(open) => !open && setPanel(null)}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{t('Theme Editor')}</DialogTitle>
-          <DialogDescription>{t('Changes are saved and applied right away.')}</DialogDescription>
-        </DialogHeader>
+    <div className="grid gap-4 py-2" data-testid="theme-editor">
 
         <div className="grid grid-cols-4 gap-2">
           {PRESETS.map((p) => (
@@ -68,10 +63,9 @@ export function ThemeDialog() {
           </SettingRow>
         </div>
 
-        <Button variant="outline" onClick={resetTheme}>
+        <Button variant="outline" className="justify-self-start" onClick={resetTheme}>
           <RotateCcw /> {t('Reset to the default theme')}
         </Button>
-      </DialogContent>
-    </Dialog>
+    </div>
   )
 }

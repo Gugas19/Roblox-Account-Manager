@@ -17,6 +17,16 @@ pub fn get_settings() -> Value {
 }
 
 /// Saves a setting and applies it right away, returns a message to show when there is one
+/// Settings > Privacy: the app's window left out of screen captures and recordings, when on
+pub fn apply_capture_exclusion(app: &App) {
+    let on = app.setting_bool("General", "HideFromCaptures");
+    if let Some(window) = app.handle.get().and_then(|h| tauri::Manager::get_webview_window(h, "main")) {
+        if let Ok(hwnd) = window.hwnd() {
+            winutil::exclude_from_capture(windows::Win32::Foundation::HWND(hwnd.0 as _), on);
+        }
+    }
+}
+
 /// Multi Roblox: on, working right now, and whether Roblox's tray process is what stops it
 #[tauri::command]
 pub fn multi_roblox_status() -> Value {
@@ -59,6 +69,7 @@ pub fn set_setting(section: String, key: String, value: String) -> R<Option<Stri
             return webserver::restart(&app).map(|a| a.map(|a| format!("Web server: http://{a}/"))).map_err(e);
         }
         ("Watcher", _) => crate::services::watcher::apply(app.clone()),
+        ("General", "HideFromCaptures") => apply_capture_exclusion(&app),
         ("General", "ShowPresence") | ("General", "DisableAgingAlert") => {
             let a = app.clone();
             tauri::async_runtime::spawn(async move { refresh_presence(&a).await });

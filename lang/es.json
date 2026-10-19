@@ -640,5 +640,15 @@
   "Offline": "Desconectado",
   "Roblox is open in the background (it starts with Windows) and stops Multi Roblox.": "Roblox está abierto en segundo plano (se inicia con Windows) e impide Multi Roblox.",
   "Roblox still holds it: close every Roblox window": "Roblox todavía lo tiene: cierra todas las ventanas de Roblox",
-  "Status": "Estado"
+  "Status": "Estado",
+  "Appearance": "Apariencia",
+  "Avatar": "Avatar",
+  "Each Roblox window the app opens shows the account (and its alias) in its title, to tell them apart.": "Cada ventana de Roblox que abre la app muestra la cuenta (y su alias) en el título, para distinguirlas.",
+  "Hide this app from screen captures": "Ocultar la app en las capturas de pantalla",
+  "Name Roblox windows after their account": "Poner el nombre de la cuenta a las ventanas de Roblox",
+  "Open Roblox home": "Abrir el inicio de Roblox",
+  "Outfits of any player, worn by the selected account. Missing items can be bought.": "Atuendos de cualquier jugador, puestos en la cuenta seleccionada. Los artículos que falten se pueden comprar.",
+  "Pages": "Páginas",
+  "Screenshots, recordings and screen sharing (OBS, Discord, the Snipping Tool) leave this window out. Roblox itself still shows.": "Las capturas, grabaciones y pantalla compartida (OBS, Discord, Recortes) dejan fuera esta ventana. Roblox sigue apareciendo.",
+  "Servers of the chosen game, games to find, your favorites and universes.": "Servidores del juego elegido, juegos para encontrar, tus favoritos y universos."
 }

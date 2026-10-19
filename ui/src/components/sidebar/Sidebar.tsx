@@ -1,6 +1,6 @@
-/** Right side: the game, following a player, the selected account, and the two utility windows */
+/** Right side: the game, following a player, the selected account and its utilities */
 
-import { Check, UserRoundSearch, Wrench, UserCog } from 'lucide-react'
+import { Check, UserRoundSearch, UserCog } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -107,14 +107,9 @@ export function Sidebar() {
         <Textarea className="min-h-20 resize-none" value={description} maxLength={5000} disabled={none} onChange={(e) => change('description', e.target.value)} placeholder={t('Description')} />
       </section>
 
-      <div className="grid grid-cols-2 gap-2">
-        <Button variant="outline" onClick={() => setPanel('utilities')}>
-          <Wrench /> {t('Utilities')}
-        </Button>
-        <Button variant="outline" disabled={selectedAccounts.length !== 1} onClick={() => setPanel('accountUtils')}>
-          <UserCog /> {t('Account Utilities')}
-        </Button>
-      </div>
+      <Button variant="outline" disabled={selectedAccounts.length !== 1} onClick={() => setPanel('accountUtils')}>
+        <UserCog /> {t('Account Utilities')}
+      </Button>
     </aside>
   )
 }

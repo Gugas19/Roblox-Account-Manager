@@ -62,7 +62,8 @@ the same time: they refuse to start while the other is open.
 
 ### A modern interface
 - Built with [shadcn/ui](https://ui.shadcn.com): dark by default, with more [themes](#themes) and colors of your own.
-- **Command palette** (`Ctrl+K`): find any account or action and run it from the keyboard.
+- A **navigation rail** on the left: `Accounts`, `Games`, `Avatar`, `Anti-AFK` and `Settings`, each a page of its own (`Esc` goes back to the accounts).
+- **Command palette** (`Ctrl+K`): find any account, action or page and run it from the keyboard.
 - Search (`Ctrl+F`), select all (`Ctrl+A`), join with `Enter` or a double click, remove with `Delete`.
 - **Undo** after removing accounts, and double click an alias to edit it in place.
 - Paste a game link straight into Place ID. Recent games are one click away.
@@ -72,7 +73,7 @@ the same time: they refuse to start while the other is open.
 
 ### Themes
 - Four ready-made themes, **Dark** (the default), **Midnight**, **Forest** and **Light**, one click each in the theme
-  editor (the palette button in the top right).
+  editor (`Settings` > `Appearance`).
 - Or make your own: change the accent, background, text, cards and account list, buttons and text boxes, each with a
   color picker. Every change shows instantly, and `Reset to the default theme` goes back to Dark.
 - Give accounts and groups a color of their own from the right click menus, to tell them apart at a glance.
@@ -199,7 +200,7 @@ that every language has the same keys and placeholders.
 | ![Anti-AFK](Images/antiafk.png) Anti-AFK | ![Anti-AFK rejoin](Images/antiafk-rejoin.png) Anti-AFK: rejoin and extras |
 | ![Command palette](Images/command-palette.png) Command palette (`Ctrl+K`) | ![Search](Images/search.png) Search |
 | ![Account menu](Images/account-menu.png) Account menu | ![Account utilities](Images/account-utilities.png) Account utilities |
-| ![Utilities](Images/utilities.png) Utilities: servers, games, favorites, universes, outfits, watcher | ![Theme editor](Images/theme.png) Theme editor |
+| ![Games](Images/utilities.png) Games: servers, games, favorites, universes | ![Appearance](Images/theme.png) Settings > Appearance |
 | ![Colors](Images/colors.png) Colors for accounts and groups | ![CPU limit](Images/cpu-limit.png) CPU limit per account |
 
 ![Settings](Images/settings.png)
@@ -303,7 +304,7 @@ with `SetPassword`). Be careful running random scripts with dangerous methods en
 
 ## **Q:** How do I enable multi-roblox?
 
-**A:** Open the settings with the gear icon in the top right and, in the `General` tab, turn on `Multi Roblox`. It works as soon as every Roblox window is closed, no restart needed.
+**A:** Open `Settings` (the gear at the bottom of the navigation rail on the left) and, in the `General` tab, turn on `Multi Roblox`. It works as soon as every Roblox window is closed, no restart needed.
 
 
 ## **Q:** Is multi-roblox safe?
@@ -370,13 +371,16 @@ The account needs *Who can invite me to private servers* set to Everyone in its 
 | Account Encryption | Your account data is encrypted for your Windows user, so someone who gets the file can't read it | **DO NOT SHARE YOUR `AccountData.json` FILE AT ALL** |
 | Password Encryption | Encrypt your data with a password | Recommended: the file can be stored in Google Drive or moved to another computer |
 | [Multi Roblox](#q-is-multi-roblox-safe) | [ON BY DEFAULT, READ FAQ] Several Roblox clients open at once | **If it doesn't work, make sure no Roblox process is running in the background (Task Manager)** |
-| Anti-AFK | Keeps Roblox windows from being kicked for being idle, rejoins disconnected accounts, mutes and arranges windows | Click `Anti-AFK` in the top bar, or `ram-cli antiafk start` |
+| Anti-AFK | Keeps Roblox windows from being kicked for being idle, rejoins disconnected accounts, mutes and arranges windows | The `Anti-AFK` page (or the button in the top bar), or `ram-cli antiafk start` |
 | Command Line | Join, follow, list, close and import accounts from scripts and shortcuts | `ram-cli help` |
 | Command Palette | Any account or action from the keyboard | `Ctrl+K` |
 | Languages | English, Português (Portugal), Español, Français, Deutsch | Click the flag button in the top right |
+| Roblox home | Open the Roblox app signed in as the account, without a game | The house button next to `Join Server`, or right click an account |
+| Window names | Each Roblox window the app opens shows its account (and alias) in the title | `Settings` > `General` |
+| Hide from captures | Screenshots, recordings and screen sharing leave the app's window out | `Settings` > `General` |
 | Account Search | Find an account by username, alias, description or group | Type in the search box above the list, or press `Ctrl+F` |
 | Undo | Bring back accounts you just removed | Click `Undo` on the message that shows after removing |
-| Server List | See a game's servers with their player count and ping | Click `Utilities` in the main window |
+| Server List | See a game's servers with their player count and ping | The `Games` page |
 | Load Region | See where a server is and get an accurate ping | Right click a server in the server list, then click `Load Region` **(requires a valid account to be selected)** |
 | [Join Small Servers](https://youtu.be/Red66cV6vVI) | Join small servers in games that use a lobby place to teleport you | Put the real game's Place ID next to `Refresh` in the server list, refresh, then right click a server and click `Join Game` |
 | Player Finder | Find a player even with their follows off, as long as you know their game | In the server list, type the username and click search |
@@ -384,8 +388,8 @@ The account needs *Who can invite me to private servers* set to Everyone in its 
 | Account Sorting | Order accounts the way you like | Drag and drop an account in the list, or `Sort Alphabetically` |
 | Account Grouping | Put accounts in groups, drag them between groups, rename a group | Right click an account, `Groups`, `Move Account To`; right click a group's header to rename it |
 | Group Sorting | Order groups by giving them a number | Name a group with a number from 0-999 in front (ex. `1Main`, `007 Bank`), the number is hidden afterwards |
-| Games List | Search Roblox games | `Utilities` > `Games` |
-| Favorite Games | Keep the games you play close | `Utilities` > `Favorites` |
+| Games List | Search Roblox games | `Games` > `Games` |
+| Favorite Games | Keep the games you play close | `Games` > `Favorites` |
 | Recent Games | The games you joined last | The clock icon above `Place ID`, or type the game's name into `Place ID` |
 | Game Links | Paste a game or private server link (old or `share?code=` links) | The Place ID and the private server are taken from the link |
 | Open Browser | A browser logged in as the selected account | Click `Open Browser` with an account selected |
@@ -393,13 +397,13 @@ The account needs *Who can invite me to private servers* set to Everyone in its 
 | Custom URL & Javascript | Open a page and run a script in several browsers | The arrow next to `Open Browser` |
 | Shuffle Job ID | A random server every time you press Join, unless a Job ID is set | Click the shuffle icon above `Job ID` |
 | Save Place ID & Job ID | Save a place and server to specific accounts, they join it every time | Enter them, then click the save icon next to `Job ID` |
-| Universe Viewer | Every place of a game | `Utilities` > `Universe` |
-| Outfit Viewer | See other players' outfits and wear them, buy what's missing | `Utilities` > `Outfits` |
-| Roblox Watcher | Close Roblox on the beta home menu, without connection, with too little memory or the wrong window title | `Utilities` > `Watcher` |
+| Universe Viewer | Every place of a game | `Games` > `Universe` |
+| Outfit Viewer | See other players' outfits and wear them, buy what's missing | The `Avatar` page |
+| Roblox Watcher | Close Roblox on the beta home menu, without connection, with too little memory or the wrong window title | `Settings` > `Watcher` |
 | Prevent Duplicate Instances | Closes the account's previous Roblox when you launch it again | Each account gets a `BrowserTrackerID` so the app knows which Roblox is whose |
-| Save Window Positions | Each account's Roblox opens where it was last time | `Utilities` > `Watcher` |
+| Save Window Positions | Each account's Roblox opens where it was last time | `Settings` > `Watcher` |
 | Save Passwords | Off by default. When on, the password you type when logging in is saved, to copy it later or log in again when the cookie expires. Turning it off offers to forget the saved ones | Turn it on in `Settings` > `General`, then right click the account > `Copy Password` |
-| Themes | Dark, Midnight, Forest, Light, and your own colors | The palette button in the top right |
+| Themes | Dark, Midnight, Forest, Light, and your own colors | `Settings` > `Appearance` |
 | Developer Mode | Extra account menu items: fields, authentication tickets, cookies and launch links | `Settings` > `Developer` > `Enable Developer Mode` |
 | Local Web API | Use the app from scripts with plain http requests | [Documentation](https://ic3w0lf22.gitbook.io/roblox-account-manager/), [`RAMAccount.lua`](RAMAccount.lua) |
 | Import Cookies | Add accounts from their .ROBLOSECURITY cookies | Drop cookies onto the app, the arrow next to `Add Account` > `Cookie(s)`, or `ram-cli import` |

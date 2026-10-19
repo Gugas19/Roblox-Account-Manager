@@ -13,9 +13,15 @@ const PRESENCE = [
   { color: 'bg-violet-500', label: 'In Studio' },
 ]
 
-/** The columns, with the Status one when presence is shown (the header uses the same) */
+/** The columns, with the Status one when presence is shown (the header uses the same). A narrow list (the window at
+ *  its smallest, or a wide side panel) leaves the description out, the names keep their room. */
 export const rowColumns = (status: boolean) =>
-  status ? 'grid-cols-[minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,1.2fr)_minmax(0,1fr)]' : 'grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,1.6fr)]'
+  status
+    ? 'grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,1fr)] @xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,1.2fr)_minmax(0,1fr)]'
+    : 'grid-cols-[minmax(0,1.2fr)_minmax(0,0.9fr)] @xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,1.6fr)]'
+
+/** The description column, shown when the list is wide enough */
+export const descriptionColumn = 'hidden @xl:block'
 
 /** Yellow at 20 days, red 10 days later, like the C# aging alert */
 function agingColor(days: number) {
@@ -106,7 +112,7 @@ export function AccountRow({ account, selected, hideUsername, showAging, showPre
         )}
       </div>
 
-      <span className="truncate text-muted-foreground">{account.description.split('\n')[0]}</span>
+      <span className={`truncate text-muted-foreground ${descriptionColumn}`}>{account.description.split('\n')[0]}</span>
 
       {presence && (
         <span className="flex min-w-0 items-center gap-2 text-muted-foreground" data-testid="status">

@@ -1,7 +1,7 @@
 /** Game section: place (with recent games), server, shuffle and the big Join button. What's typed is saved by itself,
  *  into the selected accounts (each has its own game) or, with "Same for all", once for every account */
 
-import { History, Loader2, Play, Shuffle, X } from 'lucide-react'
+import { History, House, Loader2, Play, Shuffle, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -177,10 +177,20 @@ export function GamePanel() {
           <Progress value={(launching.done / launching.total) * 100} className="h-1.5" />
         </div>
       ) : (
-        <Button size="lg" className="h-11 text-base" disabled={selected.length === 0 || joining} onClick={join}>
-          {joining ? <Loader2 className="animate-spin" /> : <Play />}
-          {selected.length > 1 ? t('Join Server ({0})', selected.length) : t('Join Server')}
-        </Button>
+        <div className="flex gap-2">
+          <Button size="lg" className="h-11 flex-1 text-base" disabled={selected.length === 0 || joining} onClick={join}>
+            {joining ? <Loader2 className="animate-spin" /> : <Play />}
+            {selected.length > 1 ? t('Join Server ({0})', selected.length) : t('Join Server')}
+          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="lg" variant="secondary" className="h-11 w-11 px-0" aria-label={t('Open Roblox home')} disabled={selected.length === 0} onClick={actions.openHome}>
+                <House />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t('Open Roblox home')}</TooltipContent>
+          </Tooltip>
+        </div>
       )}
     </section>
   )

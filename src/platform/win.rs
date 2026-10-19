@@ -235,6 +235,22 @@ pub fn window_rect(hwnd: HWND) -> Option<(i32, i32, i32, i32)> {
     Some((rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top))
 }
 
+pub fn set_window_title(hwnd: HWND, title: &str) {
+    let title = wide(title);
+    unsafe {
+        let _ = windows::Win32::UI::WindowsAndMessaging::SetWindowTextW(hwnd, PCWSTR(title.as_ptr()));
+    }
+}
+
+/// Screen captures, recordings and screen sharing (OBS, Discord, the Snipping Tool) leave the window out (black or
+/// missing), when on; Windows 10 2004 and later
+pub fn exclude_from_capture(hwnd: HWND, on: bool) {
+    use windows::Win32::UI::WindowsAndMessaging::{SetWindowDisplayAffinity, WDA_EXCLUDEFROMCAPTURE, WDA_NONE};
+    unsafe {
+        let _ = SetWindowDisplayAffinity(hwnd, if on { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE });
+    }
+}
+
 pub fn move_window(hwnd: HWND, x: i32, y: i32, width: i32, height: i32) {
     unsafe {
         let _ = MoveWindow(hwnd, x, y, width, height, true);

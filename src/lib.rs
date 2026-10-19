@@ -123,6 +123,7 @@ pub fn run() {
             if let Some(window) = tauri_app.get_webview_window("main") {
                 show_window(&window);
             }
+            commands::settings::apply_capture_exclusion(&setup_state);
             tray(tauri_app, setup_state.clone())?;
             Ok(())
         })
@@ -228,6 +229,7 @@ pub fn run() {
             commands::updates::update_check,
             commands::updates::update_notes,
             commands::settings::multi_roblox_status,
+            commands::joining::open_home,
             commands::settings::close_roblox_tray,
             commands::updates::update_restart,
         ])
