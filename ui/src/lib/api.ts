@@ -2,7 +2,7 @@
 
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
-import type { Account, AntiAfkStatus, Bootstrap, Favorite, Game, JoinResult, LoadState, MissingAsset, Outfit, ReleaseNotes, Settings, Theme, UpdateStatus } from './types'
+import type { Account, AntiAfkStatus, Bootstrap, Favorite, Game, JoinResult, LoadState, MissingAsset, Outfit, PastStats, ReleaseNotes, Settings, Theme, UpdateStatus } from './types'
 
 /** Errors from Rust arrive as plain strings */
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
@@ -106,9 +106,11 @@ export const api = {
   antiAfkTool: (kind: 'grid' | 'hide' | 'show' | 'seeThrough' | 'solid' | 'mute' | 'unmute' | 'closeAll') => call<string>('antiafk_tool', { kind }),
   antiAfkTestWebhook: () => call<void>('antiafk_test_webhook'),
   antiAfkResetStats: () => call<void>('antiafk_reset_stats'),
+  antiAfkStatsHistory: () => call<PastStats[]>('antiafk_stats_history'),
+  antiAfkDeletePastStats: (id: number) => call<PastStats[]>('antiafk_delete_past_stats', { id }),
   updateStatus: () => call<{ status: UpdateStatus; version: string }>('update_status'),
   updateCheck: (download: boolean) => call<UpdateStatus>('update_check', { download }),
-  updateNotes: () => call<ReleaseNotes[]>('update_notes'),
+  updateNotes: (recent = false) => call<ReleaseNotes[]>('update_notes', { recent }),
   updateRestart: () => call<void>('update_restart'),
 
   // settings

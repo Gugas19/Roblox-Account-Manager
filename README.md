@@ -94,7 +94,7 @@ Roblox kicks you after 20 minutes without input. Anti-AFK keeps every Roblox win
 - Mute the windows you're not looking at, put background windows in Windows' efficiency mode (less CPU and fan noise),
   arrange them in a grid, hide them or make them see-through.
 - Discord notifications when it starts, stops, an account disconnects or something fails.
-- Statistics, starts on its own when Roblox opens or when you're away, keeps the PC awake, keeps running in the tray.
+- Statistics (resetting them keeps the old ones in a history, delete each one when you like), starts on its own when Roblox opens or when you're away, keeps the PC awake, keeps running in the tray.
 
 ### Command line
 `ram-cli.exe` joins, follows, lists, closes and imports accounts, and controls Anti-AFK, from scripts, shortcuts or a

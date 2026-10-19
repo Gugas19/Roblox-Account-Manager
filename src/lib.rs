@@ -145,6 +145,8 @@ pub fn run() {
             commands::antiafk::antiafk_tool,
             commands::antiafk::antiafk_test_webhook,
             commands::antiafk::antiafk_reset_stats,
+            commands::antiafk::antiafk_stats_history,
+            commands::antiafk::antiafk_delete_past_stats,
             commands::startup::bootstrap,
             commands::startup::accounts_ready,
             commands::protection::choose_protection,

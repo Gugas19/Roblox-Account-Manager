@@ -1,7 +1,7 @@
 /** Anti-AFK: status and windows, tools, how it behaves, rejoining, Discord and statistics */
 
-import { Bell, Eye, EyeOff, Gauge, LayoutGrid, Play, Power, RotateCcw, Send, Square, Volume2, VolumeX, X, Zap } from 'lucide-react'
-import { useState } from 'react'
+import { Bell, Eye, EyeOff, Gauge, History, LayoutGrid, Play, Power, RotateCcw, Send, Square, Trash2, Volume2, VolumeX, X, Zap } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -14,9 +14,10 @@ import { NumberSetting, SettingRow, TextSetting, Toggle } from '@/components/com
 import { useDialogs } from '@/components/dialogs/DialogHost'
 import { clock, duration, useAntiAfk } from '@/hooks/useAntiAfk'
 import { api } from '@/lib/api'
-import { useT } from '@/lib/i18n'
+import { useI18n, useT } from '@/lib/i18n'
 import { notifier } from '@/lib/notify'
 import { useStore } from '@/lib/store'
+import type { PastStats } from '@/lib/types'
 
 /** Minutes in the box, seconds in RAMSettings.ini; from half a minute to 19 (Roblox kicks after 20) */
 function MinutesInput({ name, fallback }: { name: string; fallback: number }) {
@@ -52,6 +53,37 @@ function Stat({ label, value }: { label: string; value: string | number }) {
   )
 }
 
+/** One reset's statistics, with the dates they cover and a delete button */
+function PastStatsCard({ past, onDelete }: { past: PastStats; onDelete: () => void }) {
+  const { t, language } = useI18n()
+  const date = (seconds: number) => new Date(seconds * 1000).toLocaleDateString(language, { day: 'numeric', month: 'short', year: 'numeric' })
+  const range = past.since ? `${date(past.since)} – ${date(past.until)}` : t('Until {0}', date(past.until))
+  const items: [string, string | number][] = [
+    ['Time kept active', duration(past.seconds)],
+    ['Longest session', duration(past.longest)],
+    ['Sessions', past.sessions],
+    ['Key press rounds', past.actions],
+    ['Rejoins', past.rejoins],
+  ]
+  return (
+    <div className="flex items-start gap-3 rounded-lg border bg-background/40 p-3" data-testid="past-stats">
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium">{range}</div>
+        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          {items.map(([label, value]) => (
+            <span key={label}>
+              {t(label)}: <span className="font-medium text-foreground tabular-nums">{value}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+      <Button variant="ghost" size="icon" className="shrink-0" aria-label={t('Delete')} onClick={onDelete}>
+        <Trash2 />
+      </Button>
+    </div>
+  )
+}
+
 export function AntiAfkDialog() {
   const t = useT()
   const notify = notifier(t)
@@ -81,6 +113,20 @@ export function AntiAfkDialog() {
   // the window tools need a Roblox window (showing hidden ones always works)
   const noWindows = !status?.windows.length
   const [sending, setSending] = useState(false)
+  // statistics kept from earlier resets
+  const [history, setHistory] = useState<PastStats[]>([])
+  useEffect(() => {
+    if (panel === 'antiafk') api.antiAfkStatsHistory().then(setHistory, () => {})
+  }, [panel])
+  const reset = async () => {
+    if (!(await dialogs.confirm({ title: 'Reset the statistics?', description: 'They start again from zero. The current ones are kept in the history below, where you can delete them.' }))) return
+    await api.antiAfkResetStats()
+    setHistory(await api.antiAfkStatsHistory())
+  }
+  const deletePast = async (id: number) => {
+    if (!(await dialogs.confirm({ title: 'Delete these statistics?', destructive: true }))) return
+    setHistory(await api.antiAfkDeletePastStats(id))
+  }
 
   return (
     <Dialog open={panel === 'antiafk'} onOpenChange={(open) => !open && setPanel(null)}>
@@ -95,7 +141,7 @@ export function AntiAfkDialog() {
             <Power />
           </div>
           <div className="flex-1">
-            <div className="font-semibold">{t(running ? 'Running' : 'Stopped')}</div>
+            <div className="font-semibold">{running ? t('Running') : t('Stopped')}</div>
             <div className="text-sm text-muted-foreground">
               {running
                 ? status?.phase === 'acting'
@@ -116,7 +162,7 @@ export function AntiAfkDialog() {
             </Button>
           )}
           <Button size="lg" variant={running ? 'secondary' : 'default'} onClick={() => (running ? api.antiAfkStop() : api.antiAfkStart())}>
-            {running ? <Square /> : <Play />} {t(running ? 'Stop' : 'Start')}
+            {running ? <Square /> : <Play />} {running ? t('Stop') : t('Start')}
           </Button>
         </div>
 
@@ -215,7 +261,7 @@ export function AntiAfkDialog() {
               <Toggle section="AntiAFK" name="MuteBackground" title="Mute the windows I'm not looking at" hint="The window in front keeps its sound." />
               <Toggle section="AntiAFK" name="Efficiency" title="Efficiency mode for background windows" hint="Windows' efficiency mode and a lower priority: less CPU and fan noise with many accounts. Safe, Roblox is never paused." />
               <Toggle section="AntiAFK" name="AutoGrid" title="Arrange windows automatically" hint="A grid every time a Roblox window opens or closes." />
-              <div className="flex items-start gap-2 py-3 text-xs text-muted-foreground"><Gauge className="size-4 shrink-0" />{t('For an FPS limit use Settings > Miscellaneous > Max FPS, Roblox applies it on the next launch.')}</div>
+              <div className="flex items-start gap-2 py-3 text-xs text-muted-foreground"><Gauge className="size-4 shrink-0" />{t('To make an account use less CPU, right click it > CPU limit.')}</div>
             </TabsContent>
 
             <TabsContent value="discord" className="divide-y">
@@ -242,9 +288,17 @@ export function AntiAfkDialog() {
                 <Stat label="Rejoins" value={status?.stats.rejoins ?? 0} />
                 <Stat label="You're idle for" value={clock(status?.idleSeconds ?? 0)} />
               </div>
-              <Button variant="outline" className="justify-self-start" onClick={async () => { if (await dialogs.confirm({ title: 'Reset the statistics?', destructive: true })) await api.antiAfkResetStats() }}>
+              <Button variant="outline" className="justify-self-start" onClick={reset}>
                 <RotateCcw /> {t('Reset statistics')}
               </Button>
+              {history.length > 0 && (
+                <section className="grid gap-2 pt-2">
+                  <div className="flex items-center gap-2 text-sm font-medium"><History className="size-4" /> {t('History')}</div>
+                  {history.map((past) => (
+                    <PastStatsCard key={past.id} past={past} onDelete={() => void deletePast(past.id)} />
+                  ))}
+                </section>
+              )}
             </TabsContent>
           </ScrollArea>
         </Tabs>

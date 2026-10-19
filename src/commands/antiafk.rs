@@ -37,3 +37,15 @@ pub async fn antiafk_test_webhook() -> R<()> {
 pub fn antiafk_reset_stats() {
     antiafk::reset_stats(&app());
 }
+
+/// The statistics put aside by earlier resets
+#[tauri::command]
+pub fn antiafk_stats_history() -> Vec<antiafk::PastStats> {
+    antiafk::stats_history(&app())
+}
+
+#[tauri::command]
+pub fn antiafk_delete_past_stats(id: u64) -> Vec<antiafk::PastStats> {
+    antiafk::delete_past_stats(&app(), id);
+    antiafk::stats_history(&app())
+}

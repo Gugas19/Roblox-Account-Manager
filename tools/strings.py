@@ -46,6 +46,12 @@ def ui_strings():
                     s = m.group(1) if m.group(1) is not None else m.group(2)
                     if is_text(s):
                         found.add(unescape(s))
+            # t(on ? 'Running' : 'Stopped'), also nested: every quoted text of the choice goes through t()
+            for m in re.finditer(r'\bt\(\s*([^()\'"]*?\?[^()]*?)\)', text):
+                for q in re.finditer(STRING, m.group(1)):
+                    s = q.group(1) if q.group(1) is not None else q.group(2)
+                    if is_text(s):
+                        found.add(unescape(s))
             # dialogs.alert('title', 'text'): both go through t()
             for m in re.finditer(r'\bdialogs\.alert\(\s*' + STRING + r'(?:\s*,\s*' + STRING + r')?', text):
                 for s in m.groups():

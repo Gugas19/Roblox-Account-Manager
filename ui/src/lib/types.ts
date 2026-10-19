@@ -121,6 +121,18 @@ export interface AntiAfkStatus {
 }
 
 /** The auto updater (src/services/updater.rs) */
+/** Anti-AFK statistics put aside by a reset (seconds since 1970 for the dates) */
+export interface PastStats {
+  id: number
+  since: number | null
+  until: number
+  seconds: number
+  actions: number
+  rejoins: number
+  sessions: number
+  longest: number
+}
+
 /** What changed in one version (its release notes, without the download and verify parts) */
 export interface ReleaseNotes {
   version: string

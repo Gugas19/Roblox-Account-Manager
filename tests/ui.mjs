@@ -21,7 +21,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 // Anti-AFK in the test copy can never press a key: it only takes a made-up account, and waits for a day without
 // input first. The real Roblox on this PC (if open) is listed but never touched.
-const SAFE_ANTI_AFK = '[AntiAFK]\r\nAccounts=__test_nobody__\r\nUserSafe=true\r\nIdleSeconds=86400\r\nMaxWaitSeconds=86400\r\nKeepAwake=false\r\nAutoStart=false\r\nAutoStartIdle=false\r\nAutoRejoin=false\r\nAutoRejoinDefaultOn=true\r\nMuteBackground=false\r\nEfficiency=false\r\nAutoGrid=false\r\n'
+const SAFE_ANTI_AFK = '[AntiAFK]\r\nAccounts=__test_nobody__\r\nUserSafe=true\r\nIdleSeconds=86400\r\nMaxWaitSeconds=86400\r\nKeepAwake=false\r\nAutoStart=false\r\nAutoStartIdle=false\r\nAutoRejoin=false\r\nAutoRejoinDefaultOn=true\r\nMuteBackground=false\r\nEfficiency=false\r\nAutoGrid=false\r\nStatSeconds=7200\r\nStatActions=30\r\nStatRejoins=1\r\nStatSessions=3\r\nStatLongest=3600\r\nStatSince=1760000000\r\n'
 
 // ---------- demo data ----------
 
@@ -524,7 +524,12 @@ async function main() {
     await test('turning "Save Passwords" off offers to forget the saved ones', async () => {
       const passwordOf = (name) => JSON.parse(fs.readFileSync(path.join(work, 'AccountData.json'), 'utf8')).find((a) => a.Username === name)?.Password
       const ini = () => fs.readFileSync(path.join(work, 'RAMSettings.ini'), 'utf8')
-      const toggle = () => evaluate(`[...document.querySelectorAll('[role=dialog] [role=switch]')].find((s) => s.closest('div.flex')?.innerText?.includes('Save Passwords'))?.click()`)
+      // the switch whose row (its first parent with any text) is the Save Passwords one
+      const toggle = () => evaluate(`[...document.querySelectorAll('[role=dialog] [role=switch]')].find((s) => {
+        let row = s.parentElement
+        while (row && !row.innerText.trim()) row = row.parentElement
+        return row?.innerText.includes('Save Passwords')
+      })?.click()`)
       // off by default
       assert(/SavePasswords=false/.test(ini()), 'passwords are saved by default')
       await click('Settings', 'button')
@@ -625,6 +630,30 @@ async function main() {
 
       await click('Stop', 'button')
       await until(async () => (await text()).includes('Stopped') && (await find('Start', 'button')) !== null, 'Stop did not change to Stopped / Start')
+      await key('Escape')
+    })
+
+    await test('resetting the statistics keeps them in a history, where each one can be deleted', async () => {
+      const ini = () => fs.readFileSync(path.join(work, 'RAMSettings.ini'), 'utf8')
+      const past = () => evaluate(`document.querySelectorAll('[data-testid=past-stats]').length`)
+      await click('Anti-AFK', 'button')
+      await click('Statistics', '[role=tab]')
+      assert((await past()) === 0, 'a history before any reset')
+      await click('Reset statistics', 'button')
+      await click('Yes', 'button')
+      await until(async () => (await past()) === 1, 'the reset statistics are not in the history')
+      assert(/StatHistory=\[\{.*"actions":30/.test(ini()) && /StatActions=0/.test(ini()), `not kept or not reset: ${ini().split('\n').filter((l) => l.startsWith('Stat')).join(' ')}`)
+      assert((await text()).includes('Oct 9, 2025'), 'the dates they cover are not shown')
+      await shot('antiafk-history')
+      // nothing counted since: a second reset adds nothing
+      await click('Reset statistics', 'button')
+      await click('Yes', 'button')
+      await sleep(300)
+      assert((await past()) === 1, 'an empty reset was kept')
+      await click('Delete', 'button')
+      await click('Yes', 'button')
+      await until(async () => (await past()) === 0, 'not deleted')
+      assert(/StatHistory=\[\]/.test(ini()), 'still in RAMSettings.ini')
       await key('Escape')
     })
 

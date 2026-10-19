@@ -34,6 +34,8 @@ const MAX_FILE: u64 = 200 * 1024 * 1024;
 const CHECK_EVERY: Duration = Duration::from_secs(30 * 60);
 /// The most versions shown in "what's new" when the app is far behind
 const MAX_NOTES: usize = 30;
+/// How many versions "What's new" in the settings shows
+const RECENT_NOTES: usize = 10;
 pub const SECTION: &str = "Updates";
 
 #[derive(Serialize, Clone, Debug, PartialEq, Default)]
@@ -208,8 +210,9 @@ pub struct Notes {
     pub text: String,
 }
 
-/// The notes of every published version newer than this one, newest first
-pub async fn notes(app: &App) -> Result<Vec<Notes>> {
+/// The notes of every published version newer than this one, newest first; with `recent` the last few versions
+/// whatever this one is (to read what changed lately)
+pub async fn notes(app: &App, recent: bool) -> Result<Vec<Notes>> {
     let releases: Value = app
         .api
         .http
@@ -222,6 +225,9 @@ pub async fn notes(app: &App) -> Result<Vec<Notes>> {
         .error_for_status()?
         .json()
         .await?;
+    if recent {
+        return Ok(notes_since(&releases, (0, 0, 0)).into_iter().take(RECENT_NOTES).collect());
+    }
     Ok(notes_since(&releases, current_version()))
 }
 

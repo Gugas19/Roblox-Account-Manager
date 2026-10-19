@@ -8,7 +8,8 @@ import { api } from '@/lib/api'
 import type { ReleaseNotes } from '@/lib/types'
 import { useT } from '@/lib/i18n'
 
-type Step = 'download' | 'restart'
+/** before a download or a restart, or just reading the latest versions' notes */
+type Step = 'download' | 'restart' | 'read'
 
 let show: ((step: Step) => Promise<boolean>) | null = null
 
@@ -69,7 +70,7 @@ export function WhatsNewHost() {
         setNotes(null)
         setFailed(false)
         setResolve(() => done)
-        api.updateNotes().then(setNotes, () => setFailed(true))
+        api.updateNotes(s === 'read').then(setNotes, () => setFailed(true))
       })
     return () => {
       show = null
@@ -88,7 +89,7 @@ export function WhatsNewHost() {
         <DialogHeader>
           <DialogTitle>{t("What's new")}</DialogTitle>
           <DialogDescription>
-            {notes && notes.length > 1 ? t('{0} new versions since yours', notes.length) : t('Changes in the new version')}
+            {step === 'read' ? t('The latest versions') : notes && notes.length > 1 ? t('{0} new versions since yours', notes.length) : t('Changes in the new version')}
             {step === 'restart' && <> {t('Anti-AFK stops while the app restarts.')}</>}
           </DialogDescription>
         </DialogHeader>
@@ -107,8 +108,14 @@ export function WhatsNewHost() {
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => finish(false)}>{t('Later')}</Button>
-          <Button onClick={() => finish(true)}>{t(step === 'restart' ? 'Restart to update' : 'Download update')}</Button>
+          {step === 'read' ? (
+            <Button onClick={() => finish(true)}>{t('Close')}</Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => finish(false)}>{t('Later')}</Button>
+              <Button onClick={() => finish(true)}>{step === 'restart' ? t('Restart to update') : t('Download update')}</Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

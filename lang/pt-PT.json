@@ -615,5 +615,21 @@
   "{0} new versions since yours": "{0} versões novas desde a tua",
   "Changes in the new version": "Alterações na nova versão",
   "Couldn't get the release notes, you can still update.": "Não foi possível obter as notas da versão, mas podes atualizar na mesma.",
-  "Later": "Mais tarde"
+  "Later": "Mais tarde",
+  "Close": "Fechar",
+  "Delete": "Apagar",
+  "Delete these statistics?": "Apagar estas estatísticas?",
+  "Hide groups": "Ocultar grupos",
+  "History": "Histórico",
+  "Running": "A correr",
+  "Show groups": "Mostrar grupos",
+  "Shuffle is on: every join picks a random server": "Aleatório ligado: cada entrada escolhe um servidor ao acaso",
+  "Shuffle: pick a random server for every join": "Aleatório: escolher um servidor ao acaso em cada entrada",
+  "Start": "Iniciar",
+  "Stop": "Parar",
+  "Stopped": "Parado",
+  "The latest versions": "As últimas versões",
+  "They start again from zero. The current ones are kept in the history below, where you can delete them.": "Recomeçam do zero. As atuais ficam guardadas no histórico em baixo, onde as podes apagar.",
+  "To make an account use less CPU, right click it > CPU limit.": "Para uma conta gastar menos CPU, clica nela com o botão direito > Limite de CPU.",
+  "Until {0}": "Até {0}"
 }

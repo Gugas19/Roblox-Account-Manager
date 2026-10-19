@@ -17,7 +17,7 @@ use crate::app::App;
 use crate::platform::win as winutil;
 use crate::services::launcher::{self, JoinOptions, JoinResult};
 use rejoin::LogReader;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -41,13 +41,32 @@ struct Tracked {
     handled_disconnect: bool,
 }
 
-#[derive(Default)]
-struct Stats {
+#[derive(Default, Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Stats {
     seconds: u64,
     actions: u64,
     rejoins: u64,
     sessions: u64,
     longest: u64,
+}
+
+impl Stats {
+    fn is_empty(&self) -> bool {
+        *self == Stats::default()
+    }
+}
+
+/// Statistics put aside by "Reset statistics", kept (in [AntiAFK] StatHistory, as JSON) until deleted
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PastStats {
+    /// when they were reset, in milliseconds since 1970, also what deletes them
+    pub id: u64,
+    /// when they started counting, in seconds since 1970 (unknown for statistics older than the history)
+    pub since: Option<u64>,
+    pub until: u64,
+    #[serde(flatten)]
+    pub stats: Stats,
 }
 
 #[derive(Default)]
@@ -160,14 +179,54 @@ fn stats(app: &App) -> Stats {
 
 fn add_stat(app: &App, key: &str, amount: u64) {
     let value = app.afk_number(key) + amount;
-    app.settings.lock().unwrap().set(SECTION, key, &value.to_string());
+    let mut settings = app.settings.lock().unwrap();
+    settings.set(SECTION, key, &value.to_string());
+    // the statistics count from here, for the history
+    if settings.get(SECTION, "StatSince").is_empty() {
+        settings.set(SECTION, "StatSince", &now_seconds().to_string());
+    }
 }
 
+fn now_seconds() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+}
+
+/// The statistics put aside by earlier resets, newest first
+pub fn stats_history(app: &App) -> Vec<PastStats> {
+    let mut list: Vec<PastStats> = serde_json::from_str(&app.afk("StatHistory")).unwrap_or_default();
+    list.sort_by_key(|p| std::cmp::Reverse(p.id));
+    list
+}
+
+fn save_history(app: &App, list: &[PastStats]) {
+    let mut settings = app.settings.lock().unwrap();
+    settings.set(SECTION, "StatHistory", &serde_json::to_string(list).unwrap_or_default());
+    settings.save();
+}
+
+/// Starts the statistics from zero; the ones so far go to the history (unless there's nothing in them)
 pub fn reset_stats(app: &App) {
-    for key in ["StatSeconds", "StatActions", "StatRejoins", "StatSessions", "StatLongest"] {
-        app.settings.lock().unwrap().set(SECTION, key, "0");
+    let current = stats(app);
+    if !current.is_empty() {
+        let mut history = stats_history(app);
+        let now = now_seconds();
+        let since = app.afk("StatSince").parse::<u64>().ok();
+        // two resets in the same millisecond can't happen from the button, but ids must stay unique
+        let id = (now * 1000).max(history.iter().map(|p| p.id + 1).max().unwrap_or(0));
+        history.insert(0, PastStats { id, since, until: now, stats: current });
+        save_history(app, &history);
     }
-    app.settings.lock().unwrap().save();
+    let mut settings = app.settings.lock().unwrap();
+    for key in ["StatSeconds", "StatActions", "StatRejoins", "StatSessions", "StatLongest"] {
+        settings.set(SECTION, key, "0");
+    }
+    settings.set(SECTION, "StatSince", "");
+    settings.save();
+}
+
+pub fn delete_past_stats(app: &App, id: u64) {
+    let history: Vec<PastStats> = stats_history(app).into_iter().filter(|p| p.id != id).collect();
+    save_history(app, &history);
 }
 
 /// Sends a webhook message when that kind of event is turned on, in the app's language

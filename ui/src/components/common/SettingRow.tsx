@@ -14,7 +14,7 @@ export function SettingRow({ title, hint, children }: { title: string; hint?: st
         <div className="text-sm font-medium">{t(title)}</div>
         {hint && <div className="text-xs text-muted-foreground">{t(hint)}</div>}
       </div>
-      <div className="shrink-0">{children}</div>
+      <div className="flex shrink-0 items-center gap-2">{children}</div>
     </div>
   )
 }

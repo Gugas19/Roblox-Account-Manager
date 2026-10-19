@@ -1,6 +1,6 @@
 /** Settings > General: the version, checking now, and how updates arrive */
 
-import { RefreshCw, RotateCw } from 'lucide-react'
+import { RefreshCw, RotateCw, ScrollText } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -77,6 +77,9 @@ export function UpdatesSection() {
   return (
     <>
       <SettingRow title={t('Version {0}', version)} hint={describe(status, t)}>
+        <Button variant="ghost" onClick={() => void whatsNew('read')}>
+          <ScrollText /> {t("What's new")}
+        </Button>
         {status.state === 'ready' ? (
           <Button variant="secondary" onClick={async () => (await whatsNew('restart')) && api.updateRestart().catch(notify.error)}>
             <RotateCw /> {t('Restart to update')}
