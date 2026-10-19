@@ -188,6 +188,7 @@ export function SettingsPage() {
               <Toggle section="General" name="EnableMultiRbx" title="Multi Roblox" hint="Play several accounts at the same time. Works once every Roblox window is closed." />
               <MultiRobloxStatus />
               <Toggle section="General" name="RenameRobloxWindows" title="Name Roblox windows after their account" hint="Each Roblox window the app opens shows the account (and its alias) in its title, to tell them apart." />
+              <Toggle section="General" name="KeepHistory" title="Keep a session history" hint="Games and servers joined, lost connections, rejoins and presence changes of your accounts, on the History page. Kept on this PC only." />
               <Toggle section="General" name="HideFromCaptures" title="Hide this app from screen captures" hint="Screenshots, recordings and screen sharing (OBS, Discord, the Snipping Tool) leave this window out. Roblox itself still shows." />
               <Toggle section="General" name="AsyncJoin" title="Async Launching" hint="When launching several accounts, start the next one as soon as the previous opened instead of waiting the delay." />
               <NumberSetting section="General" name="AccountJoinDelay" title="Launch Delay" hint="Seconds between accounts when launching several." min={0} max={120} fallback={8} />

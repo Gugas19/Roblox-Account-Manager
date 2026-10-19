@@ -1,6 +1,6 @@
 /** Ctrl+K: find any account, action or page and go to it */
 
-import { ArrowDownAZ, Cookie, Gamepad2, Globe, House, Languages, Palette, Play, Settings, ShieldCheck, Shirt, Trash2, UserRoundPlus, Users } from 'lucide-react'
+import { ArrowDownAZ, Cookie, Gamepad2, Globe, History, House, MonitorPlay, Languages, Palette, Play, Settings, ShieldCheck, Shirt, Trash2, UserRoundPlus, Users } from 'lucide-react'
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command'
 import { useActions } from '@/hooks/useActions'
 import { api } from '@/lib/api'
@@ -35,9 +35,11 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
         <CommandSeparator />
         <CommandGroup heading={t('Pages')}>
           <CommandItem onSelect={run(() => setPage('accounts'))}><Users /> {t('Accounts')}</CommandItem>
+          <CommandItem onSelect={run(() => setPage('instances'))}><MonitorPlay /> {t('Instances')}</CommandItem>
           <CommandItem onSelect={run(() => setPage('games'))}><Gamepad2 /> {t('Games')}</CommandItem>
           <CommandItem onSelect={run(() => setPage('avatar'))}><Shirt /> {t('Avatar')}</CommandItem>
           <CommandItem onSelect={run(() => setPage('antiafk'))}><ShieldCheck /> {t('Anti-AFK')}</CommandItem>
+          <CommandItem onSelect={run(() => setPage('history'))}><History /> {t('History')}</CommandItem>
           <CommandItem onSelect={run(() => setPage('settings'))}><Settings /> {t('Settings')}</CommandItem>
           <CommandItem onSelect={run(() => setPage('settings', 'appearance'))}><Palette /> {t('Appearance')}</CommandItem>
         </CommandGroup>

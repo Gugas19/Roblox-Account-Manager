@@ -12,6 +12,8 @@ import { WhatsNewHost } from '@/components/dialogs/WhatsNew'
 import { FieldsDialog } from '@/components/dialogs/FieldsDialog'
 import { ImportDialog } from '@/components/dialogs/ImportDialog'
 import { CommandPalette } from '@/components/layout/CommandPalette'
+import { HistoryPage } from '@/components/history/HistoryPage'
+import { InstancesPage } from '@/components/instances/InstancesPage'
 import { NavRail } from '@/components/layout/NavRail'
 import { TopBar } from '@/components/layout/TopBar'
 import { ProtectionScreen } from '@/components/protection/ProtectionScreen'
@@ -144,12 +146,16 @@ function Main() {
               <Sidebar />
             </div>
           </>
+        ) : page === 'instances' ? (
+          <InstancesPage />
         ) : page === 'games' ? (
           <GamesPage />
         ) : page === 'avatar' ? (
           <AvatarPage />
         ) : page === 'antiafk' ? (
           <AntiAfkPage />
+        ) : page === 'history' ? (
+          <HistoryPage />
         ) : (
           <SettingsPage />
         )}

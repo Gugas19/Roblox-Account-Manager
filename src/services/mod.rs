@@ -2,6 +2,7 @@
 
 pub mod antiafk;
 pub mod browser;
+pub mod history;
 pub mod launcher;
 pub mod multi_roblox;
 pub mod updater;

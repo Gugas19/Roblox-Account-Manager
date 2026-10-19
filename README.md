@@ -62,7 +62,7 @@ the same time: they refuse to start while the other is open.
 
 ### A modern interface
 - Built with [shadcn/ui](https://ui.shadcn.com): dark by default, with more [themes](#themes) and colors of your own.
-- A **navigation rail** on the left: `Accounts`, `Games`, `Avatar`, `Anti-AFK` and `Settings`, each a page of its own (`Esc` goes back to the accounts).
+- A **navigation rail** on the left: `Accounts`, `Instances`, `Games`, `Avatar`, `Anti-AFK`, `History` and `Settings`, each a page of its own (`Esc` goes back to the accounts).
 - **Command palette** (`Ctrl+K`): find any account, action or page and run it from the keyboard.
 - Search (`Ctrl+F`), select all (`Ctrl+A`), join with `Enter` or a double click, remove with `Delete`.
 - **Undo** after removing accounts, and double click an alias to edit it in place.
@@ -375,6 +375,8 @@ The account needs *Who can invite me to private servers* set to Everyone in its 
 | Command Line | Join, follow, list, close and import accounts from scripts and shortcuts | `ram-cli help` |
 | Command Palette | Any account or action from the keyboard | `Ctrl+K` |
 | Languages | English, Português (Portugal), Español, Français, Deutsch | Click the flag button in the top right |
+| Instances | Every Roblox open on this PC with its account, game and server: bring one to the front, close it, send the selected accounts to its server (a private one too), choose which ones Anti-AFK keeps active | The `Instances` page |
+| Session history | Games and servers joined, lost connections, rejoins and presence changes of each account, by day, filtered by account, exported as CSV (kept on this PC only, can be turned off) | The `History` page |
 | Roblox home | Open the Roblox app signed in as the account, without a game | The house button next to `Join Server`, or right click an account |
 | Window names | Each Roblox window the app opens shows its account (and alias) in the title | `Settings` > `General` |
 | Hide from captures | Screenshots, recordings and screen sharing leave the app's window out | `Settings` > `General` |

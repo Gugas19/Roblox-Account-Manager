@@ -39,6 +39,8 @@ struct Tracked {
     account: Option<String>,
     disconnected_since: Option<Instant>,
     handled_disconnect: bool,
+    /// the game and server last put in the session history
+    recorded: Option<(i64, Option<String>)>,
 }
 
 #[derive(Default, Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -103,6 +105,11 @@ pub struct WindowView {
     account: Option<String>,
     title: String,
     place_id: Option<i64>,
+    /// the server it's in, from the Roblox log
+    job_id: Option<String>,
+    /// a private server (its access code stays here, joining it goes through `instance_target`)
+    private: bool,
+    seconds_running: u64,
     /// playing, disconnected, loading
     state: &'static str,
     included: bool,
@@ -329,6 +336,48 @@ fn account_for(app: &App, tracker: &Option<String>) -> Option<String> {
     app.store.lock().unwrap().accounts.iter().find(|a| a.browser_tracker_id.as_deref() == Some(tracker.as_str())).map(|a| a.username.clone())
 }
 
+/// A running Roblox, for the Instances page: its window, account, and the server to send other accounts to
+pub struct Instance {
+    pub hwnd: HWND,
+    pub account: Option<String>,
+    pub place_id: Option<i64>,
+    pub job_id: Option<String>,
+    pub private_access_code: Option<String>,
+}
+
+pub fn instance(app: &App, pid: u32) -> Option<Instance> {
+    let w = roblox_windows().into_iter().find(|w| w.pid == pid)?;
+    let tracked = app.anti_afk().tracked.lock().unwrap();
+    let t = tracked.get(&pid);
+    let log = t.and_then(|t| t.log.as_ref()).map(|l| l.state.clone()).unwrap_or_default();
+    Some(Instance {
+        hwnd: w.hwnd,
+        account: t.and_then(|t| t.account.clone()).or_else(|| account_for(app, &w.tracker)),
+        place_id: log.place_id,
+        job_id: log.job_id,
+        private_access_code: w.private_access_code,
+    })
+}
+
+/// Brings the Roblox window to the front (out of the taskbar when minimized)
+pub fn focus_instance(app: &App, pid: u32) -> anyhow::Result<()> {
+    let i = instance(app, pid).ok_or_else(|| anyhow::anyhow!("That Roblox isn't open anymore"))?;
+    if app.anti_afk().hidden.load(Ordering::SeqCst) {
+        layout::set_hidden(&[i.hwnd], false);
+    }
+    input::focus(i.hwnd);
+    Ok(())
+}
+
+/// Closes one Roblox (only a Roblox process, never anything else with that number)
+pub fn close_instance(pid: u32) -> anyhow::Result<()> {
+    if !winutil::roblox_processes().iter().any(|p| p.pid == pid) {
+        anyhow::bail!("That Roblox isn't open anymore");
+    }
+    winutil::kill(pid);
+    Ok(())
+}
+
 /// Window tools from the interface
 pub fn tool(app: &App, kind: &str) -> anyhow::Result<String> {
     let windows: Vec<HWND> = roblox_windows().iter().map(|w| w.hwnd).collect();
@@ -537,6 +586,7 @@ fn finish_rejoin(app: &Arc<App>, account: &str, place: i64, result: JoinResult) 
             add_stat(app, "StatRejoins", 1);
             log::info!("{account} rejoined place {place}");
             app.toast("success", format!("Rejoined {account}"));
+            crate::services::history::record(app, vec![crate::services::history::Event::new(account, "rejoined").place(Some(place), None)]);
             notify(app, webhook::Event::Rejoined, format!("{account} rejoined place {place}"));
         }
         JoinResult::Error(message) => {
@@ -607,6 +657,13 @@ fn tick(app: &Arc<App>) {
     // follow every window's log (game, server, disconnects)
     {
         let mut tracked = state.tracked.lock().unwrap();
+        let mut events = Vec::new();
+        // closed windows end their session in the history
+        for t in tracked.iter().filter(|(pid, _)| !pids.contains(pid)).map(|(_, t)| t) {
+            if let (Some(account), Some((place, job))) = (&t.account, &t.recorded) {
+                events.push(crate::services::history::Event::new(account, "closed").place(Some(*place), job.clone()));
+            }
+        }
         tracked.retain(|pid, _| pids.contains(pid));
         let taken: HashSet<PathBuf> = tracked.values().filter_map(|t| t.log.as_ref().map(|l| l.path().clone())).collect();
         for w in &windows {
@@ -623,9 +680,21 @@ fn tick(app: &Arc<App>) {
                 if t.account.is_none() {
                     t.account = log.state.user_id.and_then(|id| app.store.lock().unwrap().accounts.iter().find(|a| a.user_id == id).map(|a| a.username.clone()));
                 }
+                // in a game, or in another server of it
+                if let (Some(account), Some(place)) = (&t.account, log.state.place_id) {
+                    let now = (place, log.state.job_id.clone());
+                    if t.recorded.as_ref() != Some(&now) {
+                        let kind = if t.recorded.is_none() { "joined" } else { "server" };
+                        events.push(crate::services::history::Event::new(account, kind).place(Some(place), now.1.clone()));
+                        t.recorded = Some(now);
+                    }
+                }
                 match log.state.disconnected {
                     Some(_) if t.disconnected_since.is_none() => {
                         t.disconnected_since = Some(Instant::now());
+                        if let Some(account) = &t.account {
+                            events.push(crate::services::history::Event::new(account, "disconnected").place(log.state.place_id, log.state.job_id.clone()));
+                        }
                         let who = t.account.as_deref().unwrap_or("not one of the app's accounts, not rejoining");
                         log::info!("Roblox {} lost the connection (account: {who})", w.pid);
                         t.handled_disconnect = false;
@@ -636,6 +705,8 @@ fn tick(app: &Arc<App>) {
                 }
             }
         }
+        drop(tracked);
+        crate::services::history::record(app, events);
     }
 
     // auto rejoin a few seconds after a disconnect
@@ -817,6 +888,9 @@ pub fn status(app: &App) -> Status {
                 account,
                 title: winutil::window_title(w.hwnd),
                 place_id: log.place_id,
+                job_id: log.job_id.clone(),
+                private: w.private_access_code.is_some(),
+                seconds_running: w.seconds_running,
                 state: if log.disconnected.is_some() { "disconnected" } else if log.place_id.is_some() { "playing" } else { "loading" },
             }
         })

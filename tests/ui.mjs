@@ -51,6 +51,15 @@ function prepare() {
     ? '[General]\r\nLanguage=en\r\n[Updates]\r\nChosen=true\r\n' + SAFE_ANTI_AFK.replace('IdleSeconds=86400', 'IdleSeconds=5').replace('MaxWaitSeconds=86400', 'MaxWaitSeconds=90').replace('AutoRejoin=false', 'AutoRejoin=true')
     : '[General]\r\nLanguage=en\r\nEnableMultiRbx=false\r\n[Updates]\r\nChosen=true\r\n' + SAFE_ANTI_AFK
   fs.writeFileSync(path.join(work, 'RAMSettings.ini'), settings)
+  // a made-up session history: two accounts, yesterday and today
+  const at = (hoursAgo) => Math.floor(Date.now() / 1000) - hoursAgo * 3600
+  fs.writeFileSync(path.join(work, 'SessionHistory.json'), JSON.stringify([
+    { at: at(26), account: 'MainAccount', kind: 'online' },
+    { at: at(25), account: 'MainAccount', kind: 'joined', placeId: 1818, place: 'Demo Game', jobId: '11111111-2222-3333-4444-555555555555' },
+    { at: at(3), account: 'GrindBot_A', kind: 'disconnected', placeId: 1818, place: 'Demo Game' },
+    { at: at(3), account: 'GrindBot_A', kind: 'rejoined', placeId: 1818, place: 'Demo Game' },
+    { at: at(1), account: 'MainAccount', kind: 'offline' },
+  ]))
 }
 
 // ---------- DevTools protocol ----------
@@ -508,8 +517,13 @@ async function main() {
       await click('Remove', 'button')
       const toasts = () => evaluate(`[...document.querySelectorAll('[data-sonner-toast]')].map((t) => t.innerText).join(' | ')`)
       await until(async () => !(await rows()).includes('StorageAlt02'), 'not removed').catch(async (e) => { throw new Error(`${e.message}; selection "${await selectedNow()}", notifications: ${await toasts()}`) })
+      // the notification slides in: a click while it moves can miss the button
+      await sleep(500)
       await click('Undo', 'button')
-      await until(async () => (await rows()).includes('StorageAlt02'), 'undo failed')
+      await until(async () => (await rows()).includes('StorageAlt02'), 'undo failed').catch(async () => {
+        await click('Undo', 'button')
+        await until(async () => (await rows()).includes('StorageAlt02'), 'undo failed, twice')
+      })
     })
 
     await test('command palette (Ctrl+K)', async () => {
@@ -688,6 +702,38 @@ async function main() {
       assert((await text()).includes('MainAccount'), 'the account list is not back')
     })
 
+    await test('Instances lists the Roblox windows, with their tools', async () => {
+      // only looks: the Roblox windows of this PC (yours too) are never clicked
+      await click('Instances', 'button')
+      const body = await text()
+      assert(body.includes('Every Roblox open on this PC'), 'no Instances page')
+      assert(await find('Arrange in a grid', 'button'), 'no window tools')
+      const shown = await evaluate(`document.querySelectorAll('[data-testid=instance]').length`)
+      const windows = await evaluate(`window.__TAURI_INTERNALS__.invoke('antiafk_status').then((s) => s.windows.length)`)
+      assert(shown === windows, `${shown} rows for ${windows} Roblox windows`)
+      if (!windows) assert(body.includes('No Roblox windows open'), 'no empty state')
+      await key('Escape')
+    })
+
+    await test('History shows the events by day, filters by account and clears', async () => {
+      const events = () => evaluate(`[...document.querySelectorAll('[data-testid=history-event]')].map((e) => e.innerText.replace(/\\s+/g, ' ')).join(' | ')`)
+      await click('History', 'button')
+      await until(async () => (await events()).includes('Lost the connection'), `events not shown: ${await events()}`)
+      const all = await events()
+      assert(all.includes('Rejoined') && all.includes('Joined a game') && all.includes('Demo Game'), `missing events: ${all}`)
+      // newest first: MainAccount going offline (an hour ago) comes before its joining yesterday
+      assert(all.indexOf('Offline') < all.indexOf('Joined a game'), `not newest first: ${all}`)
+      await shot('history')
+      await click('All accounts', '[role=combobox]')
+      await click('GrindBot_A', '[role=option]')
+      await until(async () => !(await events()).includes('MainAccount'), 'the account filter does nothing')
+      await click('Clear', 'button')
+      await click('Yes', 'button')
+      await until(async () => (await evaluate(`document.querySelectorAll('[data-testid=history-event]').length`)) === 0, 'not cleared')
+      assert(!fs.existsSync(path.join(work, 'SessionHistory.json')), 'the history file is still there')
+      await key('Escape')
+    })
+
     await test('Roblox home, window names and capture privacy are there', async () => {
       await click('MainAccount', '[role=row]')
       assert(await find('Open Roblox home', 'button'), 'no Roblox home button next to Join Server')
@@ -750,7 +796,7 @@ async function main() {
           if (code === 'de') await shot('main-de-900')
           await call('Emulation.clearDeviceMetricsOverride')
           await sleep(SETTLE)
-          for (const [button, selector] of [[tr('Settings'), 'button'], ['Anti-AFK', 'button'], [tr('Games'), 'button'], [tr('Avatar'), 'button'], [tr('Account Utilities'), 'button']]) {
+          for (const [button, selector] of [[tr('Settings'), 'button'], ['Anti-AFK', 'button'], [tr('Instances'), 'button'], [tr('Games'), 'button'], [tr('Avatar'), 'button'], [tr('History'), 'button'], [tr('Account Utilities'), 'button']]) {
             await click(button, selector)
             const tabs = await evaluate(`document.querySelectorAll('[role=tab]').length`)
             if (tabs) await eachTab((tab) => look(`${code} ${button} > ${tab}`))

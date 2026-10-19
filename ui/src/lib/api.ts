@@ -2,7 +2,7 @@
 
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
-import type { Account, AntiAfkStatus, Bootstrap, Favorite, Game, JoinResult, LoadState, MissingAsset, Outfit, PastStats, ReleaseNotes, Settings, Theme, UpdateStatus } from './types'
+import type { Account, AntiAfkStatus, Bootstrap, Favorite, Game, HistoryEvent, JoinResult, LoadState, MissingAsset, Outfit, PastStats, ReleaseNotes, Settings, Theme, UpdateStatus } from './types'
 
 /** Errors from Rust arrive as plain strings */
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
@@ -110,6 +110,12 @@ export const api = {
   antiAfkDeletePastStats: (id: number) => call<PastStats[]>('antiafk_delete_past_stats', { id }),
   updateStatus: () => call<{ status: UpdateStatus; version: string }>('update_status'),
   updateCheck: (download: boolean) => call<UpdateStatus>('update_check', { download }),
+  historyList: () => call<HistoryEvent[]>('history_list'),
+  historyClear: () => call<void>('history_clear'),
+  historyExport: (accounts: string[]) => call<string | null>('history_export', { accounts }),
+  instanceFocus: (pid: number) => call<void>('instance_focus', { pid }),
+  instanceClose: (pid: number) => call<void>('instance_close', { pid }),
+  instanceJoin: (pid: number, names: string[]) => call<JoinResult>('instance_join', { pid, names }),
   openHome: (names: string[]) => call<JoinResult>('open_home', { names }),
   multiRobloxStatus: () => call<{ enabled: boolean; working: boolean; tray: boolean }>('multi_roblox_status'),
   closeRobloxTray: () => call<boolean>('close_roblox_tray'),

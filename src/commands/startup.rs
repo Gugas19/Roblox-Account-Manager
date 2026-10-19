@@ -86,11 +86,19 @@ pub(super) async fn refresh_presence(app: &App) {
                 }
             }
         }
+        let names: std::collections::HashMap<i64, String> = app.store.lock().unwrap().accounts.iter().map(|a| (a.user_id, a.username.clone())).collect();
+        let mut events = Vec::new();
         let mut sessions = app.sessions.lock().unwrap();
         for p in list {
             let id = p.user_id;
-            sessions.entry(id).or_default().presence = Some(p);
+            let entry = sessions.entry(id).or_default();
+            if let Some(name) = names.get(&id) {
+                events.extend(crate::services::history::presence_events(name, entry.presence.as_ref(), &p));
+            }
+            entry.presence = Some(p);
         }
+        drop(sessions);
+        crate::services::history::record(app, events);
     }
     app.accounts_changed();
 }

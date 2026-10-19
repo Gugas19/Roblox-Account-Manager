@@ -107,6 +107,11 @@ export interface AntiAfkWindow {
   account: string | null
   title: string
   placeId: number | null
+  /** the server it's in, from the Roblox log */
+  jobId: string | null
+  /** a private server (its access code stays in Rust) */
+  private: boolean
+  secondsRunning: number
   state: 'playing' | 'disconnected' | 'loading'
   included: boolean
 }
@@ -123,6 +128,18 @@ export interface AntiAfkStatus {
 }
 
 /** The auto updater (src/services/updater.rs) */
+/** One event of the session history (src/services/history.rs) */
+export interface HistoryEvent {
+  /** seconds since 1970 */
+  at: number
+  account: string
+  /** joined, server, disconnected, rejoined, closed (this PC); online, offline, playing, studio (presence) */
+  kind: string
+  placeId?: number | null
+  place?: string | null
+  jobId?: string | null
+}
+
 /** Anti-AFK statistics put aside by a reset (seconds since 1970 for the dates) */
 export interface PastStats {
   id: number

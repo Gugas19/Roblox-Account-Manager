@@ -1,10 +1,8 @@
 /** Anti-AFK: status and windows, tools, how it behaves, rejoining, Discord and statistics */
 
-import { Bell, Eye, EyeOff, Gauge, History, LayoutGrid, Play, Power, RotateCcw, Send, Square, Trash2, Volume2, VolumeX, X, Zap } from 'lucide-react'
+import { Bell, Gauge, History, Play, Power, RotateCcw, Send, Square, Trash2, Zap } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Page } from '@/components/layout/Page'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -89,29 +87,10 @@ export function AntiAfkPage() {
   const notify = notifier(t)
   const dialogs = useDialogs()
   const status = useAntiAfk()
-  const { pageTab, setting, updateSetting, flag } = useStore()
-  const included = setting('AntiAFK', 'Accounts').split(',').map((s) => s.trim()).filter(Boolean)
+  const { pageTab, setPage, setting, updateSetting, flag } = useStore()
   const randomInterval = setting('AntiAFK', 'IntervalMode') === 'random'
 
-  const tool = async (kind: Parameters<typeof api.antiAfkTool>[0]) => {
-    try {
-      notify.success(await api.antiAfkTool(kind))
-    } catch (e) {
-      notify.error(e)
-    }
-  }
-
-  const toggleAccount = (name: string, on: boolean) => {
-    // an empty list means every account, the first unticked one starts the list with all the others
-    const all = status?.windows.map((w) => w.account).filter((a): a is string => !!a) ?? []
-    const base = included.length ? included : all
-    const next = on ? [...new Set([...base, name])] : base.filter((a) => a !== name)
-    void updateSetting('AntiAFK', 'Accounts', next.length === all.length ? '' : next.join(','))
-  }
-
   const running = status?.running ?? false
-  // the window tools need a Roblox window (showing hidden ones always works)
-  const noWindows = !status?.windows.length
   const [sending, setSending] = useState(false)
   // statistics kept from earlier resets
   const [history, setHistory] = useState<PastStats[]>([])
@@ -162,9 +141,13 @@ export function AntiAfkPage() {
           </Button>
         </div>
 
-        <Tabs key={pageTab} defaultValue={pageTab ?? "windows"} className="flex min-h-0 flex-1 flex-col">
+        <p className="-mt-1 text-xs text-muted-foreground">
+          {t('Which Roblox windows it keeps active, and the window tools, are on the Instances page.')}{' '}
+          <button className="cursor-pointer text-primary hover:underline" onClick={() => setPage('instances')}>{t('Open Instances')}</button>
+        </p>
+
+        <Tabs key={pageTab} defaultValue={pageTab ?? "behaviour"} className="flex min-h-0 flex-1 flex-col">
           <TabsList>
-            <TabsTrigger value="windows">{t('Windows')}</TabsTrigger>
             <TabsTrigger value="behaviour">{t('Behaviour')}</TabsTrigger>
             <TabsTrigger value="rejoin">{t('Rejoin & extras')}</TabsTrigger>
             <TabsTrigger value="discord">Discord</TabsTrigger>
@@ -172,37 +155,6 @@ export function AntiAfkPage() {
           </TabsList>
 
           <ScrollArea className="mt-3 min-h-0 flex-1 pr-3">
-            <TabsContent value="windows" className="grid gap-3">
-              <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" size="sm" disabled={noWindows} onClick={() => tool('grid')}><LayoutGrid /> {t('Arrange in a grid')}</Button>
-                {status?.hidden ? (
-                  <Button variant="secondary" size="sm" onClick={() => tool('show')}><Eye /> {t('Show windows')}</Button>
-                ) : (
-                  <Button variant="secondary" size="sm" disabled={noWindows} onClick={() => tool('hide')}><EyeOff /> {t('Hide windows')}</Button>
-                )}
-                <Button variant="secondary" size="sm" disabled={noWindows} onClick={() => tool('seeThrough')}>{t('See-through')}</Button>
-                <Button variant="secondary" size="sm" disabled={noWindows} onClick={() => tool('solid')}>{t('Solid')}</Button>
-                <Button variant="secondary" size="sm" disabled={noWindows} onClick={() => tool('mute')}><VolumeX /> {t('Mute all')}</Button>
-                <Button variant="secondary" size="sm" disabled={noWindows} onClick={() => tool('unmute')}><Volume2 /> {t('Unmute all')}</Button>
-                <Button variant="ghost" size="sm" className="text-destructive" disabled={noWindows} onClick={async () => { if (await dialogs.confirm({ title: 'Close every Roblox window?', destructive: true })) await tool('closeAll') }}>
-                  <X /> {t('Close all')}
-                </Button>
-              </div>
-
-              <div className="grid gap-1.5">
-                {(status?.windows ?? []).map((w) => (
-                  <label key={w.pid} className="flex items-center gap-3 rounded-lg border p-3">
-                    <Checkbox checked={w.included} disabled={!w.account} onCheckedChange={(on) => w.account && toggleAccount(w.account, on === true)} />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-medium">{w.account ?? t('Roblox (not opened by the app)')}</div>
-                      <div className="text-xs text-muted-foreground">PID {w.pid}{w.placeId ? ` · ${t('Place {0}', w.placeId)}` : ''}</div>
-                    </div>
-                    <Badge variant={w.state === 'disconnected' ? 'destructive' : 'secondary'}>{t(w.state === 'playing' ? 'In game' : w.state === 'disconnected' ? 'Disconnected' : 'Loading')}</Badge>
-                  </label>
-                ))}
-                {status?.windows.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">{t('No Roblox windows open. Join a game and they show here.')}</p>}
-              </div>
-            </TabsContent>
 
             <TabsContent value="behaviour" className="divide-y">
               <SettingRow title="Interval" hint="How often each window gets a key press. Roblox kicks after 20 minutes.">

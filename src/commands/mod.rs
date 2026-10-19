@@ -13,6 +13,7 @@ pub mod browsing;
 pub mod settings;
 pub mod updates;
 pub mod backup;
+pub mod history;
 
 
 use crate::app::{app, AccountView, App};

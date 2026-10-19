@@ -49,6 +49,7 @@ impl Settings {
             ("PresenceUpdateRate", "5"),
             ("RenameRobloxWindows", "true"),
             ("HideFromCaptures", "false"),
+            ("KeepHistory", "true"),
         ] {
             g.set_default(key, value);
         }
