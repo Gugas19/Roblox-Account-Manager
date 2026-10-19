@@ -680,5 +680,9 @@
   "Send the selected accounts here ({0})": "Enviar aquí las cuentas seleccionadas ({0})",
   "That Roblox isn't open anymore": "Ese Roblox ya no está abierto",
   "What your accounts did: games and servers joined on this PC, lost connections and rejoins, and when Roblox shows them online, in a game or in Studio.": "Lo que hicieron tus cuentas: juegos y servidores a los que se unieron en este PC, conexiones perdidas y reentradas, y cuándo Roblox las muestra en línea, en juego o en Studio.",
-  "Which Roblox windows it keeps active, and the window tools, are on the Instances page.": "Las ventanas de Roblox que mantiene activas, y las herramientas de ventanas, están en la página Instancias."
+  "Which Roblox windows it keeps active, and the window tools, are on the Instances page.": "Las ventanas de Roblox que mantiene activas, y las herramientas de ventanas, están en la página Instancias.",
+  "Follow a player": "Seguir a un jugador",
+  "Follow a player…": "Seguir a un jugador…",
+  "More ways to join": "Más formas de unirse",
+  "Their username: the selected accounts join the server they are in.": "Su nombre de usuario: las cuentas seleccionadas se unen al servidor donde está."
 }

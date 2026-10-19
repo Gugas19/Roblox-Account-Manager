@@ -1,13 +1,13 @@
-/** Right side: the game, following a player, the selected account and its utilities */
+/** Right side: the game (following a player is in the Join menu), then the selected account: its alias,
+ *  description and utilities */
 
-import { Check, UserRoundSearch, UserCog } from 'lucide-react'
+import { Check, UserCog } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Separator } from '@/components/ui/separator'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Textarea } from '@/components/ui/textarea'
 import { GamePanel } from '@/components/sidebar/GamePanel'
-import { useActions } from '@/hooks/useActions'
 import { api } from '@/lib/api'
 import { useT } from '@/lib/i18n'
 import { notifier } from '@/lib/notify'
@@ -22,9 +22,7 @@ type Field = 'alias' | 'description'
 export function Sidebar() {
   const t = useT()
   const notify = notifier(t)
-  const actions = useActions()
-  const { selected, selectedAccounts, boot, setPanel } = useStore()
-  const [follow, setFollow] = useState(boot.followUser)
+  const { selected, selectedAccounts, setPanel } = useStore()
   const [alias, setAlias] = useState('')
   const [description, setDescription] = useState('')
   const [saved, setSaved] = useState(false)
@@ -80,36 +78,29 @@ export function Sidebar() {
     <aside className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto p-4">
       <GamePanel />
 
-      <Separator />
-
-      <section className="grid gap-2">
-        <Heading>{t('FOLLOW PLAYER')}</Heading>
-        <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); actions.follow(follow) }}>
-          <Input value={follow} onChange={(e) => setFollow(e.target.value)} placeholder={t('Username')} />
-          <Button type="submit" variant="secondary" disabled={none || !follow.trim()}>
-            <UserRoundSearch /> {t('Follow')}
-          </Button>
-        </form>
-      </section>
-
-      <Separator />
-
-      <section className="grid flex-1 grid-rows-[auto_auto_minmax(5rem,1fr)] gap-2">
+      <section className="mt-2 grid flex-1 grid-rows-[auto_auto_minmax(5rem,1fr)] gap-2 border-t pt-4">
         <div className="flex items-center justify-between gap-2">
           <Heading>{none ? t('SELECTED ACCOUNT') : one ? one.username : t('{0} selected', selectedAccounts.length)}</Heading>
-          {saved && (
-            <span className="flex items-center gap-1 text-xs text-muted-foreground" data-testid="saved">
-              <Check className="size-3.5 text-emerald-500" /> {t('Saved')}
-            </span>
-          )}
+          <div className="flex items-center gap-1">
+            {saved && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground" data-testid="saved">
+                <Check className="size-3.5 text-emerald-500" /> {t('Saved')}
+              </span>
+            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon-sm" aria-label={t('Account Utilities')} disabled={selectedAccounts.length !== 1} onClick={() => setPanel('accountUtils')}>
+                  <UserCog />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t('Account Utilities')}</TooltipContent>
+            </Tooltip>
+          </div>
         </div>
         <Input value={alias} maxLength={50} disabled={none} onChange={(e) => change('alias', e.target.value)} placeholder={t('Alias')} />
         <Textarea className="min-h-20 resize-none" value={description} maxLength={5000} disabled={none} onChange={(e) => change('description', e.target.value)} placeholder={t('Description')} />
       </section>
 
-      <Button variant="outline" disabled={selectedAccounts.length !== 1} onClick={() => setPanel('accountUtils')}>
-        <UserCog /> {t('Account Utilities')}
-      </Button>
     </aside>
   )
 }

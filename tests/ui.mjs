@@ -1,6 +1,7 @@
 // UI tests and screenshots for the Rust app, driven through WebView2's DevTools protocol.
 // Clicks and keys are sent to the page itself, never to the real mouse or keyboard, so nothing else on the
-// desktop is touched. Runs a copy of the build in target/test-run/ui with made-up demo accounts.
+// desktop is touched. Runs a copy of the build in target/test-run/ui-<time> with made-up demo accounts; the
+// screenshots go to target/test-run/ui-screenshots.
 //
 //   node tests/ui.mjs [--release] [--screenshots <folder>] [--readme] [--keep] [--only <part of a test name>]
 //
@@ -13,9 +14,12 @@ import { fileURLToPath } from 'node:url'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(here, '..')
-const work = path.join(root, 'target', 'test-run', 'ui')
+// a folder of its own each run: the last run's WebView2 (or the antivirus) can hold its files for a while, and
+// removing them made the tests fail; old run folders are tidied up when they let go
+const runs = path.join(root, 'target', 'test-run')
+const work = path.join(runs, `ui-${Date.now()}`)
 const args = process.argv.slice(2)
-const shots = args.includes('--screenshots') ? path.resolve(args[args.indexOf('--screenshots') + 1]) : path.join(work, 'screenshots')
+const shots = args.includes('--screenshots') ? path.resolve(args[args.indexOf('--screenshots') + 1]) : path.join(runs, 'ui-screenshots')
 const port = 9333
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
@@ -29,7 +33,9 @@ function prepare() {
   // the copy and its browser (WebView2 outlives the app by a few seconds and holds the folder); nothing else
   try { execSync(`powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { ($_.Name -eq 'RobloxAccountManager.exe' -and $_.ExecutablePath -like '*\\target\\test-run\\*') -or ($_.Name -eq 'msedgewebview2.exe' -and $_.CommandLine -like '*\\target\\test-run\\*') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"`) } catch {}
   // a just closed copy (or the antivirus) can hold its files a moment
-  fs.rmSync(work, { recursive: true, force: true, maxRetries: 40, retryDelay: 250 })
+  for (const old of fs.existsSync(runs) ? fs.readdirSync(runs).filter((n) => /^ui(-\d+)?$/.test(n)) : []) {
+    try { fs.rmSync(path.join(runs, old), { recursive: true, force: true }) } catch {}
+  }
   fs.mkdirSync(shots, { recursive: true })
   fs.mkdirSync(work, { recursive: true })
   const exe = path.join(root, 'target', fs.existsSync(path.join(root, 'target', 'release', 'RobloxAccountManager.exe')) && args.includes('--release') ? 'release' : 'debug', 'RobloxAccountManager.exe')
@@ -736,7 +742,10 @@ async function main() {
 
     await test('Roblox home, window names and capture privacy are there', async () => {
       await click('MainAccount', '[role=row]')
-      assert(await find('Open Roblox home', 'button'), 'no Roblox home button next to Join Server')
+      // the other ways to join are in the Join Server button's menu
+      await click('More ways to join', 'button')
+      assert(await find('Open Roblox home', '[role=menuitem]') && await find('Follow a player', '[role=menuitem]'), 'the Join menu misses Roblox home or Follow')
+      await key('Escape')
       await click('Settings', 'button')
       const body = await text()
       assert(body.includes('Name Roblox windows after their account') && body.includes('Hide this app from screen captures'), 'settings missing')

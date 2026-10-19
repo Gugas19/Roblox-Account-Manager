@@ -1,16 +1,18 @@
 /** Game section: place (with recent games), server, shuffle and the big Join button. What's typed is saved by itself,
  *  into the selected accounts (each has its own game) or, with "Same for all", once for every account */
 
-import { History, House, Loader2, Play, Shuffle, X } from 'lucide-react'
+import { ChevronDown, History, House, Loader2, Play, Shuffle, UserRoundSearch, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Progress } from '@/components/ui/progress'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { GameIcon } from '@/components/common/GameTile'
+import { useDialogs } from '@/components/dialogs/DialogHost'
 import { useActions } from '@/hooks/useActions'
 import { api, on } from '@/lib/api'
 import { useT } from '@/lib/i18n'
@@ -31,7 +33,8 @@ function fromLink(text: string): { place?: string; job?: string } | null {
 export function GamePanel() {
   const t = useT()
   const actions = useActions()
-  const { place, setPlace, job, setJob, selected, launching, setting, updateSetting } = useStore()
+  const { place, setPlace, job, setJob, selected, launching, setting, updateSetting, boot } = useStore()
+  const dialogs = useDialogs()
   const [info, setInfo] = useState<{ name: string; icon?: string } | null>(null)
   const [recent, setRecent] = useState<Game[]>([])
   const [shuffle, setShuffle] = useState(setting('General', 'ShuffleJobId') === 'true')
@@ -99,6 +102,12 @@ export function GamePanel() {
     void updateSetting('General', 'SavedPlaceId', place)
   }
 
+  // following a player: from the Join menu, the username asked then
+  const follow = async () => {
+    const name = await dialogs.prompt({ title: 'Follow a player', label: 'Their username: the selected accounts join the server they are in.', defaultValue: setting('General', 'SavedFollowUser') || boot.followUser, confirm: 'Follow' })
+    if (name?.trim()) await actions.follow(name.trim())
+  }
+
   const recentGame = recent.find((g) => String(g.placeId) === place)
   // a share link in the server box decides the game (Roblox tells which when joining)
   const shareLink = isShareLink(job)
@@ -127,14 +136,18 @@ export function GamePanel() {
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        <div className="grid gap-1.5">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="place">{t('Place ID')}</Label>
+        <div className="grid gap-1">
+          <Label htmlFor="place" className="text-xs text-muted-foreground">{t('Place ID')}</Label>
+          <InputGroup>
+            <InputGroupInput id="place" value={place} onChange={(e) => choose(e.target.value)} onPaste={paste} onFocus={(e) => e.target.select()} placeholder="xxxx" />
+            {/* only with recent games: a disabled button would grey out the whole box */}
+            {recent.length > 0 && (
+            <InputGroupAddon align="inline-end">
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon-xs" aria-label={t('Recent games')} disabled={recent.length === 0}>
+                <InputGroupButton size="icon-xs" aria-label={t('Recent games')}>
                   <History />
-                </Button>
+                </InputGroupButton>
               </PopoverTrigger>
               <PopoverContent align="start" className="w-72 p-1">
                 <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">{t('Recent games')}</div>
@@ -146,23 +159,26 @@ export function GamePanel() {
                 ))}
               </PopoverContent>
             </Popover>
-          </div>
-          <Input id="place" value={place} onChange={(e) => choose(e.target.value)} onPaste={paste} onFocus={(e) => e.target.select()} placeholder="xxxx" />
+            </InputGroupAddon>
+            )}
+          </InputGroup>
         </div>
 
-        <div className="grid gap-1.5">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="job">{t('Server (link or ID)')}</Label>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon-xs" className={shuffle ? 'text-emerald-500' : ''} aria-pressed={shuffle} aria-label={t('Shuffle JobId')} onClick={() => setShuffle(!shuffle)}>
-                  <Shuffle />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-60">{t(shuffle ? 'Shuffle is on: every join picks a random server' : 'Shuffle: pick a random server for every join')}</TooltipContent>
-            </Tooltip>
-          </div>
-          <Input id="job" value={job} onChange={(e) => chooseJob(e.target.value)} onPaste={paste} onFocus={(e) => e.target.select()} placeholder={t('Job ID or VIP link')} />
+        <div className="grid gap-1">
+          <Label htmlFor="job" className="text-xs text-muted-foreground">{t('Server (link or ID)')}</Label>
+          <InputGroup>
+            <InputGroupInput id="job" value={job} onChange={(e) => chooseJob(e.target.value)} onPaste={paste} onFocus={(e) => e.target.select()} placeholder={t('Job ID or VIP link')} />
+            <InputGroupAddon align="inline-end">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <InputGroupButton size="icon-xs" className={shuffle ? 'text-emerald-500' : ''} aria-pressed={shuffle} aria-label={t('Shuffle JobId')} onClick={() => setShuffle(!shuffle)}>
+                    <Shuffle />
+                  </InputGroupButton>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-60">{shuffle ? t('Shuffle is on: every join picks a random server') : t('Shuffle: pick a random server for every join')}</TooltipContent>
+              </Tooltip>
+            </InputGroupAddon>
+          </InputGroup>
         </div>
       </div>
 
@@ -177,19 +193,22 @@ export function GamePanel() {
           <Progress value={(launching.done / launching.total) * 100} className="h-1.5" />
         </div>
       ) : (
-        <div className="flex gap-2">
-          <Button size="lg" className="h-11 flex-1 text-base" disabled={selected.length === 0 || joining} onClick={join}>
+        <div className="flex">
+          <Button size="lg" className="h-11 flex-1 rounded-r-none text-base" disabled={selected.length === 0 || joining} onClick={join}>
             {joining ? <Loader2 className="animate-spin" /> : <Play />}
             {selected.length > 1 ? t('Join Server ({0})', selected.length) : t('Join Server')}
           </Button>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button size="lg" variant="secondary" className="h-11 w-11 px-0" aria-label={t('Open Roblox home')} disabled={selected.length === 0} onClick={actions.openHome}>
-                <House />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="lg" className="h-11 rounded-l-none border-l border-primary-foreground/20 px-3" disabled={selected.length === 0} aria-label={t('More ways to join')}>
+                <ChevronDown />
               </Button>
-            </TooltipTrigger>
-            <TooltipContent>{t('Open Roblox home')}</TooltipContent>
-          </Tooltip>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={follow}><UserRoundSearch /> {t('Follow a player…')}</DropdownMenuItem>
+              <DropdownMenuItem onClick={actions.openHome}><House /> {t('Open Roblox home')}</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       )}
     </section>

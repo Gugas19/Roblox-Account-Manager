@@ -377,7 +377,8 @@ The account needs *Who can invite me to private servers* set to Everyone in its 
 | Languages | English, Português (Portugal), Español, Français, Deutsch | Click the flag button in the top right |
 | Instances | Every Roblox open on this PC with its account, game and server: bring one to the front, close it, send the selected accounts to its server (a private one too), choose which ones Anti-AFK keeps active | The `Instances` page |
 | Session history | Games and servers joined, lost connections, rejoins and presence changes of each account, by day, filtered by account, exported as CSV (kept on this PC only, can be turned off) | The `History` page |
-| Roblox home | Open the Roblox app signed in as the account, without a game | The house button next to `Join Server`, or right click an account |
+| Roblox home | Open the Roblox app signed in as the account, without a game | The arrow next to `Join Server`, or right click an account |
+| Follow a player | The selected accounts join the server a player is in | The arrow next to `Join Server` > `Follow a player` |
 | Window names | Each Roblox window the app opens shows its account (and alias) in the title | `Settings` > `General` |
 | Hide from captures | Screenshots, recordings and screen sharing leave the app's window out | `Settings` > `General` |
 | Account Search | Find an account by username, alias, description or group | Type in the search box above the list, or press `Ctrl+F` |
@@ -386,7 +387,7 @@ The account needs *Who can invite me to private servers* set to Everyone in its 
 | Load Region | See where a server is and get an accurate ping | Right click a server in the server list, then click `Load Region` **(requires a valid account to be selected)** |
 | [Join Small Servers](https://youtu.be/Red66cV6vVI) | Join small servers in games that use a lobby place to teleport you | Put the real game's Place ID next to `Refresh` in the server list, refresh, then right click a server and click `Join Game` |
 | Player Finder | Find a player even with their follows off, as long as you know their game | In the server list, type the username and click search |
-| Account Utilities | Change an account's password, email, display name, follow privacy, add friends, block, sign out other sessions | Click `Account Utilities` **(requires a valid account to be selected)** |
+| Account Utilities | Change an account's password, email, display name, follow privacy, add friends, block, sign out other sessions | The person icon next to the selected account's name **(requires a valid account to be selected)** |
 | Account Sorting | Order accounts the way you like | Drag and drop an account in the list, or `Sort Alphabetically` |
 | Account Grouping | Put accounts in groups, drag them between groups, rename a group | Right click an account, `Groups`, `Move Account To`; right click a group's header to rename it |
 | Group Sorting | Order groups by giving them a number | Name a group with a number from 0-999 in front (ex. `1Main`, `007 Bank`), the number is hidden afterwards |

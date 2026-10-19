@@ -1,6 +1,6 @@
 // Command line tests: node tests/cli.mjs [--release]
 //
-// Runs ram-cli in target/test-run/cli with demo accounts, first on its own, then through an open app.
+// Runs ram-cli in target/test-run/cli-<time> with demo accounts, first on its own, then through an open app.
 // Nothing here launches Roblox, closes a process or presses keys: join, close and antiafk are only
 // tried on the paths that stop before doing anything (wrong names, missing options, app not open).
 
@@ -12,8 +12,15 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const build = process.argv.includes('--release') ? 'release' : 'debug'
 const target = path.join(root, 'target', build)
-const work = path.join(target, '..', 'test-run', 'cli')
-const locked = path.join(target, '..', 'test-run', 'cli-password')
+// a folder of its own each run: the last run's WebView2 (or the antivirus) can hold its files for a while, and
+// removing them made the tests fail; old run folders are tidied up when they let go
+const runs = path.join(target, '..', 'test-run')
+for (const old of fs.existsSync(runs) ? fs.readdirSync(runs).filter((n) => /^cli(-password)?(-\d+)?$/.test(n)) : []) {
+  try { fs.rmSync(path.join(runs, old), { recursive: true, force: true }) } catch {}
+}
+const run = Date.now()
+const work = path.join(runs, `cli-${run}`)
+const locked = path.join(runs, `cli-password-${run}`)
 
 function stopTestApps() {
   try { execSync(`powershell -NoProfile -Command "Get-Process RobloxAccountManager -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '*\\target\\test-run\\cli*' } | Stop-Process -Force"`) } catch {}
@@ -30,8 +37,6 @@ function stopCopy(dir) {
 
 function prepare(dir) {
   stopCopy(dir)
-  // a just closed copy (or the antivirus) can hold its files a moment
-  fs.rmSync(dir, { recursive: true, force: true, maxRetries: 40, retryDelay: 250 })
   fs.mkdirSync(dir, { recursive: true })
   for (const exe of ['RobloxAccountManager.exe', 'ram-cli.exe']) fs.copyFileSync(path.join(target, exe), path.join(dir, exe))
   // a test copy: its own lock and browser data, so it runs next to your own app without touching it
