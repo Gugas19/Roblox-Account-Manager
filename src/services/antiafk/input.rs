@@ -10,7 +10,8 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 };
 use windows::Win32::UI::Shell::{SHQueryUserNotificationState, QUNS_BUSY, QUNS_PRESENTATION_MODE, QUNS_RUNNING_D3D_FULL_SCREEN};
 use windows::Win32::UI::WindowsAndMessaging::{
-    BringWindowToTop, GetForegroundWindow, GetWindowThreadProcessId, IsIconic, SetForegroundWindow, ShowWindow, SW_MINIMIZE, SW_RESTORE,
+    BringWindowToTop, GetForegroundWindow, GetTopWindow, GetWindow, GetWindowLongW, GetWindowThreadProcessId, IsIconic, IsWindow, IsWindowVisible, SetForegroundWindow, SetWindowPos, ShowWindow,
+    GWL_EXSTYLE, GW_HWNDNEXT, HWND_TOP, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SW_RESTORE, SW_SHOWMINNOACTIVE, WS_EX_TOPMOST,
 };
 
 /// What the anti-AFK cycle presses in each window
@@ -129,9 +130,10 @@ pub fn focus(hwnd: HWND) -> bool {
     }
 }
 
+/// Minimizes without handing the focus to some other window
 pub fn minimize(hwnd: HWND) {
     unsafe {
-        let _ = ShowWindow(hwnd, SW_MINIMIZE);
+        let _ = ShowWindow(hwnd, SW_SHOWMINNOACTIVE);
     }
 }
 
@@ -139,9 +141,82 @@ pub fn was_minimized(hwnd: HWND) -> bool {
     unsafe { IsIconic(hwnd).as_bool() }
 }
 
+/// The windows on screen (not minimized, not always on top) from the top of the Z order down
+pub fn z_order() -> Vec<HWND> {
+    let mut list = Vec::new();
+    unsafe {
+        let mut next = GetTopWindow(HWND::default()).ok();
+        while let Some(hwnd) = next.filter(|h| !h.0.is_null()) {
+            let topmost = GetWindowLongW(hwnd, GWL_EXSTYLE) as u32 & WS_EX_TOPMOST.0 != 0;
+            if IsWindowVisible(hwnd).as_bool() && !IsIconic(hwnd).as_bool() && !topmost {
+                list.push(hwnd);
+            }
+            next = GetWindow(hwnd, GW_HWNDNEXT).ok();
+        }
+    }
+    list
+}
+
+/// Where each moved window goes back to: right under the window that was above it (`None` = the top).
+/// Top down, so a moved window above is already back in place when the one under it follows it.
+fn restack_plan<T: Copy + PartialEq>(before: &[T], moved: &[T], alive: impl Fn(T) -> bool) -> Vec<(T, Option<T>)> {
+    let mut plan = Vec::new();
+    for (i, w) in before.iter().enumerate() {
+        if moved.contains(w) && alive(*w) {
+            plan.push((*w, before[..i].iter().rev().copied().find(|a| alive(*a))));
+        }
+    }
+    plan
+}
+
+/// Puts the windows focused for the anti-AFK action back in the order `before` had them, without focusing anything
+pub fn restore_z_order(before: &[HWND], moved: &[HWND]) {
+    let alive = |h: HWND| unsafe { IsWindow(h).as_bool() && IsWindowVisible(h).as_bool() && !IsIconic(h).as_bool() };
+    for (hwnd, above) in restack_plan(before, moved, alive) {
+        unsafe {
+            let _ = SetWindowPos(hwnd, above.unwrap_or(HWND_TOP), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn restack_puts_each_window_under_the_one_above_it() {
+        // A B C D, B and D were focused; C is gone
+        let plan = restack_plan(&['A', 'B', 'C', 'D'], &['B', 'D'], |w| w != 'C');
+        assert_eq!(plan, vec![('B', Some('A')), ('D', Some('B'))]);
+        assert_eq!(restack_plan(&['A', 'B'], &['A'], |_| true), vec![('A', None)]);
+    }
+
+    /// Real windows (off screen, never focused): one moved to the top goes back under the others
+    #[test]
+    fn z_order_comes_back() {
+        use windows::core::w;
+        use windows::Win32::UI::WindowsAndMessaging::{CreateWindowExW, DestroyWindow, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_POPUP, WS_VISIBLE};
+        let make = || unsafe { CreateWindowExW(WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, w!("STATIC"), w!("ram z test"), WS_POPUP | WS_VISIBLE, -30000, -30000, 10, 10, HWND::default(), None, None, None).unwrap() };
+        let (a, b, c) = (make(), make(), make());
+        let order = |list: &[HWND]| [a, b, c].map(|w| list.iter().position(|h| *h == w).unwrap());
+        let before = z_order();
+        unsafe {
+            let _ = SetWindowPos(c, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
+        let moved = order(&z_order());
+        assert!(moved[2] < moved[0] && moved[2] < moved[1]);
+        restore_z_order(&before, &[c]);
+        let after = order(&z_order());
+        let first = order(&before);
+        for (x, y) in [(0, 1), (1, 2), (0, 2)] {
+            assert_eq!(first[x] < first[y], after[x] < after[y]);
+        }
+        unsafe {
+            for h in [a, b, c] {
+                let _ = DestroyWindow(h);
+            }
+        }
+    }
 
     #[test]
     fn actions_from_settings() {

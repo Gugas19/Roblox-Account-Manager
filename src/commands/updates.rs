@@ -15,6 +15,6 @@ pub async fn update_check(download: bool) -> Status {
 }
 
 #[tauri::command]
-pub fn update_restart() -> R<()> {
-    updater::restart(&app()).map_err(e)
+pub async fn update_restart() -> R<()> {
+    updater::restart(&app()).await.map_err(e)
 }

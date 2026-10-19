@@ -73,7 +73,8 @@ the same time: they refuse to start while the other is open.
 ### Anti-AFK built in
 Roblox kicks you after 20 minutes without input. Anti-AFK keeps every Roblox window active, without getting in your way:
 - **It doesn't interrupt you**: it waits until you stop typing and moving the mouse, skips the window you're playing in,
-  never acts while a full screen game or video is in front, and puts your window back in front afterwards.
+  never acts while a full screen game or video is in front, and leaves your windows as they were afterwards: the one
+  you were using back in front, the others stacked in the same order, minimized Roblox windows minimized again.
   (Roblox only accepts input while it has the focus: keys and mouse sent in the background are ignored, we tested them
   all, so a short switch to the Roblox window is the only way.)
 - **Rejoins disconnected accounts** (on by default, in Rejoin & extras): it reads the Roblox log, waits for the internet to

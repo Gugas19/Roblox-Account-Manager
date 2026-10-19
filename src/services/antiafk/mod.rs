@@ -354,8 +354,11 @@ fn cycle(app: &Arc<App>, windows: &[Window], forced: bool) {
     let reset = app.afk_flag("AutoReset");
     let skip_focused = app.afk_flag("SkipFocused") && !forced;
     let previous = input::foreground();
+    // how the windows were stacked, so the ones on top go back on top afterwards
+    let stacking = input::z_order();
     let hidden = app.anti_afk().hidden.load(Ordering::SeqCst);
     let mut done = 0;
+    let mut moved = Vec::new();
 
     for w in windows {
         if !app.anti_afk().running.load(Ordering::SeqCst) {
@@ -371,6 +374,7 @@ fn cycle(app: &Arc<App>, windows: &[Window], forced: bool) {
         }
 
         let minimized = input::was_minimized(w.hwnd);
+        moved.push(w.hwnd);
         if hidden {
             layout::set_hidden(&[w.hwnd], false);
         }
@@ -389,8 +393,11 @@ fn cycle(app: &Arc<App>, windows: &[Window], forced: bool) {
         }
     }
 
-    if !previous.0.is_null() && done > 0 {
+    if !previous.0.is_null() && done > 0 && !input::was_minimized(previous) {
         input::focus(previous);
+    }
+    if !moved.is_empty() {
+        input::restore_z_order(&stacking, &moved);
     }
 
     if done > 0 {

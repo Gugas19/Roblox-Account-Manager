@@ -7,8 +7,9 @@
 //! - only newer versions are installed.
 //!
 //! Check on start and every 6 hours. The verified zip waits in `update\` next to the app, and is verified again
-//! when it's installed: the next time the app starts, or right away with "Restart". Builds run from a cargo
-//! `target` folder (development, tests) never update themselves.
+//! when it's installed: the next time the app starts, or right away with "Restart". Always the newest release: when
+//! one came out after the waiting zip was downloaded, that one is fetched instead of installing the older one first.
+//! Builds run from a cargo `target` folder (development, tests) never update themselves.
 
 use crate::app::App;
 use anyhow::{anyhow, bail, Result};
@@ -122,10 +123,9 @@ fn user_agent() -> String {
     format!("RobloxAccountManager/{}", env!("CARGO_PKG_VERSION"))
 }
 
-async fn latest(app: &App) -> Result<Option<Release>> {
-    let release: Value = app
-        .api
-        .http
+/// The newest release, when it's newer than this version
+async fn latest(http: &reqwest::Client) -> Result<Option<Release>> {
+    let release: Value = http
         .get(format!("https://api.github.com/repos/{REPO}/releases/latest"))
         .header("User-Agent", user_agent())
         .header("Accept", "application/vnd.github+json")
@@ -165,14 +165,16 @@ pub async fn check(app: &Arc<App>, download: bool) -> Status {
     set(app, Status::Checking);
 
     let result = async {
-        let Some(release) = latest(app).await? else {
+        let Some(release) = latest(&app.api.http).await? else {
             return Ok(Status::UpToDate);
         };
         let version = version_text(release.version);
-        if staged(&app_dir()).map(|(v, _, _)| v) == Some(release.version) {
+        let waiting = staged(&app_dir()).map(|(v, _, _)| v);
+        if waiting == Some(release.version) {
             return Ok(Status::Ready { version });
         }
-        if download || app.setting_bool(SECTION, "AutoInstall") {
+        // an older update was already downloaded: it was wanted, so the newest one replaces it
+        if download || waiting.is_some_and(|v| v > current_version()) || app.setting_bool(SECTION, "AutoInstall") {
             fetch(app, &release).await?;
             return Ok(Status::Ready { version });
         }
@@ -258,10 +260,35 @@ fn staged(dir: &Path) -> Option<(Version, Vec<u8>, String)> {
     Some((version, std::fs::read(target.join("update.zip")).ok()?, std::fs::read_to_string(target.join("update.zip.sig")).ok()?))
 }
 
-/// At start: installs a downloaded update and starts it. True when the new version was started (this one has
-/// to quit). The signature is checked again here. The running exe can be renamed but not replaced, so the old
-/// files become `*.old` for a minute.
-pub fn install_staged(dir: &Path) -> bool {
+/// Set at start when a newer release than the downloaded update came out: that one gets downloaded instead
+static NEWER_THAN_STAGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// At start: installs a downloaded update and starts it, unless a newer one came out since (asked quickly, offline
+/// the downloaded one is installed). True when the new version was started (this one has to quit).
+pub fn install_staged_at_start(dir: &Path) -> bool {
+    if disabled() {
+        return false;
+    }
+    let Some((version, _, _)) = staged(dir) else { return false };
+    // test copies never ask GitHub
+    if version > current_version() && !dir.join("ram-test-copy").exists() {
+        let newest = tauri::async_runtime::block_on(async {
+            let http = reqwest::Client::builder().timeout(Duration::from_secs(5)).build().ok()?;
+            latest(&http).await.ok().flatten().map(|r| r.version)
+        });
+        if newest.is_some_and(|n| n > version) {
+            log::info!("Update {} is newer than the downloaded {}, getting it first", version_text(newest.unwrap()), version_text(version));
+            NEWER_THAN_STAGED.store(true, std::sync::atomic::Ordering::SeqCst);
+            return false;
+        }
+    }
+    install_staged(dir)
+}
+
+/// Installs the downloaded update and starts it. True when the new version was started (this one has to quit).
+/// The signature is checked again here. The running exe can be renamed but not replaced, so the old files become
+/// `*.old` for a minute.
+fn install_staged(dir: &Path) -> bool {
     if disabled() {
         return false;
     }
@@ -343,10 +370,19 @@ pub fn clean_old(dir: PathBuf) {
     });
 }
 
-/// "Restart" in the interface: installs the downloaded update now
-pub fn restart(app: &App) -> Result<()> {
+/// "Restart" in the interface: installs the downloaded update now, or the newest one if another came out since
+pub async fn restart(app: &Arc<App>) -> Result<()> {
     if !matches!(status(app), Status::Ready { .. }) {
         bail!("No update is ready");
+    }
+    if let Ok(Some(newest)) = latest(&app.api.http).await {
+        if staged(&app_dir()).map(|(v, _, _)| v) != Some(newest.version) {
+            if let Err(e) = fetch(app, &newest).await {
+                set(app, Status::Error { message: e.to_string() });
+                return Err(e);
+            }
+            set(app, Status::Ready { version: version_text(newest.version) });
+        }
     }
     crate::services::antiafk::restore_all(app);
     if !install_staged(&app_dir()) {
@@ -365,6 +401,9 @@ pub fn spawn(app: Arc<App>) {
     }
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(Duration::from_secs(3)).await;
+        if NEWER_THAN_STAGED.load(std::sync::atomic::Ordering::SeqCst) {
+            check(&app, true).await;
+        }
         loop {
             if app.setting_bool(SECTION, "Check") {
                 check(&app, false).await;

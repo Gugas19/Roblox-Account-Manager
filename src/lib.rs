@@ -86,7 +86,7 @@ pub fn run() {
     }
 
     // an update downloaded earlier (and verified again now) replaces this version before anything starts
-    if services::updater::install_staged(&dir) {
+    if services::updater::install_staged_at_start(&dir) {
         return;
     }
     services::updater::clean_old(dir.clone());
