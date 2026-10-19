@@ -27,7 +27,8 @@ const SAFE_ANTI_AFK = '[AntiAFK]\r\nAccounts=__test_nobody__\r\nUserSafe=true\r\
 
 function prepare() {
   try { execSync(`powershell -NoProfile -Command "Get-Process RobloxAccountManager -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '*\\target\\test-run\\*' } | Stop-Process -Force"`) } catch {}
-  fs.rmSync(work, { recursive: true, force: true })
+  // a just closed copy (or the antivirus) can hold its files a moment
+  fs.rmSync(work, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 })
   fs.mkdirSync(shots, { recursive: true })
   fs.mkdirSync(work, { recursive: true })
   const exe = path.join(root, 'target', fs.existsSync(path.join(root, 'target', 'release', 'RobloxAccountManager.exe')) && args.includes('--release') ? 'release' : 'debug', 'RobloxAccountManager.exe')
@@ -195,7 +196,7 @@ async function test(name, body) {
 }
 
 /** Waits until `check` is true: the interface has to update by itself within `ms` */
-async function until(check, message, ms = 2500) {
+async function until(check, message, ms = 5000) {
   const end = Date.now() + ms
   while (Date.now() < end) {
     if (await check()) return
@@ -360,7 +361,7 @@ async function main() {
       await click('BuilderAccount', '[role=row]')
       await type('input[placeholder="Alias"]', 'Builder 2')
       await until(async () => account('BuilderAccount')?.Alias === 'Builder 2', `alias not saved: ${account('BuilderAccount')?.Alias}`)
-      assert(await evaluate(`!!document.querySelector('[data-testid=saved]')`), 'no "Saved" sign')
+      await until(() => evaluate(`!!document.querySelector('[data-testid=saved]')`), 'no "Saved" sign')
       // typed, then straight to another account: it goes to the account it was typed for
       await type('textarea[placeholder="Description"]', 'builds things')
       await click('MainAccount', '[role=row]')

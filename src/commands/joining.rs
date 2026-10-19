@@ -53,17 +53,26 @@ pub async fn join(names: Vec<String>, place: String, job: String, privacy_ok: bo
 }
 
 pub(crate) async fn join_one(app: &Arc<App>, account: &Account, opts: JoinOptions) -> JoinResult {
-    // once a minute at most: launching several accounts would say it for each
-    static WARNED: std::sync::Mutex<Option<std::time::Instant>> = std::sync::Mutex::new(None);
-    let quiet = WARNED.lock().unwrap().is_some_and(|w| w.elapsed() < Duration::from_secs(60));
-    if !quiet && app.setting_bool("General", "EnableMultiRbx") && !app.update_multi_roblox() && !crate::platform::win::roblox_processes().is_empty() {
-        *WARNED.lock().unwrap() = Some(std::time::Instant::now());
-        let why = if crate::services::multi_roblox::tray_process().is_some() {
-            crate::text!("Multi Roblox isn't working: Roblox is open in the background (it starts with Windows). Close it in Settings > General, next to Multi Roblox.")
-        } else {
-            crate::text!("Multi Roblox isn't working yet: a Roblox opened before it was turned on. It works once every Roblox window is closed.")
-        };
-        app.toast("warning", app.tr(why));
+    if app.setting_bool("General", "EnableMultiRbx") && !app.update_multi_roblox() {
+        // Roblox's tray process (started with Windows, no game in it) holds the singleton names: closed, so Multi
+        // Roblox works, like Roblox Manager's background cleanup
+        if let Some(pid) = crate::services::multi_roblox::tray_process() {
+            log::info!("Closing Roblox's tray process {pid}, it stops Multi Roblox");
+            crate::platform::win::kill(pid);
+            for _ in 0..20 {
+                if app.update_multi_roblox() {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(150)).await;
+            }
+        }
+        // once a minute at most: launching several accounts would say it for each
+        static WARNED: std::sync::Mutex<Option<std::time::Instant>> = std::sync::Mutex::new(None);
+        let quiet = WARNED.lock().unwrap().is_some_and(|w| w.elapsed() < Duration::from_secs(60));
+        if !quiet && !crate::services::multi_roblox::working() && !crate::platform::win::roblox_processes().is_empty() {
+            *WARNED.lock().unwrap() = Some(std::time::Instant::now());
+            app.toast("warning", app.tr(crate::text!("Multi Roblox isn't working yet: a Roblox opened before it was turned on. It works once every Roblox window is closed.")));
+        }
     }
     let tracker = app.ensure_tracker(&account.username);
     let result = launcher::join(&app.api, &account.security_token, &tracker, opts).await;

@@ -123,6 +123,11 @@ await test('a signed zip passed off as a newer version is refused', async () => 
 })
 
 await sleep(500)
-fs.rmSync(base, { recursive: true, force: true })
+// the updated copy may still be letting go of its files: tidying up never fails the tests
+try {
+  fs.rmSync(base, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 })
+} catch (e) {
+  console.log(`  (couldn't remove ${base}: ${e.code})`)
+}
 console.log(`\n${3 - failed} passed, ${failed} failed`)
 process.exit(failed ? 1 : 0)
