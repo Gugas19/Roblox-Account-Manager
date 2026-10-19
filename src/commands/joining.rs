@@ -53,11 +53,30 @@ pub async fn join(names: Vec<String>, place: String, job: String, privacy_ok: bo
 }
 
 pub(crate) async fn join_one(app: &Arc<App>, account: &Account, opts: JoinOptions) -> JoinResult {
+    // once a minute at most: launching several accounts would say it for each
+    static WARNED: std::sync::Mutex<Option<std::time::Instant>> = std::sync::Mutex::new(None);
+    let quiet = WARNED.lock().unwrap().is_some_and(|w| w.elapsed() < Duration::from_secs(60));
+    if !quiet && app.setting_bool("General", "EnableMultiRbx") && !app.update_multi_roblox() && !crate::platform::win::roblox_processes().is_empty() {
+        *WARNED.lock().unwrap() = Some(std::time::Instant::now());
+        let why = if crate::services::multi_roblox::tray_process().is_some() {
+            crate::text!("Multi Roblox isn't working: Roblox is open in the background (it starts with Windows). Close it in Settings > General, next to Multi Roblox.")
+        } else {
+            crate::text!("Multi Roblox isn't working yet: a Roblox opened before it was turned on. It works once every Roblox window is closed.")
+        };
+        app.toast("warning", app.tr(why));
+    }
     let tracker = app.ensure_tracker(&account.username);
     let result = launcher::join(&app.api, &account.security_token, &tracker, opts).await;
     app.launch_next.store(true, Ordering::SeqCst);
 
     if result == JoinResult::Success {
+        if app.setting_bool("General", "ShowPresence") {
+            let a = app.clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(Duration::from_secs(30)).await;
+                super::startup::refresh_presence(&a).await;
+            });
+        }
         app.update_account(&account.username, |a| a.last_use = crate::core::netdate::NetDate::now());
         app.save_accounts(false);
         if app.setting_bool("Watcher", "SaveWindowPositions") {

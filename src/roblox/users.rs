@@ -45,6 +45,12 @@ impl Api {
         Ok(all)
     }
 
+    /// One account asking about itself: Roblox tells an account where it is (the game's name), not always others
+    pub async fn own_presence(&self, user_id: i64, token: &str, csrf: &str) -> Result<Option<Presence>> {
+        let r = self.send(self.with_csrf(Method::POST, "https://presence.roblox.com/v1/presence/users", token, csrf).json(&json!({ "userIds": [user_id] }))).await?;
+        Ok(r.json().and_then(|v| v["userPresences"].get(0).cloned()).and_then(|p| serde_json::from_value::<Presence>(p).ok()))
+    }
+
     pub async fn headshot(&self, user_id: i64) -> Result<Option<String>> {
         let r = self.get(&format!("https://thumbnails.roblox.com/v1/users/avatar-headshot?size=48x48&format=png&userIds={user_id}"), None).await?;
         Ok(r.json().and_then(|v| v["data"][0]["imageUrl"].as_str().map(str::to_string)))

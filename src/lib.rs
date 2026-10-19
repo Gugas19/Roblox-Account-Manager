@@ -227,6 +227,8 @@ pub fn run() {
             commands::updates::update_status,
             commands::updates::update_check,
             commands::updates::update_notes,
+            commands::settings::multi_roblox_status,
+            commands::settings::close_roblox_tray,
             commands::updates::update_restart,
         ])
         .run(tauri::generate_context!())

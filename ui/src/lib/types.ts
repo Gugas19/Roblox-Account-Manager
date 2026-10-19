@@ -10,6 +10,8 @@ export interface Account {
   daysUnused: number
   /** 0 offline, 1 online, 2 in game, 3 in studio */
   presence: number
+  /** the game's name when in a game or Studio, when Roblox says */
+  location?: string | null
   savedPlaceId: string
   savedJobId: string
   hasPassword: boolean

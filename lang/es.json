@@ -631,5 +631,14 @@
   "The latest versions": "Las últimas versiones",
   "They start again from zero. The current ones are kept in the history below, where you can delete them.": "Vuelven a empezar desde cero. Las actuales se guardan en el historial de abajo, donde puedes eliminarlas.",
   "To make an account use less CPU, right click it > CPU limit.": "Para que una cuenta use menos CPU, haz clic derecho en ella > Límite de CPU.",
-  "Until {0}": "Hasta el {0}"
+  "Until {0}": "Hasta el {0}",
+  "Close it": "Cerrarlo",
+  "Multi Roblox isn't working yet: a Roblox opened before it was turned on. It works once every Roblox window is closed.": "Multi Roblox aún no funciona: un Roblox se abrió antes de activarlo. Funciona en cuanto se cierren todas las ventanas de Roblox.",
+  "Multi Roblox isn't working: Roblox is open in the background (it starts with Windows). Close it in Settings > General, next to Multi Roblox.": "Multi Roblox no funciona: Roblox está abierto en segundo plano (se inicia con Windows). Ciérralo en Ajustes > General, junto a Multi Roblox.",
+  "Multi Roblox starts working once every Roblox window is closed.": "Multi Roblox empieza a funcionar en cuanto se cierren todas las ventanas de Roblox.",
+  "Multi Roblox works now": "Multi Roblox ya funciona",
+  "Offline": "Desconectado",
+  "Roblox is open in the background (it starts with Windows) and stops Multi Roblox.": "Roblox está abierto en segundo plano (se inicia con Windows) e impide Multi Roblox.",
+  "Roblox still holds it: close every Roblox window": "Roblox todavía lo tiene: cierra todas las ventanas de Roblox",
+  "Status": "Estado"
 }

@@ -70,9 +70,22 @@ pub(super) fn start_background(app: Arc<App>) {
     });
 }
 
+/// How many accounts in a game are asked for the game's name each time (one request each)
+const PLACE_NAMES_AT_ONCE: usize = 25;
+
 pub(super) async fn refresh_presence(app: &App) {
     let ids: Vec<i64> = app.store.lock().unwrap().accounts.iter().map(|a| a.user_id).filter(|i| *i > 0).collect();
-    if let Ok(list) = app.api.presence(&ids).await {
+    if let Ok(mut list) = app.api.presence(&ids).await {
+        // the accounts in a game, asked as themselves, for the game's name
+        for p in list.iter_mut().filter(|p| p.kind == 2 && p.last_location.as_deref().unwrap_or("").is_empty()).take(PLACE_NAMES_AT_ONCE) {
+            let Some(account) = app.store.lock().unwrap().accounts.iter().find(|a| a.user_id == p.user_id).cloned() else { continue };
+            let Ok(csrf) = app.csrf(&account).await else { continue };
+            if let Ok(Some(own)) = app.api.own_presence(account.user_id, &account.security_token, &csrf).await {
+                if own.kind == p.kind {
+                    *p = own;
+                }
+            }
+        }
         let mut sessions = app.sessions.lock().unwrap();
         for p in list {
             let id = p.user_id;

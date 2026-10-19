@@ -315,6 +315,14 @@ async function main() {
       await shot('main')
     })
 
+    await test('a Status column says what each account is doing', async () => {
+      assert((await text()).includes('Status'), 'no Status column')
+      const statuses = await evaluate(`[...document.querySelectorAll('[role=row] [data-testid=status]')].map((s) => s.innerText.trim())`)
+      const count = await evaluate(`document.querySelectorAll('[role=row]').length`)
+      // made-up accounts: Roblox knows nothing about them
+      assert(statuses.length === count && statuses.every((s) => s === 'Offline'), `statuses: ${statuses.join(', ')}`)
+    })
+
     await test('the typed Place ID is remembered for the next start', async () => {
       const saved = () => /SavedPlaceId=(.*)/.exec(fs.readFileSync(path.join(work, 'RAMSettings.ini'), 'utf8'))?.[1]?.trim()
       const type = (value) => evaluate(`(() => { const i = document.querySelector('#place'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, '${value}'); i.dispatchEvent(new Event('input', { bubbles: true })) })()`)

@@ -1,7 +1,7 @@
 /** Settings: General, Developer and Miscellaneous, every change applies right away */
 
-import { Download, FileJson, FolderOpen, Lock, Upload } from 'lucide-react'
-import { useState } from 'react'
+import { AlertTriangle, Download, FileJson, FolderOpen, Lock, Upload, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -60,6 +60,44 @@ function useProtectionChange() {
       notify.error(e)
     }
   }
+}
+
+/** Why Multi Roblox isn't working yet, checked while the settings are open */
+function MultiRobloxStatus() {
+  const t = useI18n().t
+  const notify = notifier(t)
+  const [status, setStatus] = useState<{ enabled: boolean; working: boolean; tray: boolean } | null>(null)
+  useEffect(() => {
+    const look = () => api.multiRobloxStatus().then(setStatus, () => {})
+    look()
+    const timer = setInterval(look, 2000)
+    return () => clearInterval(timer)
+  }, [])
+  if (!status?.enabled || status.working) return null
+  const closeTray = async () => {
+    try {
+      if (await api.closeRobloxTray()) notify.success('Multi Roblox works now')
+      else notify.error('Roblox still holds it: close every Roblox window')
+    } catch (e) {
+      notify.error(e)
+    }
+    setStatus(await api.multiRobloxStatus())
+  }
+  return (
+    <div className="mb-2 flex items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm" data-testid="multi-roblox-status">
+      <AlertTriangle className="size-4 shrink-0 text-amber-500" />
+      <span className="flex-1">
+        {status.tray
+          ? t('Roblox is open in the background (it starts with Windows) and stops Multi Roblox.')
+          : t('Multi Roblox starts working once every Roblox window is closed.')}
+      </span>
+      {status.tray && (
+        <Button size="sm" variant="secondary" onClick={closeTray}>
+          <X /> {t('Close it')}
+        </Button>
+      )}
+    </div>
+  )
 }
 
 export function SettingsDialog() {
@@ -142,6 +180,7 @@ export function SettingsDialog() {
                 </Select>
               </SettingRow>
               <Toggle section="General" name="EnableMultiRbx" title="Multi Roblox" hint="Play several accounts at the same time. Works once every Roblox window is closed." />
+              <MultiRobloxStatus />
               <Toggle section="General" name="AsyncJoin" title="Async Launching" hint="When launching several accounts, start the next one as soon as the previous opened instead of waiting the delay." />
               <NumberSetting section="General" name="AccountJoinDelay" title="Launch Delay" hint="Seconds between accounts when launching several." min={0} max={120} fallback={8} />
               <Toggle section="General" name="SavePasswords" title="Save Passwords" hint="Remember the password typed when logging in, to copy it later or log in again when the cookie expires. Off by default." onChange={savePasswordsChanged} />

@@ -3,7 +3,6 @@
 use crate::core::accounts::{Account, AccountStore};
 use crate::roblox::{Api, Presence};
 use crate::core::settings::{Settings, Theme};
-use crate::platform::win::NamedMutex;
 use crate::services::launcher::JoinOptions;
 use std::sync::atomic::Ordering;
 use once_cell::sync::OnceCell;
@@ -31,7 +30,6 @@ pub struct App {
     pub settings: Mutex<Settings>,
     pub theme: Mutex<Theme>,
     pub sessions: Mutex<HashMap<i64, Session>>,
-    pub multi_roblox: Mutex<Option<NamedMutex>>,
     pub web_server: Mutex<Option<crate::services::webserver::Handle>>,
     pub shuffle: AtomicBool,
     /// bumped to cancel a running "launch several accounts"
@@ -68,7 +66,6 @@ pub fn init(dir: PathBuf) -> Arc<App> {
         settings: Mutex::new(Settings::load(&dir)),
         theme: Mutex::new(Theme::load(&dir)),
         sessions: Mutex::new(HashMap::new()),
-        multi_roblox: Mutex::new(None),
         web_server: Mutex::new(None),
         shuffle: AtomicBool::new(false),
         launch_generation: AtomicU64::new(0),
@@ -108,6 +105,8 @@ pub struct AccountView {
     pub group_title: String,
     pub days_unused: f64,
     pub presence: i64,
+    /// where it is when in a game or Studio (the game's name), when Roblox says
+    pub location: Option<String>,
     pub saved_place_id: String,
     pub saved_job_id: String,
     pub has_password: bool,
@@ -167,6 +166,7 @@ impl App {
                 group_title: Account::group_title(&a.group),
                 days_unused: if a.last_use.days_ago().is_finite() { a.last_use.days_ago() } else { 99999.0 },
                 presence: sessions.get(&a.user_id).and_then(|s| s.presence.as_ref()).map(|p| p.kind).unwrap_or(0),
+                location: sessions.get(&a.user_id).and_then(|s| s.presence.as_ref()).filter(|p| p.kind >= 2).and_then(|p| p.last_location.clone()).filter(|l| !l.trim().is_empty()),
                 saved_place_id: a.field("SavedPlaceId").to_string(),
                 saved_job_id: a.field("SavedJobId").to_string(),
                 has_password: !a.password.is_empty(),
@@ -263,21 +263,7 @@ impl App {
 
     /// Multi Roblox on/off, false when Roblox already runs (it works once every Roblox window is closed)
     pub fn update_multi_roblox(&self) -> bool {
-        let enabled = self.setting_bool("General", "EnableMultiRbx");
-        let mut held = self.multi_roblox.lock().unwrap();
-
-        if enabled && held.is_none() {
-            match NamedMutex::acquire("ROBLOX_singletonMutex") {
-                Ok((mutex, owned)) => {
-                    *held = Some(mutex);
-                    return owned;
-                }
-                Err(_) => return false,
-            }
-        } else if !enabled {
-            *held = None;
-        }
-        true
+        crate::services::multi_roblox::set(self.setting_bool("General", "EnableMultiRbx"))
     }
 
     /// Adds (or updates) the account behind a cookie, like AccountManager.AddAccount

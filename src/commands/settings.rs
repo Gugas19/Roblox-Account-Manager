@@ -17,6 +17,33 @@ pub fn get_settings() -> Value {
 }
 
 /// Saves a setting and applies it right away, returns a message to show when there is one
+/// Multi Roblox: on, working right now, and whether Roblox's tray process is what stops it
+#[tauri::command]
+pub fn multi_roblox_status() -> Value {
+    let app = app();
+    let enabled = app.setting_bool("General", "EnableMultiRbx");
+    let working = crate::services::multi_roblox::working();
+    let tray = enabled && !working && crate::services::multi_roblox::tray_process().is_some();
+    json!({ "enabled": enabled, "working": working, "tray": tray })
+}
+
+/// Closes Roblox's background tray process (it has no game open), so Multi Roblox can start working
+#[tauri::command]
+pub fn close_roblox_tray() -> bool {
+    let app = app();
+    if let Some(pid) = crate::services::multi_roblox::tray_process() {
+        log::info!("Closing Roblox's tray process {pid} for Multi Roblox");
+        winutil::kill(pid);
+    }
+    for _ in 0..20 {
+        if app.update_multi_roblox() {
+            return true;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(150));
+    }
+    false
+}
+
 #[tauri::command]
 pub fn set_setting(section: String, key: String, value: String) -> R<Option<String>> {
     let app = app();

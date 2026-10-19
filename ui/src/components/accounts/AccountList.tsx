@@ -7,7 +7,7 @@ import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { AccountMenu, type ColorTarget, type MenuGroup } from '@/components/accounts/AccountMenu'
-import { AccountRow } from '@/components/accounts/AccountRow'
+import { AccountRow, rowColumns } from '@/components/accounts/AccountRow'
 import { useActions } from '@/hooks/useActions'
 import { api } from '@/lib/api'
 import { useT } from '@/lib/i18n'
@@ -134,10 +134,11 @@ export function AccountList({ searchRef }: { searchRef: React.RefObject<HTMLInpu
       </div>
 
       {showHeaders && (
-        <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,1.6fr)] gap-3 border-b px-6 pb-2 text-xs font-medium text-muted-foreground">
+        <div className={`grid ${rowColumns(showPresence)} gap-3 border-b px-6 pb-2 text-xs font-medium text-muted-foreground`}>
           <span className="pl-6">{t('Username')}</span>
           <span>{t('Alias')}</span>
           <span>{t('Description')}</span>
+          {showPresence && <span>{t('Status')}</span>}
         </div>
       )}
 

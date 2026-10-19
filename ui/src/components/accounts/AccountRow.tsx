@@ -7,11 +7,15 @@ import { useT } from '@/lib/i18n'
 import type { Account } from '@/lib/types'
 
 const PRESENCE = [
-  null,
+  { color: 'bg-muted-foreground/40', label: 'Offline' },
   { color: 'bg-sky-500', label: 'Online' },
   { color: 'bg-emerald-500', label: 'In game' },
   { color: 'bg-violet-500', label: 'In Studio' },
 ]
+
+/** The columns, with the Status one when presence is shown (the header uses the same) */
+export const rowColumns = (status: boolean) =>
+  status ? 'grid-cols-[minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,1.2fr)_minmax(0,1fr)]' : 'grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,1.6fr)]'
 
 /** Yellow at 20 days, red 10 days later, like the C# aging alert */
 function agingColor(days: number) {
@@ -42,7 +46,7 @@ export function AccountRow({ account, selected, hideUsername, showAging, showPre
   const [editing, setEditing] = useState(false)
   const [alias, setAlias] = useState(account.alias)
   const aging = showAging && account.daysUnused > 20
-  const presence = showPresence ? PRESENCE[account.presence] : null
+  const presence = showPresence ? (PRESENCE[account.presence] ?? PRESENCE[0]) : null
   // its own color, otherwise its group's
   const bar = account.color ?? account.groupColor
 
@@ -58,7 +62,7 @@ export function AccountRow({ account, selected, hideUsername, showAging, showPre
       onDragOver={onDragOver}
       onDrop={onDrop}
       onDragLeave={onDragLeave}
-      className={`group relative grid h-9 cursor-pointer grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,1.6fr)] items-center gap-3 rounded-md px-3 text-sm select-none ${
+      className={`group relative grid h-9 cursor-pointer ${rowColumns(showPresence)} items-center gap-3 rounded-md px-3 text-sm select-none ${
         selected ? 'bg-primary/15 text-foreground ring-1 ring-primary/40' : 'hover:bg-accent'
       } ${dropTarget ? 'shadow-[inset_0_2px_0_0_var(--primary)]' : ''}`}
     >
@@ -71,14 +75,6 @@ export function AccountRow({ account, selected, hideUsername, showAging, showPre
                 <span className="size-2 rounded-full" style={{ background: agingColor(account.daysUnused) }} />
               </TooltipTrigger>
               <TooltipContent>{t('Not used for {0} days', Math.floor(account.daysUnused))}</TooltipContent>
-            </Tooltip>
-          )}
-          {presence && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className={`size-2 rounded-full ${presence.color}`} />
-              </TooltipTrigger>
-              <TooltipContent>{t(presence.label)}</TooltipContent>
             </Tooltip>
           )}
         </span>
@@ -111,6 +107,15 @@ export function AccountRow({ account, selected, hideUsername, showAging, showPre
       </div>
 
       <span className="truncate text-muted-foreground">{account.description.split('\n')[0]}</span>
+
+      {presence && (
+        <span className="flex min-w-0 items-center gap-2 text-muted-foreground" data-testid="status">
+          <span className={`size-2 shrink-0 rounded-full ${presence.color}`} />
+          <span className={`truncate ${account.presence === 2 ? 'text-foreground' : ''}`} title={account.location ?? undefined}>
+            {account.location ? `${t(presence.label)}: ${account.location}` : t(presence.label)}
+          </span>
+        </span>
+      )}
     </div>
   )
 }
