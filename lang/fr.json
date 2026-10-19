@@ -610,5 +610,10 @@
   "{0} of {1} accounts": "{0} sur {1} comptes",
   "{0} rejoined place {1}": "{0} a rejoint le lieu {1}",
   "{0} selected": "{0} sélectionnés",
-  "{0} · Roblox windows: {1}": "{0} · Fenêtres Roblox : {1}"
+  "{0} · Roblox windows: {1}": "{0} · Fenêtres Roblox : {1}",
+  "What's new": "Nouveautés",
+  "{0} new versions since yours": "{0} nouvelles versions depuis la vôtre",
+  "Changes in the new version": "Changements de la nouvelle version",
+  "Couldn't get the release notes, you can still update.": "Impossible de récupérer les notes de version, vous pouvez quand même mettre à jour.",
+  "Later": "Plus tard"
 }

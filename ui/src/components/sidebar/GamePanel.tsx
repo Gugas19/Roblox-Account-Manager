@@ -108,20 +108,22 @@ export function GamePanel() {
       <div className="flex items-center gap-3">
         <GameIcon src={shareLink ? undefined : (info?.icon ?? recentGame?.icon)} className="size-11" />
         <div className="min-w-0 flex-1">
-          <div className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{t('Game')}</div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{t('Game')}</div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+                  <Switch size="sm" checked={sameForAll} onCheckedChange={(on) => void updateSetting('General', 'SameGameForAll', on ? 'true' : 'false')} />
+                  {t('Same for all')}
+                </label>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-64">
+                {t(sameForAll ? 'On: every account joins this game, choosing another account doesn\'t change it' : 'Off: each account remembers its own game, it shows when you choose the account')}
+              </TooltipContent>
+            </Tooltip>
+          </div>
           <div className="truncate font-semibold">{shareLink ? t('Private server from a link') : place.trim() ? (info?.name ?? recentGame?.name ?? t('Current Place')) : t('No game chosen')}</div>
         </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
-              <Switch size="sm" checked={sameForAll} onCheckedChange={(on) => void updateSetting('General', 'SameGameForAll', on ? 'true' : 'false')} />
-              {t('Same for all')}
-            </label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-64">
-            {t(sameForAll ? 'On: every account joins this game, choosing another account doesn\'t change it' : 'Off: each account remembers its own game, it shows when you choose the account')}
-          </TooltipContent>
-        </Tooltip>
       </div>
 
       <div className="grid grid-cols-2 gap-2">

@@ -2,7 +2,7 @@
 
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
-import type { Account, AntiAfkStatus, Bootstrap, Favorite, Game, JoinResult, LoadState, MissingAsset, Outfit, Settings, Theme, UpdateStatus } from './types'
+import type { Account, AntiAfkStatus, Bootstrap, Favorite, Game, JoinResult, LoadState, MissingAsset, Outfit, ReleaseNotes, Settings, Theme, UpdateStatus } from './types'
 
 /** Errors from Rust arrive as plain strings */
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
@@ -108,6 +108,7 @@ export const api = {
   antiAfkResetStats: () => call<void>('antiafk_reset_stats'),
   updateStatus: () => call<{ status: UpdateStatus; version: string }>('update_status'),
   updateCheck: (download: boolean) => call<UpdateStatus>('update_check', { download }),
+  updateNotes: () => call<ReleaseNotes[]>('update_notes'),
   updateRestart: () => call<void>('update_restart'),
 
   // settings

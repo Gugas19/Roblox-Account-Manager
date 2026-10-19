@@ -6,7 +6,7 @@ import { useEffect } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { useDialogs } from '@/components/dialogs/DialogHost'
+import { whatsNew } from '@/components/dialogs/WhatsNew'
 import { useUpdate } from '@/hooks/useUpdate'
 import { api } from '@/lib/api'
 import { useT } from '@/lib/i18n'
@@ -18,12 +18,14 @@ let announced: string | null = null
 export function UpdatePill() {
   const t = useT()
   const notify = notifier(t)
-  const dialogs = useDialogs()
   const { status, version } = useUpdate()
 
-  const restart = async (newVersion: string) => {
-    const ok = await dialogs.confirm({ title: t('Restart to update to version {0}?', newVersion), description: 'Anti-AFK stops while the app restarts.' })
-    if (ok) await api.updateRestart().catch(notify.error)
+  // what's new in every version since this one first, then the download or the restart
+  const download = async () => {
+    if (await whatsNew('download')) await api.updateCheck(true).catch(notify.error)
+  }
+  const restart = async () => {
+    if (await whatsNew('restart')) await api.updateRestart().catch(notify.error)
   }
 
   useEffect(() => {
@@ -35,13 +37,13 @@ export function UpdatePill() {
     if (status.state === 'ready') {
       toast(t('Version {0} is ready', status.version), {
         description: t('You have version {0}. Restart the app to update, or it updates the next time it starts.', version),
-        action: { label: t('Restart'), onClick: () => void restart(status.version) },
+        action: { label: t('Restart'), onClick: () => void restart() },
         duration: 30000,
       })
     } else {
       toast(t('Version {0} is available', status.version), {
         description: t('You have version {0}, it is out of date.', version),
-        action: { label: t('Download update'), onClick: () => void api.updateCheck(true).catch(notify.error) },
+        action: { label: t('Download update'), onClick: () => void download() },
         duration: 30000,
       })
     }
@@ -49,7 +51,7 @@ export function UpdatePill() {
 
   if (status.state === 'available') {
     return (
-      <Button variant="secondary" size="sm" className="gap-2 text-sky-500" onClick={() => api.updateCheck(true).catch(notify.error)}>
+      <Button variant="secondary" size="sm" className="gap-2 text-sky-500" onClick={download}>
         <ArrowUpCircle /> {t('Update {0}', status.version)}
       </Button>
     )
@@ -64,7 +66,7 @@ export function UpdatePill() {
   }
   if (status.state === 'ready') {
     return (
-      <Button variant="secondary" size="sm" className="gap-2 text-emerald-500" onClick={() => restart(status.version)}>
+      <Button variant="secondary" size="sm" className="gap-2 text-emerald-500" onClick={restart}>
         <RotateCw /> {t('Restart to update')}
       </Button>
     )

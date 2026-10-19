@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { SettingRow } from '@/components/common/SettingRow'
+import { whatsNew } from '@/components/dialogs/WhatsNew'
 import { useUpdate } from '@/hooks/useUpdate'
 import { api } from '@/lib/api'
 import { useT } from '@/lib/i18n'
@@ -61,6 +62,8 @@ export function UpdatesSection() {
   const working = busy || status.state === 'checking' || status.state === 'downloading'
 
   const check = async () => {
+    // a download shows what's new first
+    if (status.state === 'available' && !(await whatsNew('download'))) return
     setBusy(true)
     try {
       await api.updateCheck(status.state === 'available')
@@ -75,7 +78,7 @@ export function UpdatesSection() {
     <>
       <SettingRow title={t('Version {0}', version)} hint={describe(status, t)}>
         {status.state === 'ready' ? (
-          <Button variant="secondary" onClick={() => api.updateRestart().catch(notify.error)}>
+          <Button variant="secondary" onClick={async () => (await whatsNew('restart')) && api.updateRestart().catch(notify.error)}>
             <RotateCw /> {t('Restart to update')}
           </Button>
         ) : (
@@ -86,7 +89,7 @@ export function UpdatesSection() {
       </SettingRow>
       <SettingRow title={t('Automatic updates')} hint={UPDATE_MODES[mode].hint}>
         <Select value={mode} onValueChange={(m) => changeMode(m as UpdateMode)}>
-          <SelectTrigger className="w-44">
+          <SelectTrigger className="w-52">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

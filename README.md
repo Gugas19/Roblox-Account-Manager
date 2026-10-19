@@ -61,7 +61,7 @@ the same time: they refuse to start while the other is open.
 ## Highlights
 
 ### A modern interface
-- Built with [shadcn/ui](https://ui.shadcn.com): dark by default, with Midnight, Forest and Light themes and an accent color of your choice.
+- Built with [shadcn/ui](https://ui.shadcn.com): dark by default, with more [themes](#themes) and colors of your own.
 - **Command palette** (`Ctrl+K`): find any account or action and run it from the keyboard.
 - Search (`Ctrl+F`), select all (`Ctrl+A`), join with `Enter` or a double click, remove with `Delete`.
 - **Undo** after removing accounts, and double click an alias to edit it in place.
@@ -69,6 +69,14 @@ the same time: they refuse to start while the other is open.
 - A progress bar with a cancel button while several accounts launch.
 - Drag the divider between the account list and the side panel to make either one wider (double click it to go back).
 - A guided first start, and every setting explained where you change it. Changes apply instantly, no restart.
+
+### Themes
+- Four ready-made themes, **Dark** (the default), **Midnight**, **Forest** and **Light**, one click each in the theme
+  editor (the palette button in the top right).
+- Or make your own: change the accent, background, text, cards and account list, buttons and text boxes, each with a
+  color picker. Every change shows instantly, and `Reset to the default theme` goes back to Dark.
+- Give accounts and groups a color of their own from the right click menus, to tell them apart at a glance.
+- Your theme is kept in `RAMTheme.ini`, so a theme from the original app or version 3 carries over.
 
 ### Anti-AFK built in
 Roblox kicks you after 20 minutes without input. Anti-AFK keeps every Roblox window active, without getting in your way:
@@ -98,8 +106,9 @@ right, and the whole app changes instantly.
 
 ### Updates
 The app checks the [releases](https://github.com/Gugas19/Roblox-Account-Manager/releases) when it starts and every
-6 hours and tells you when there's a new version. On the first start it asks how you want updates to arrive. **Nothing is downloaded or installed until you click**: `Update` in
-the top bar downloads it, then `Restart to update` installs it. If you'd rather have it happen by itself, choose
+30 minutes and tells you when there's a new version. On the first start it asks how you want updates to arrive. **Nothing is downloaded or installed until you click**: `Update` in
+the top bar shows what's new in every version since yours, then downloads it, and `Restart to update` installs it. It
+always goes straight to the newest version, even when yours is several behind. If you'd rather have it happen by itself, choose
 `Automatic` in `Settings` > `General` (it then installs on the next start and never restarts while you use it), or
 `Off` to never contact GitHub.
 - Every release is signed with the developer's private key, and the app checks that signature before it keeps a

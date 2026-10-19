@@ -224,6 +224,7 @@ pub fn run() {
             commands::settings::watcher_enable,
             commands::updates::update_status,
             commands::updates::update_check,
+            commands::updates::update_notes,
             commands::updates::update_restart,
         ])
         .run(tauri::generate_context!())

@@ -108,9 +108,9 @@ export function ServersTab() {
         <Button onClick={refresh} variant={busy ? 'secondary' : 'default'}>
           {busy ? <Square /> : <RefreshCw />} {t(busy ? 'Cancel' : 'Refresh')}
         </Button>
-        <Input className="w-44" value={otherPlace} onChange={(e) => setOtherPlace(e.target.value)} placeholder={t('Other Place ID (optional)')} />
-        <form className="ml-auto flex gap-2" onSubmit={(e) => { e.preventDefault(); find() }}>
-          <Input className="w-48" value={player} onChange={(e) => setPlayer(e.target.value)} placeholder={t('Find player by username')} />
+        <Input className="w-auto min-w-44 flex-1 basis-52" value={otherPlace} onChange={(e) => setOtherPlace(e.target.value)} placeholder={t('Other Place ID (optional)')} />
+        <form className="flex min-w-0 flex-1 basis-72 justify-end gap-2" onSubmit={(e) => { e.preventDefault(); find() }}>
+          <Input className="min-w-48 flex-1" value={player} onChange={(e) => setPlayer(e.target.value)} placeholder={t('Find player by username')} />
           <Button type="submit" variant="secondary" disabled={!player.trim() || busy}><Search /> {t('Search')}</Button>
         </form>
       </div>

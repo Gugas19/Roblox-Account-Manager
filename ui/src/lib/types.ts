@@ -121,6 +121,13 @@ export interface AntiAfkStatus {
 }
 
 /** The auto updater (src/services/updater.rs) */
+/** What changed in one version (its release notes, without the download and verify parts) */
+export interface ReleaseNotes {
+  version: string
+  date: string
+  text: string
+}
+
 export type UpdateStatus =
   | { state: 'idle' | 'checking' | 'upToDate' | 'disabled' }
   | { state: 'available' | 'ready'; version: string }

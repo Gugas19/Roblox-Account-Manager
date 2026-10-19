@@ -6,7 +6,7 @@
 //! - an old signed zip published as a newer version is refused too (the version is part of what's signed);
 //! - only newer versions are installed.
 //!
-//! Check on start and every 6 hours. The verified zip waits in `update\` next to the app, and is verified again
+//! Check on start and every 30 minutes. The verified zip waits in `update\` next to the app, and is verified again
 //! when it's installed: the next time the app starts, or right away with "Restart". Always the newest release: when
 //! one came out after the waiting zip was downloaded, that one is fetched instead of installing the older one first.
 //! Builds run from a cargo `target` folder (development, tests) never update themselves.
@@ -31,7 +31,9 @@ const FILES: &[&str] = &["RobloxAccountManager.exe", "ram-cli.exe"];
 const MAX_ZIP: u64 = 100 * 1024 * 1024;
 /// Per unpacked file, against zip bombs
 const MAX_FILE: u64 = 200 * 1024 * 1024;
-const CHECK_EVERY: Duration = Duration::from_secs(6 * 3600);
+const CHECK_EVERY: Duration = Duration::from_secs(30 * 60);
+/// The most versions shown in "what's new" when the app is far behind
+const MAX_NOTES: usize = 30;
 pub const SECTION: &str = "Updates";
 
 #[derive(Serialize, Clone, Debug, PartialEq, Default)]
@@ -156,13 +158,21 @@ async fn latest(http: &reqwest::Client) -> Result<Option<Release>> {
 
 /// Checks for a newer version; with `download` (or the automatic install setting) it's downloaded right away
 pub async fn check(app: &Arc<App>, download: bool) -> Status {
+    check_now(app, download, true).await
+}
+
+/// `shown`: the interface says "checking" meanwhile (not for the checks in the background, the update button
+/// would blink every half hour)
+async fn check_now(app: &Arc<App>, download: bool, shown: bool) -> Status {
     if disabled() {
         return Status::Disabled;
     }
     if matches!(status(app), Status::Checking | Status::Downloading { .. }) {
         return status(app);
     }
-    set(app, Status::Checking);
+    if shown {
+        set(app, Status::Checking);
+    }
 
     let result = async {
         let Some(release) = latest(&app.api.http).await? else {
@@ -188,6 +198,62 @@ pub async fn check(app: &Arc<App>, download: bool) -> Status {
     });
     set(app, status.clone());
     status
+}
+
+/// What changed in one version, from its release notes
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct Notes {
+    pub version: String,
+    pub date: String,
+    pub text: String,
+}
+
+/// The notes of every published version newer than this one, newest first
+pub async fn notes(app: &App) -> Result<Vec<Notes>> {
+    let releases: Value = app
+        .api
+        .http
+        .get(format!("https://api.github.com/repos/{REPO}/releases?per_page=100"))
+        .header("User-Agent", user_agent())
+        .header("Accept", "application/vnd.github+json")
+        .timeout(Duration::from_secs(30))
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+    Ok(notes_since(&releases, current_version()))
+}
+
+fn notes_since(releases: &Value, current: Version) -> Vec<Notes> {
+    let mut list: Vec<(Version, Notes)> = releases
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|r| !r["draft"].as_bool().unwrap_or(true) && !r["prerelease"].as_bool().unwrap_or(false))
+        .filter_map(|r| {
+            let version = r["tag_name"].as_str().and_then(parse_version).filter(|v| *v > current)?;
+            let date = r["published_at"].as_str().unwrap_or_default().chars().take(10).collect();
+            Some((version, Notes { version: version_text(version), date, text: whats_new(r["body"].as_str().unwrap_or_default()) }))
+        })
+        .collect();
+    list.sort_by_key(|(v, _)| std::cmp::Reverse(*v));
+    list.into_iter().take(MAX_NOTES).map(|(_, n)| n).collect()
+}
+
+/// A release's notes without the parts about downloading and checking the files, which the app does itself
+fn whats_new(body: &str) -> String {
+    let mut keep = true;
+    let mut lines = Vec::new();
+    for line in body.lines() {
+        if let Some(heading) = line.strip_prefix("## ") {
+            keep = !["download", "verify", "updating"].contains(&heading.trim().to_lowercase().as_str());
+        }
+        if keep {
+            lines.push(line.trim_end());
+        }
+    }
+    lines.join("\n").trim().to_string()
 }
 
 /// Downloads the zip and its signature, checks them, keeps them in `update\` for the next start
@@ -394,7 +460,7 @@ pub async fn restart(app: &Arc<App>) -> Result<()> {
     Ok(())
 }
 
-/// Checks right after start (once the window is up), then every 6 hours, when automatic checks are on
+/// Checks right after start (once the window is up), then every 30 minutes, when automatic checks are on
 pub fn spawn(app: Arc<App>) {
     if disabled() {
         return;
@@ -406,7 +472,7 @@ pub fn spawn(app: Arc<App>) {
         }
         loop {
             if app.setting_bool(SECTION, "Check") {
-                check(&app, false).await;
+                check_now(&app, false, false).await;
             }
             tokio::time::sleep(CHECK_EVERY).await;
         }
@@ -417,6 +483,23 @@ pub fn spawn(app: Arc<App>) {
 mod tests {
     use super::*;
     use ed25519_dalek::{Signer, SigningKey};
+
+    #[test]
+    fn notes_of_each_newer_version_newest_first() {
+        let releases = serde_json::json!([
+            { "tag_name": "v4.1.12", "draft": false, "prerelease": false, "published_at": "2026-10-16T10:00:00Z",
+              "body": "## What's new\r\n\r\n- **B**\r\n\r\n## Download\r\n\r\n- zip\r\n\r\n## Verify\r\n\r\n| File |" },
+            { "tag_name": "v4.1.13", "draft": true, "prerelease": false, "body": "draft" },
+            { "tag_name": "v4.1.11", "draft": false, "prerelease": false, "published_at": "2026-10-15T10:00:00Z",
+              "body": "## Changes\n\n- A\n\n## Updating\n\nextract the zip" },
+            { "tag_name": "v4.1.10", "draft": false, "prerelease": false, "body": "the current one" },
+        ]);
+        let notes = notes_since(&releases, (4, 1, 10));
+        assert_eq!(notes.iter().map(|n| n.version.as_str()).collect::<Vec<_>>(), ["4.1.12", "4.1.11"]);
+        assert_eq!(notes[0].text, "## What's new\n\n- **B**");
+        assert_eq!(notes[0].date, "2026-10-16");
+        assert_eq!(notes[1].text, "## Changes\n\n- A");
+    }
 
     #[test]
     fn versions() {

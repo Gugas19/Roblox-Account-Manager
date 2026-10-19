@@ -7,6 +7,7 @@ import { AccountList } from '@/components/accounts/AccountList'
 import { AntiAfkDialog } from '@/components/antiafk/AntiAfkDialog'
 import { AccountUtilsDialog } from '@/components/dialogs/AccountUtilsDialog'
 import { DialogHost } from '@/components/dialogs/DialogHost'
+import { WhatsNewHost } from '@/components/dialogs/WhatsNew'
 import { FieldsDialog } from '@/components/dialogs/FieldsDialog'
 import { ImportDialog } from '@/components/dialogs/ImportDialog'
 import { CommandPalette } from '@/components/layout/CommandPalette'
@@ -162,6 +163,7 @@ export default function App({ boot }: { boot: Bootstrap }) {
         <TooltipProvider delayDuration={400}>
           <DialogHost>
             <Gate boot={boot} />
+            <WhatsNewHost />
             <Toaster position="bottom-right" richColors closeButton />
           </DialogHost>
         </TooltipProvider>

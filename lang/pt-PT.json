@@ -266,7 +266,7 @@
   "It stops": "Para",
   "Javascript": "Javascript",
   "Job ID": "ID do servidor",
-  "Job ID or VIP link": "ID do servidor ou link VIP",
+  "Job ID or VIP link": "ID ou link VIP",
   "Join": "Entrar",
   "Join Group": "Entrar no grupo",
   "Join Server": "Entrar no servidor",
@@ -610,5 +610,10 @@
   "{0} of {1} accounts": "{0} de {1} contas",
   "{0} rejoined place {1}": "{0} voltou a entrar no lugar {1}",
   "{0} selected": "{0} selecionadas",
-  "{0} · Roblox windows: {1}": "{0} · Janelas do Roblox: {1}"
+  "{0} · Roblox windows: {1}": "{0} · Janelas do Roblox: {1}",
+  "What's new": "Novidades",
+  "{0} new versions since yours": "{0} versões novas desde a tua",
+  "Changes in the new version": "Alterações na nova versão",
+  "Couldn't get the release notes, you can still update.": "Não foi possível obter as notas da versão, mas podes atualizar na mesma.",
+  "Later": "Mais tarde"
 }

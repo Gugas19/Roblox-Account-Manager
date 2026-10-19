@@ -2,7 +2,7 @@
 // Clicks and keys are sent to the page itself, never to the real mouse or keyboard, so nothing else on the
 // desktop is touched. Runs a copy of the build in target/test-run/ui with made-up demo accounts.
 //
-//   node tests/ui.mjs [--release] [--screenshots <folder>] [--readme] [--keep]
+//   node tests/ui.mjs [--release] [--screenshots <folder>] [--readme] [--keep] [--only <part of a test name>]
 //
 // --readme copies the screenshots the README uses into Images/ once every test passed.
 
@@ -137,7 +137,8 @@ async function menuItem(target, targetSelector, item) {
   throw new Error(`the menu of "${target}" never showed "${item}"`)
 }
 
-/** Menus and dialogs animate for 100 ms: after an action, a short settle before the next one */const SETTLE = 150
+/** Menus and dialogs animate for 100 ms: after an action, a short settle before the next one */
+const SETTLE = 150
 
 /** Waits (up to 3 s) for the element to show up, so no test needs a long fixed pause before a click */
 async function findSoon(text, selector) {
@@ -177,6 +178,8 @@ const rows = () => evaluate("[...document.querySelectorAll('[role=row]')].map(r 
 // ---------- tests ----------
 const results = []
 async function test(name, body) {
+  // --only <words>: just the tests whose name has them
+  if (args.includes('--only') && !name.includes(args[args.indexOf('--only') + 1])) return
   try {
     await body()
     results.push({ name, ok: true })
@@ -214,6 +217,73 @@ async function checkCursors(selector) {
     })
     .filter(Boolean))()`)
   assert(wrong.length === 0, `wrong cursor: ${wrong.join(' | ')}`)
+}
+
+/** Texts that don't fit: cut by their own box or by a box around them, sticking out of the window, or a placeholder
+ *  longer than its input. Account rows are left out (long names are cut on purpose). */
+const CUT_OFF = `(() => {
+  const out = new Set()
+  const measure = document.createElement('canvas').getContext('2d')
+  const shown = (e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden' }
+  const name = (e) => (e.innerText || '').trim().split('\\n')[0].slice(0, 70)
+  for (const e of document.querySelectorAll('body *')) {
+    if (!shown(e) || e.closest('[role=row], textarea, pre, [data-sonner-toaster], .sr-only')) continue
+    if (![...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) continue
+    const style = getComputedStyle(e)
+    if (style.display === 'inline' || /auto|scroll/.test(style.overflowX)) continue
+    const r = e.getBoundingClientRect()
+    if (e.scrollWidth > e.clientWidth + 1 || r.right > innerWidth + 1) {
+      out.add(name(e))
+      continue
+    }
+    for (let a = e.parentElement; a && a !== document.body; a = a.parentElement) {
+      if (getComputedStyle(a).overflowX === 'visible') continue
+      const box = a.getBoundingClientRect()
+      if (r.right > box.right + 1 || r.left < box.left - 1) out.add(name(e))
+      break
+    }
+  }
+  for (const i of document.querySelectorAll('input')) {
+    if (!shown(i) || i.value || !i.placeholder) continue
+    const style = getComputedStyle(i)
+    measure.font = style.font
+    const room = i.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+    if (measure.measureText(i.placeholder).width > room + 1) out.add('placeholder: ' + i.placeholder)
+  }
+  return [...out]
+})()`
+
+/** Buttons, boxes and text areas of the main window drawn over each other */
+const OVERLAPS = `(() => {
+  const shown = (e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 }
+  const items = [...document.querySelectorAll('header button, header input, main button, main input, main textarea, aside button, aside input, aside textarea')]
+    .filter((e) => shown(e) && !e.closest('[role=row]'))
+  const out = []
+  for (let i = 0; i < items.length; i++) {
+    for (let j = i + 1; j < items.length; j++) {
+      const [a, b] = [items[i], items[j]]
+      if (a.contains(b) || b.contains(a)) continue
+      const [r, q] = [a.getBoundingClientRect(), b.getBoundingClientRect()]
+      if (Math.min(r.right, q.right) - Math.max(r.left, q.left) > 1 && Math.min(r.bottom, q.bottom) - Math.max(r.top, q.top) > 1) {
+        const name = (e) => (e.innerText || e.placeholder || e.getAttribute('aria-label') || e.tagName).trim().split('\\n')[0]
+        out.push('overlap: ' + name(a) + ' / ' + name(b))
+      }
+    }
+  }
+  return out
+})()`
+
+/** Clicks every tab of the open window in turn, checking each one */
+async function eachTab(check) {
+  const count = await evaluate(`document.querySelectorAll('[role=tab]').length`)
+  for (let i = 0; i < count; i++) {
+    const p = await evaluate(`(() => { const r = document.querySelectorAll('[role=tab]')[${i}].getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } })()`)
+    await mouse('mouseMoved', p.x, p.y)
+    await mouse('mousePressed', p.x, p.y)
+    await mouse('mouseReleased', p.x, p.y)
+    await sleep(SETTLE)
+    await check(await evaluate(`document.querySelectorAll('[role=tab]')[${i}].innerText.trim()`))
+  }
 }
 
 function assert(condition, message) {
@@ -265,9 +335,35 @@ async function main() {
       await checkCursors('button, [role=row]')
       await click('MainAccount', '[role=row]')
       await checkCursors('button, [role=row]')
-      const disabled = await evaluate(`[...document.querySelectorAll('button')].find(b => b.innerText.includes('Remove')).disabled`)
+      const disabled = await evaluate(`[...document.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === 'Remove').disabled`)
       assert(!disabled, 'Remove still disabled')
       assert((await evaluate(`document.querySelector('input[placeholder="Alias"]').value`)) === 'Main', 'alias box')
+    })
+
+    await test('alias and description save by themselves, even when another account is chosen right away', async () => {
+      const account = (name) => JSON.parse(fs.readFileSync(path.join(work, 'AccountData.json'), 'utf8')).find((a) => a.Username === name)
+      const type = (selector, value) => evaluate(`(() => {
+        const e = document.querySelector(${JSON.stringify(selector)})
+        const proto = e.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
+        Object.getOwnPropertyDescriptor(proto, 'value').set.call(e, ${JSON.stringify(value)})
+        e.dispatchEvent(new Event('input', { bubbles: true }))
+      })()`)
+      assert(!(await find('Set Alias', 'button')) && !(await find('Set Description', 'button')), 'save buttons still there')
+      await click('BuilderAccount', '[role=row]')
+      await type('input[placeholder="Alias"]', 'Builder 2')
+      await until(async () => account('BuilderAccount')?.Alias === 'Builder 2', `alias not saved: ${account('BuilderAccount')?.Alias}`)
+      assert(await evaluate(`!!document.querySelector('[data-testid=saved]')`), 'no "Saved" sign')
+      // typed, then straight to another account: it goes to the account it was typed for
+      await type('textarea[placeholder="Description"]', 'builds things')
+      await click('MainAccount', '[role=row]')
+      await until(async () => account('BuilderAccount')?.Description === 'builds things', `description not saved: ${account('BuilderAccount')?.Description}`)
+      assert(account('MainAccount')?.Description === 'Main account', 'saved into the wrong account')
+      assert((await evaluate(`document.querySelector('input[placeholder="Alias"]').value`)) === 'Main', 'the alias box did not follow the selection')
+      await click('BuilderAccount', '[role=row]')
+      await type('input[placeholder="Alias"]', 'Builder')
+      await type('textarea[placeholder="Description"]', '')
+      await until(async () => account('BuilderAccount')?.Alias === 'Builder' && account('BuilderAccount')?.Description === '', 'not put back')
+      await click('MainAccount', '[role=row]')
     })
 
     await test('each account keeps its own game, or the same for all', async () => {
@@ -560,6 +656,55 @@ async function main() {
       assert((await text()).includes('Change Password'), 'not open')
       await shot('account-utilities')
       await key('Escape')
+    })
+
+    await test('nothing is cut off or drawn over something else, in any language, at the default and the smallest window size', async () => {
+      const cut = []
+      // each text once, where it was first seen (the main window stays behind the open ones)
+      const seen = new Set()
+      const look = async (where) => {
+        for (const c of await evaluate(CUT_OFF)) {
+          if (seen.has(c)) continue
+          seen.add(c)
+          cut.push(`${where}: ${c}`)
+        }
+      }
+      const languages = [['en', 'EN', 'English'], ['pt-PT', 'PT', 'Português (Portugal)'], ['es', 'ES', 'Español'], ['fr', 'FR', 'Français'], ['de', 'DE', 'Deutsch']]
+      let current = 'EN'
+      try {
+        for (const [code, flag, name] of languages) {
+          await click(current, 'button')
+          await click(name, '[role=menuitem]')
+          current = flag
+          const table = code === 'en' ? {} : JSON.parse(fs.readFileSync(path.join(root, 'lang', `${code}.json`), 'utf8'))
+          const tr = (s) => table[s] ?? s
+          await until(async () => (await text()).includes(tr('Add Account')), `${name} not shown`)
+          await click('MainAccount', '[role=row]')
+          await look(`${code} main`)
+          for (const o of await evaluate(OVERLAPS)) cut.push(`${code} main: ${o}`)
+          await call('Emulation.setDeviceMetricsOverride', { width: 900, height: 560, deviceScaleFactor: 1, mobile: false })
+          await sleep(SETTLE)
+          await look(`${code} main at 900px`)
+          for (const o of await evaluate(OVERLAPS)) cut.push(`${code} main at 900px: ${o}`)
+          if (code === 'de') await shot('main-de-900')
+          await call('Emulation.clearDeviceMetricsOverride')
+          await sleep(SETTLE)
+          for (const [button, selector] of [[tr('Settings'), 'button'], ['Anti-AFK', 'button'], [tr('Utilities'), 'button'], [tr('Account Utilities'), 'button'], [tr('Theme Editor'), 'button']]) {
+            await click(button, selector)
+            const tabs = await evaluate(`document.querySelectorAll('[role=tab]').length`)
+            if (tabs) await eachTab((tab) => look(`${code} ${button} > ${tab}`))
+            else await look(`${code} ${button}`)
+            await key('Escape')
+          }
+        }
+      } finally {
+        await call('Emulation.clearDeviceMetricsOverride')
+        if (current !== 'EN') {
+          await click(current, 'button')
+          await click('English', '[role=menuitem]')
+        }
+      }
+      assert(cut.length === 0, `cut off:\n        ${cut.join('\n        ')}`)
     })
 
     await test('language switch is instant', async () => {
