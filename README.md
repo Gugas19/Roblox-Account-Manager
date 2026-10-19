@@ -107,7 +107,7 @@ right, and the whole app changes instantly.
 ### Updates
 The app checks the [releases](https://github.com/Gugas19/Roblox-Account-Manager/releases) when it starts and every
 30 minutes and tells you when there's a new version. On the first start it asks how you want updates to arrive. **Nothing is downloaded or installed until you click**: `Update` in
-the top bar shows what's new in every version since yours, then downloads it, and `Restart to update` installs it. It
+the top bar shows what's new in every version since yours (in the app's language), then downloads it, and `Restart to update` installs it. It
 always goes straight to the newest version, even when yours is several behind. If you'd rather have it happen by itself, choose
 `Automatic` in `Settings` > `General` (it then installs on the next start and never restarts while you use it), or
 `Off` to never contact GitHub.
@@ -265,7 +265,9 @@ pwsh -File tools\publish.ps1 -Notes notes.md      # GitHub builds it, then it's 
 GitHub from that commit, attests where they were built, and leaves a draft (the updater doesn't see drafts). The
 script then checks the attestations, signs the zip for the updater with the private key, which stays in
 `%USERPROFILE%\.roblox-account-manager\` and never goes to GitHub, uploads the `.sig` and publishes the release with
-the notes, how to verify the files and their SHA-256. Installed apps only accept updates signed with that key.
+the notes, how to verify the files and their SHA-256. Translations of the notes, saved next to it as `notes.pt-PT.md`,
+`notes.es.md`, `notes.fr.md` and `notes.de.md`, are attached to the release, and the app shows the one in its
+language. Installed apps only accept updates signed with that key.
 
 Every push is also built and unit tested on GitHub ([CI](.github/workflows/ci.yml)), without any secret.
 

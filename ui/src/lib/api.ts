@@ -110,7 +110,7 @@ export const api = {
   antiAfkDeletePastStats: (id: number) => call<PastStats[]>('antiafk_delete_past_stats', { id }),
   updateStatus: () => call<{ status: UpdateStatus; version: string }>('update_status'),
   updateCheck: (download: boolean) => call<UpdateStatus>('update_check', { download }),
-  updateNotes: (recent = false) => call<ReleaseNotes[]>('update_notes', { recent }),
+  updateNotes: (recent: boolean, language: string) => call<ReleaseNotes[]>('update_notes', { recent, language }),
   updateRestart: () => call<void>('update_restart'),
 
   // settings

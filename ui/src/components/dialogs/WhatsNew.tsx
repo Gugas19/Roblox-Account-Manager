@@ -1,12 +1,12 @@
 /** "What's new" before updating: the notes of every version since this one (several when the app is far behind),
  *  then the download or the restart. whatsNew() resolves true when the person goes ahead. */
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { api } from '@/lib/api'
 import type { ReleaseNotes } from '@/lib/types'
-import { useT } from '@/lib/i18n'
+import { useI18n } from '@/lib/i18n'
 
 /** before a download or a restart, or just reading the latest versions' notes */
 type Step = 'download' | 'restart' | 'read'
@@ -16,10 +16,11 @@ let show: ((step: Step) => Promise<boolean>) | null = null
 /** Opens the notes; without the dialog mounted it just goes ahead */
 export const whatsNew = (step: Step) => (show ? show(step) : Promise.resolve(true))
 
-/** **bold**, `code` and [links](…) (as their text) inside a line */
+/** **bold**, *italic*, `code` and [links](…) (as their text) inside a line */
 function inline(text: string): ReactNode[] {
-  return text.split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g).map((part, i) => {
+  return text.split(/(\*\*[^*]+\*\*|\*[^*\s][^*]*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g).map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**')) return <strong key={i} className="font-medium text-foreground">{part.slice(2, -2)}</strong>
+    if (part.length > 2 && part.startsWith('*') && part.endsWith('*')) return <em key={i}>{part.slice(1, -1)}</em>
     if (part.startsWith('`') && part.endsWith('`')) return <code key={i} className="rounded bg-muted px-1 font-mono text-xs">{part.slice(1, -1)}</code>
     const link = /^\[([^\]]+)\]\([^)]+\)$/.exec(part)
     return link ? link[1] : part
@@ -57,11 +58,16 @@ function Markdown({ text }: { text: string }) {
 }
 
 export function WhatsNewHost() {
-  const t = useT()
+  const { t, language } = useI18n()
+  const day = (date: string) => (date ? new Date(`${date}T12:00:00Z`).toLocaleDateString(language, { day: 'numeric', month: 'long', year: 'numeric' }) : '')
   const [step, setStep] = useState<Step | null>(null)
   const [notes, setNotes] = useState<ReleaseNotes[] | null>(null)
   const [failed, setFailed] = useState(false)
   const [resolve, setResolve] = useState<((ok: boolean) => void) | null>(null)
+
+  // the language when the dialog opens (show is set up once)
+  const languageRef = useRef(language)
+  languageRef.current = language
 
   useEffect(() => {
     show = (s) =>
@@ -70,7 +76,7 @@ export function WhatsNewHost() {
         setNotes(null)
         setFailed(false)
         setResolve(() => done)
-        api.updateNotes(s === 'read').then(setNotes, () => setFailed(true))
+        api.updateNotes(s === 'read', languageRef.current).then(setNotes, () => setFailed(true))
       })
     return () => {
       show = null
@@ -90,7 +96,7 @@ export function WhatsNewHost() {
           <DialogTitle>{t("What's new")}</DialogTitle>
           <DialogDescription>
             {step === 'read' ? t('The latest versions') : notes && notes.length > 1 ? t('{0} new versions since yours', notes.length) : t('Changes in the new version')}
-            {step === 'restart' && <> {t('Anti-AFK stops while the app restarts.')}</>}
+            {step === 'restart' && <span className="block">{t('Anti-AFK stops while the app restarts.')}</span>}
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-[55vh] overflow-y-auto pr-3">
@@ -100,7 +106,7 @@ export function WhatsNewHost() {
             {notes?.map((n) => (
               <section key={n.version} className="space-y-2">
                 <h3 className="text-sm font-semibold">
-                  {t('Version {0}', n.version)} <span className="font-normal text-muted-foreground">{n.date}</span>
+                  {t('Version {0}', n.version)} <span className="font-normal text-muted-foreground">{day(n.date)}</span>
                 </h3>
                 <Markdown text={n.text} />
               </section>

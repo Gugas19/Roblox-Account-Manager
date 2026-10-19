@@ -1,6 +1,6 @@
 [package]
 name = "roblox-account-manager"
-version = "4.1.24"
+version = "4.1.25"
 description = "Roblox Account Manager"
 license = "GPL-3.0-only"
 edition = "2021"

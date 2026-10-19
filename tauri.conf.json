@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Roblox Account Manager",
-  "version": "4.1.24",
+  "version": "4.1.25",
   "identifier": "com.gugas19.robloxaccountmanager",
   "build": {
     "frontendDist": "ui/dist",

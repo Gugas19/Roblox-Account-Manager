@@ -16,8 +16,8 @@ pub async fn update_check(download: bool) -> Status {
 
 /// What changed in each version newer than this one, shown before updating
 #[tauri::command]
-pub async fn update_notes(recent: bool) -> R<Vec<updater::Notes>> {
-    updater::notes(&app(), recent).await.map_err(e)
+pub async fn update_notes(recent: bool, language: String) -> R<Vec<updater::Notes>> {
+    updater::notes(&app(), recent, &language).await.map_err(e)
 }
 
 #[tauri::command]
