@@ -12,6 +12,7 @@ import { WhatsNewHost } from '@/components/dialogs/WhatsNew'
 import { FieldsDialog } from '@/components/dialogs/FieldsDialog'
 import { ImportDialog } from '@/components/dialogs/ImportDialog'
 import { CommandPalette } from '@/components/layout/CommandPalette'
+import { FriendsPage } from '@/components/friends/FriendsPage'
 import { HistoryPage } from '@/components/history/HistoryPage'
 import { InstancesPage } from '@/components/instances/InstancesPage'
 import { NavRail } from '@/components/layout/NavRail'
@@ -148,6 +149,8 @@ function Main() {
           </>
         ) : page === 'instances' ? (
           <InstancesPage />
+        ) : page === 'friends' ? (
+          <FriendsPage />
         ) : page === 'games' ? (
           <GamesPage />
         ) : page === 'avatar' ? (

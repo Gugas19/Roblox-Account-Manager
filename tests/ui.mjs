@@ -721,6 +721,18 @@ async function main() {
       await key('Escape')
     })
 
+    await test('Friends: an account, its friends and requests (made-up accounts: Roblox refuses them, the page says so)', async () => {
+      await click('Friends', 'button')
+      assert((await text()).includes("An account's friends"), 'no Friends page')
+      // the made-up cookies get nothing from Roblox: the page ends empty, not stuck loading
+      await until(async () => !(await text()).includes('Loading…'), 'still loading', 20000)
+      assert((await text()).includes('No friends yet'), 'no empty state')
+      assert(await find('In game', 'button') && await find('Offline', 'button'), 'no status filters')
+      await click('Requests', '[role=tab]')
+      await until(async () => (await text()).includes('No friend requests'), 'no empty requests state')
+      await key('Escape')
+    })
+
     await test('History shows the events by day, filters by account and clears', async () => {
       const events = () => evaluate(`[...document.querySelectorAll('[data-testid=history-event]')].map((e) => e.innerText.replace(/\\s+/g, ' ')).join(' | ')`)
       await click('History', 'button')
@@ -805,7 +817,7 @@ async function main() {
           if (code === 'de') await shot('main-de-900')
           await call('Emulation.clearDeviceMetricsOverride')
           await sleep(SETTLE)
-          for (const [button, selector] of [[tr('Settings'), 'button'], ['Anti-AFK', 'button'], [tr('Instances'), 'button'], [tr('Games'), 'button'], [tr('Avatar'), 'button'], [tr('History'), 'button'], [tr('Account Utilities'), 'button']]) {
+          for (const [button, selector] of [[tr('Settings'), 'button'], ['Anti-AFK', 'button'], [tr('Instances'), 'button'], [tr('Friends'), 'button'], [tr('Games'), 'button'], [tr('Avatar'), 'button'], [tr('History'), 'button'], [tr('Account Utilities'), 'button']]) {
             await click(button, selector)
             const tabs = await evaluate(`document.querySelectorAll('[role=tab]').length`)
             if (tabs) await eachTab((tab) => look(`${code} ${button} > ${tab}`))

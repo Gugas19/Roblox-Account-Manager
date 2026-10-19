@@ -1,6 +1,6 @@
 /** The navigation rail on the left: one icon per page, Settings at the bottom */
 
-import { Gamepad2, History, MonitorPlay, Settings, Shirt, ShieldCheck, Users, type LucideIcon } from 'lucide-react'
+import { Gamepad2, Handshake, History, MonitorPlay, Settings, Shirt, ShieldCheck, Users, type LucideIcon } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useT } from '@/lib/i18n'
 import { useStore, type Page } from '@/lib/store'
@@ -8,6 +8,7 @@ import { useStore, type Page } from '@/lib/store'
 const PAGES: [Page, string, LucideIcon][] = [
   ['accounts', 'Accounts', Users],
   ['instances', 'Instances', MonitorPlay],
+  ['friends', 'Friends', Handshake],
   ['games', 'Games', Gamepad2],
   ['avatar', 'Avatar', Shirt],
   ['antiafk', 'Anti-AFK', ShieldCheck],

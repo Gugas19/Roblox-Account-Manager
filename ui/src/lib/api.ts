@@ -2,7 +2,7 @@
 
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
-import type { Account, AntiAfkStatus, Bootstrap, Favorite, Game, HistoryEvent, JoinResult, LoadState, MissingAsset, Outfit, PastStats, ReleaseNotes, Settings, Theme, UpdateStatus } from './types'
+import type { Account, AntiAfkStatus, Bootstrap, Favorite, Friend, Game, HistoryEvent, JoinResult, LoadState, MissingAsset, Outfit, PastStats, ReleaseNotes, Settings, Theme, UpdateStatus, Visibility } from './types'
 
 /** Errors from Rust arrive as plain strings */
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
@@ -110,6 +110,12 @@ export const api = {
   antiAfkDeletePastStats: (id: number) => call<PastStats[]>('antiafk_delete_past_stats', { id }),
   updateStatus: () => call<{ status: UpdateStatus; version: string }>('update_status'),
   updateCheck: (download: boolean) => call<UpdateStatus>('update_check', { download }),
+  checkPrivateLink: (link: string) => call<boolean>('check_private_link', { link }),
+  friendsList: (name: string) => call<Friend[]>('friends_list', { name }),
+  friendRequests: (name: string) => call<Friend[]>('friend_requests', { name }),
+  friendAct: (name: string, target: number, action: 'accept' | 'decline' | 'remove') => call<void>('friend_act', { name, target, action }),
+  visibilityGet: (name: string) => call<Visibility[]>('visibility_get', { name }),
+  visibilitySet: (names: string[], field: string, value: string) => call<[string, string | null][]>('visibility_set', { names, field, value }),
   historyList: () => call<HistoryEvent[]>('history_list'),
   historyClear: () => call<void>('history_clear'),
   historyExport: (accounts: string[]) => call<string | null>('history_export', { accounts }),

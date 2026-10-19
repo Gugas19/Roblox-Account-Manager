@@ -90,6 +90,19 @@ pub fn favorites() -> Vec<Value> {
         .collect()
 }
 
+/// Whether a private server share link still opens a server, asked with any working account
+#[tauri::command]
+pub async fn check_private_link(link: String) -> R<bool> {
+    let code = crate::roblox::server_share_code(&link).ok_or("Only share links (roblox.com/share?code=…) can be checked")?;
+    let app = app();
+    let accounts = app.store.lock().unwrap().accounts.clone();
+    for a in accounts.iter().filter(|a| a.valid) {
+        let Ok(csrf) = app.csrf(a).await else { continue };
+        return app.api.resolve_server_share_link(&a.security_token, &csrf, &code).await.map(|r| r.is_some()).map_err(e);
+    }
+    Err("No working account to ask Roblox with".into())
+}
+
 #[tauri::command]
 pub async fn add_favorite(place: String, job: String, name: Option<String>) -> R<()> {
     let app = app();

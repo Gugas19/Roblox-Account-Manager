@@ -128,6 +128,25 @@ export interface AntiAfkStatus {
 }
 
 /** The auto updater (src/services/updater.rs) */
+/** A friend (or a friend request) of an account: 0 offline, 1 online, 2 in a game, 3 in Studio */
+export interface Friend {
+  id: number
+  name: string
+  displayName: string
+  kind: number
+  placeId?: number | null
+  jobId?: string | null
+  location?: string | null
+  avatar?: string | null
+}
+
+/** Who can join an account / see it online: now, and the values Roblox allows it */
+export interface Visibility {
+  field: string
+  current: string
+  options: string[]
+}
+
 /** One event of the session history (src/services/history.rs) */
 export interface HistoryEvent {
   /** seconds since 1970 */

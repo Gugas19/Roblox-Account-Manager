@@ -1,6 +1,6 @@
 /** Games search, favorites and universes: all show game tiles that put their place in the main window */
 
-import { ClipboardCopy, Loader2, Pencil, Play, Search, Star, Trash2 } from 'lucide-react'
+import { ClipboardCopy, Link2, Loader2, Lock, Pencil, Play, Search, Star, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -122,7 +122,21 @@ export function FavoritesTab() {
           onPick={(g) => pick(g, (g as Favorite).privateServer)}
           extra={(g) => {
             const f = g as Favorite
+            const checkLink = async () => {
+              try {
+                if (await api.checkPrivateLink(f.privateServer)) notify.success('The link works')
+                else notify.error("The link doesn't work anymore, ask for a new one")
+              } catch (e) {
+                notify.error(e)
+              }
+            }
             return (
+              <>
+              {f.privateServer && (
+                <span className="text-muted-foreground" title={t('Private server')} aria-label={t('Private server')}>
+                  <Lock className="size-3.5" />
+                </span>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button size="icon-sm" variant="ghost" onClick={(e) => e.stopPropagation()} aria-label={t('More')}>⋯</Button>
@@ -131,9 +145,11 @@ export function FavoritesTab() {
                   <DropdownMenuItem onClick={() => join(f)}><Play /> {t('Join')}</DropdownMenuItem>
                   <DropdownMenuItem onClick={async () => { const name = await dialogs.prompt({ title: 'Rename', label: 'Name', defaultValue: f.name }); if (name) { try { await api.renameFavorite(f.index, name); await reload() } catch (e) { notify.error(e) } } }}><Pencil /> {t('Rename')}</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => { navigator.clipboard.writeText(String(f.placeId)); notify.success('Copied') }}><ClipboardCopy /> {t('Copy PlaceID')}</DropdownMenuItem>
+                  {/share/i.test(f.privateServer) && <DropdownMenuItem onClick={checkLink}><Link2 /> {t('Check the link')}</DropdownMenuItem>}
                   <DropdownMenuItem className="text-destructive" onClick={async () => { if (await dialogs.confirm({ title: 'Remove Favorite', description: 'Are you sure?', destructive: true })) { try { await api.removeFavorite(f.index); await reload() } catch (e) { notify.error(e) } } }}><Trash2 /> {t('Remove')}</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              </>
             )
           }}
         />

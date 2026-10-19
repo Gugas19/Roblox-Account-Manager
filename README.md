@@ -62,7 +62,7 @@ the same time: they refuse to start while the other is open.
 
 ### A modern interface
 - Built with [shadcn/ui](https://ui.shadcn.com): dark by default, with more [themes](#themes) and colors of your own.
-- A **navigation rail** on the left: `Accounts`, `Instances`, `Games`, `Avatar`, `Anti-AFK`, `History` and `Settings`, each a page of its own (`Esc` goes back to the accounts).
+- A **navigation rail** on the left: `Accounts`, `Instances`, `Friends`, `Games`, `Avatar`, `Anti-AFK`, `History` and `Settings`, each a page of its own (`Esc` goes back to the accounts).
 - **Command palette** (`Ctrl+K`): find any account, action or page and run it from the keyboard.
 - Search (`Ctrl+F`), select all (`Ctrl+A`), join with `Enter` or a double click, remove with `Delete`.
 - **Undo** after removing accounts, and double click an alias to edit it in place.
@@ -376,6 +376,7 @@ The account needs *Who can invite me to private servers* set to Everyone in its 
 | Command Palette | Any account or action from the keyboard | `Ctrl+K` |
 | Languages | English, Português (Portugal), Español, Français, Deutsch | Click the flag button in the top right |
 | Instances | Every Roblox open on this PC with its account, game and server: bring one to the front, close it, send the selected accounts to its server (a private one too), choose which ones Anti-AFK keeps active | The `Instances` page |
+| Friends | An account's friends and where they are (join one in a click), its friend requests (accept, decline), and who can see it online or join it | The `Friends` page |
 | Session history | Games and servers joined, lost connections, rejoins and presence changes of each account, by day, filtered by account, exported as CSV (kept on this PC only, can be turned off) | The `History` page |
 | Roblox home | Open the Roblox app signed in as the account, without a game | The arrow next to `Join Server`, or right click an account |
 | Follow a player | The selected accounts join the server a player is in | The arrow next to `Join Server` > `Follow a player` |
@@ -392,7 +393,7 @@ The account needs *Who can invite me to private servers* set to Everyone in its 
 | Account Grouping | Put accounts in groups, drag them between groups, rename a group | Right click an account, `Groups`, `Move Account To`; right click a group's header to rename it |
 | Group Sorting | Order groups by giving them a number | Name a group with a number from 0-999 in front (ex. `1Main`, `007 Bank`), the number is hidden afterwards |
 | Games List | Search Roblox games | `Games` > `Games` |
-| Favorite Games | Keep the games you play close | `Games` > `Favorites` |
+| Favorite Games | Keep the games you play close, a private server too (a lock shows it; `Check the link` asks Roblox whether a share link still works) | `Games` > `Favorites` |
 | Recent Games | The games you joined last | The clock icon above `Place ID`, or type the game's name into `Place ID` |
 | Game Links | Paste a game or private server link (old or `share?code=` links) | The Place ID and the private server are taken from the link |
 | Open Browser | A browser logged in as the selected account | Click `Open Browser` with an account selected |
