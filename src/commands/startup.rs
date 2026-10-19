@@ -58,6 +58,19 @@ pub(super) fn start_background(app: Arc<App>) {
             }
         });
 
+        // Settings > General > When the app starts: an account joins a game, once
+        let a = app.clone();
+        tauri::async_runtime::spawn(async move {
+            let (name, place) = (a.setting("General", "StartupAccount"), a.setting("General", "StartupPlace"));
+            let (Some(account), Ok(place_id)) = (a.account(&name), place.trim().parse::<i64>()) else { return };
+            tokio::time::sleep(Duration::from_secs(3)).await;
+            log::info!("{} joins place {place_id}, as set for when the app starts", account.username);
+            let opts = JoinOptions { place_id, privacy_ok: true, ..a.join_options() };
+            if let JoinResult::Error(message) = super::joining::join_one(&a, &account, opts).await {
+                a.toast("error", format!("{}: {}", account.username, a.tr(&message)));
+            }
+        });
+
         let a = app;
         tauri::async_runtime::spawn(async move {
             loop {

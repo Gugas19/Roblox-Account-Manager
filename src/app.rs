@@ -117,6 +117,15 @@ pub struct AccountView {
     /// its own frame rate limit
     /// the CPU limit of its Roblox window, percent of the PC
     pub cpu_limit: Option<u32>,
+    /// its tags (several, besides its group)
+    pub tags: Vec<String>,
+    /// pinned to the top of its group
+    pub pinned: bool,
+}
+
+/// An account's tags, kept in its "Tags" field as a JSON list
+pub fn tags_of(account: &Account) -> Vec<String> {
+    serde_json::from_str(account.field("Tags")).unwrap_or_default()
 }
 
 /// A color as the app keeps it: "#rrggbb", anything else is refused
@@ -173,6 +182,8 @@ impl App {
                 color: valid_color(a.field("Color")),
                 group_color: group_colors.get(&a.group).and_then(|c| valid_color(c)),
                 cpu_limit: crate::services::antiafk::cpu_limit_of(a),
+                tags: tags_of(a),
+                pinned: a.field("Pinned") == "true",
             })
             .collect()
     }

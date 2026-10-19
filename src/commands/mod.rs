@@ -15,6 +15,7 @@ pub mod updates;
 pub mod backup;
 pub mod history;
 pub mod friends;
+pub mod items;
 
 
 use crate::app::{app, AccountView, App};

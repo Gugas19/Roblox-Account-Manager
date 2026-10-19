@@ -1,8 +1,9 @@
 /** Right click menu of the account list (same items as the C# version, developer ones only in developer mode) */
 
-import { ArrowDownAZ, Check, ClipboardCopy, Code, FileText, FolderInput, Gauge, House, Info, KeyRound, LogIn, Palette, PenLine, Trash2, UserPlus } from 'lucide-react'
+import { ArrowDownAZ, Check, ClipboardCopy, Code, FileText, FolderInput, Gauge, House, Info, KeyRound, LogIn, Palette, PenLine, Pin, PinOff, Tag, Trash2, UserPlus } from 'lucide-react'
 import { ContextMenuContent, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger } from '@/components/ui/context-menu'
 import { ColorItems } from '@/components/accounts/ColorItems'
+import { tagColor } from '@/components/accounts/Tags'
 import { useDialogs } from '@/components/dialogs/DialogHost'
 import { useActions } from '@/hooks/useActions'
 import { api } from '@/lib/api'
@@ -36,7 +37,14 @@ export function AccountMenu({ showGroups, toggleGroups, group, onCustomColor }: 
   const notify = notifier(t)
   const actions = useActions()
   const dialogs = useDialogs()
-  const { devMode, selected, selectedAccounts } = useStore()
+  const { devMode, selected, selectedAccounts, accounts } = useStore()
+  // every tag in use, for the Tags menu
+  const allTags = [...new Set(accounts.flatMap((a) => a.tags))].sort((a, b) => a.localeCompare(b))
+  const allPinned = selectedAccounts.length > 0 && selectedAccounts.every((a) => a.pinned)
+  const newTag = async () => {
+    const tag = await dialogs.prompt({ title: 'New tag', label: 'A word to find and tell the accounts apart, like Farm or Trading (up to 24 characters).' })
+    if (tag?.trim()) await api.setAccountTag(selected, tag.trim(), true).catch(notify.error)
+  }
   const none = selected.length === 0
   const noPassword = !selectedAccounts.some((a) => a.hasPassword)
   // the accounts' frame rate limit when they all have the same one
@@ -127,6 +135,26 @@ export function AccountMenu({ showGroups, toggleGroups, group, onCustomColor }: 
             {t('Custom…')}
             {cpu != null && !CPU_CHOICES.includes(cpu) && <span className="ml-auto text-xs text-muted-foreground">{cpu}%</span>}
           </ContextMenuItem>
+        </ContextMenuSubContent>
+      </ContextMenuSub>
+      <ContextMenuItem disabled={none} onClick={() => api.setPinned(selected, !allPinned).catch(notify.error)}>
+        {allPinned ? <PinOff /> : <Pin />} {t(allPinned ? 'Unpin' : 'Pin to the top')}
+      </ContextMenuItem>
+      <ContextMenuSub>
+        <ContextMenuSubTrigger disabled={none}><Tag /> {t('Tags')}</ContextMenuSubTrigger>
+        <ContextMenuSubContent className="w-52">
+          {allTags.map((tag) => {
+            const on = selectedAccounts.every((a) => a.tags.includes(tag))
+            return (
+              <ContextMenuItem key={tag} onClick={() => api.setAccountTag(selected, tag, !on).catch(notify.error)}>
+                <span className="size-2.5 rounded-full" style={{ background: tagColor(tag) }} />
+                {tag}
+                {on && <Check className="ml-auto" />}
+              </ContextMenuItem>
+            )
+          })}
+          {allTags.length > 0 && <ContextMenuSeparator />}
+          <ContextMenuItem onClick={newTag}>{t('New tag…')}</ContextMenuItem>
         </ContextMenuSubContent>
       </ContextMenuSub>
       <ContextMenuSub>

@@ -77,6 +77,9 @@ pub(crate) async fn join_one(app: &Arc<App>, account: &Account, opts: JoinOption
     let tracker = app.ensure_tracker(&account.username);
     let result = launcher::join(&app.api, &account.security_token, &tracker, opts).await;
     app.launch_next.store(true, Ordering::SeqCst);
+    if let JoinResult::Error(message) = &result {
+        crate::services::antiafk::notify(app, crate::services::antiafk::webhook::Event::LaunchFailed, format!("{}: {}", account.username, app.tr(message)));
+    }
 
     if result == JoinResult::Success {
         if app.setting_bool("General", "ShowPresence") {

@@ -10,6 +10,10 @@ pub enum Event {
     Disconnected,
     Rejoined,
     Error,
+    /// joining a game failed (an expired cookie too)
+    LaunchFailed,
+    /// a Roblox window of an account closed
+    Closed,
     Test,
 }
 
@@ -21,6 +25,8 @@ impl Event {
             Event::Action => "WebhookOnAction",
             Event::Disconnected | Event::Rejoined => "WebhookOnRejoin",
             Event::Error => "WebhookOnError",
+            Event::LaunchFailed => "WebhookOnLaunchFail",
+            Event::Closed => "WebhookOnClosed",
             Event::Test => "",
         }
     }
@@ -34,6 +40,8 @@ impl Event {
             Event::Disconnected => crate::text!("Account disconnected"),
             Event::Rejoined => crate::text!("Account rejoined"),
             Event::Error => crate::text!("Anti-AFK error"),
+            Event::LaunchFailed => crate::text!("Joining failed"),
+            Event::Closed => crate::text!("Roblox closed"),
             Event::Test => crate::text!("Test message"),
         }
     }
@@ -44,7 +52,8 @@ impl Event {
             Event::Stopped => 0x94A3B8,
             Event::Action | Event::Test => 0x4F7CFF,
             Event::Disconnected => 0xF59E0B,
-            Event::Error => 0xEF4444,
+            Event::Error | Event::LaunchFailed => 0xEF4444,
+            Event::Closed => 0x94A3B8,
         }
     }
 }

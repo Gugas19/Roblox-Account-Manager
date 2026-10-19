@@ -123,6 +123,9 @@ pub fn open_target(kind: String, value: Option<String>) -> R<()> {
         "data" => app.dir.to_string_lossy().to_string(),
         "profile" => format!("https://www.roblox.com/users/{}/profile", value.unwrap_or_default()),
         "game" => format!("https://www.roblox.com/games/{}", value.unwrap_or_default()),
+        // ids only: nothing else gets into the address
+        "asset" => format!("https://www.roblox.com/catalog/{}", value.unwrap_or_default().parse::<i64>().map_err(e)?),
+        "group" => format!("https://www.roblox.com/communities/{}", value.unwrap_or_default().parse::<i64>().map_err(e)?),
         _ => return Err("unknown".into()),
     };
     winutil::shell_open(&target, None).map_err(e)

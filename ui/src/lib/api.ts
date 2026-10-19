@@ -2,7 +2,7 @@
 
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
-import type { Account, AntiAfkStatus, Bootstrap, Favorite, Friend, Game, HistoryEvent, JoinResult, LoadState, MissingAsset, Outfit, PastStats, ReleaseNotes, Settings, Theme, UpdateStatus, Visibility } from './types'
+import type { Account, AntiAfkStatus, Bootstrap, Favorite, Friend, Game, GroupMembership, HistoryEvent, InventoryItem, JoinResult, LoadState, MissingAsset, Outfit, Owned, PastStats, ReleaseNotes, Settings, Theme, UpdateStatus, Visibility } from './types'
 
 /** Errors from Rust arrive as plain strings */
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
@@ -110,6 +110,12 @@ export const api = {
   antiAfkDeletePastStats: (id: number) => call<PastStats[]>('antiafk_delete_past_stats', { id }),
   updateStatus: () => call<{ status: UpdateStatus; version: string }>('update_status'),
   updateCheck: (download: boolean) => call<UpdateStatus>('update_check', { download }),
+  inventories: (names: string[]) => call<Owned<InventoryItem>[]>('inventories', { names }),
+  assetThumbnails: (ids: number[]) => call<Record<number, string>>('asset_thumbnails', { ids }),
+  groups: (names: string[]) => call<{ accounts: Owned<GroupMembership>[]; icons: Record<number, string> }>('groups', { names }),
+  groupLeave: (names: string[], groupId: number) => call<[string, string | null][]>('group_leave', { names, groupId }),
+  setAccountTag: (names: string[], tag: string, on: boolean) => call<void>('set_account_tag', { names, tag, on }),
+  setPinned: (names: string[], on: boolean) => call<void>('set_pinned', { names, on }),
   checkPrivateLink: (link: string) => call<boolean>('check_private_link', { link }),
   friendsList: (name: string) => call<Friend[]>('friends_list', { name }),
   friendRequests: (name: string) => call<Friend[]>('friend_requests', { name }),
@@ -136,7 +142,7 @@ export const api = {
   setTheme: (key: string, value: string) => call<Theme>('set_theme', { key, value }),
   resetTheme: () => call<Theme>('reset_theme'),
   pickFile: (title: string) => call<string | null>('pick_file', { title }),
-  open: (kind: 'github' | 'logs' | 'browser' | 'data' | 'profile' | 'game', value?: string) => call<void>('open_target', { kind, value }),
+  open: (kind: 'github' | 'logs' | 'browser' | 'data' | 'profile' | 'game' | 'asset' | 'group', value?: string) => call<void>('open_target', { kind, value }),
   watcherEnable: (enabled: boolean) => call<void>('watcher_enable', { enabled }),
 }
 

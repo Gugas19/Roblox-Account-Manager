@@ -237,7 +237,7 @@ pub fn delete_past_stats(app: &App, id: u64) {
 }
 
 /// Sends a webhook message when that kind of event is turned on, in the app's language
-fn notify(app: &Arc<App>, event: webhook::Event, text: String) {
+pub(crate) fn notify(app: &Arc<App>, event: webhook::Event, text: String) {
     let url = app.setting(SECTION, "Webhook");
     if url.is_empty() || (event != webhook::Event::Test && !app.afk_flag(event.setting())) {
         return;
@@ -662,6 +662,7 @@ fn tick(app: &Arc<App>) {
         for t in tracked.iter().filter(|(pid, _)| !pids.contains(pid)).map(|(_, t)| t) {
             if let (Some(account), Some((place, job))) = (&t.account, &t.recorded) {
                 events.push(crate::services::history::Event::new(account, "closed").place(Some(*place), job.clone()));
+                notify(app, webhook::Event::Closed, format!("{account}'s Roblox closed"));
             }
         }
         tracked.retain(|pid, _| pids.contains(pid));

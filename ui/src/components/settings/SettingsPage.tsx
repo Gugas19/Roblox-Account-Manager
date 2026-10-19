@@ -3,6 +3,7 @@
 import { AlertTriangle, Download, FileJson, FolderOpen, Lock, Upload, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
@@ -102,6 +103,38 @@ function MultiRobloxStatus() {
   )
 }
 
+/** When the app starts: one account joins a game (none: nothing happens) */
+function StartupLaunch() {
+  const t = useI18n().t
+  const { accounts, setting, updateSetting } = useStore()
+  const NONE = '-'
+  const account = setting('General', 'StartupAccount') || NONE
+  return (
+    <SettingRow title="When the app starts" hint="An account joins a game by itself every time the app opens.">
+      <Select value={accounts.some((a) => a.username === account) ? account : NONE} onValueChange={(v) => void updateSetting('General', 'StartupAccount', v === NONE ? '' : v)}>
+        <SelectTrigger className="w-40" aria-label={t('Account')}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={NONE}>{t('Nothing')}</SelectItem>
+          {accounts.map((a) => (
+            <SelectItem key={a.username} value={a.username}>{a.username}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {account !== NONE && (
+        <Input
+          className="w-28"
+          aria-label={t('Place ID')}
+          placeholder={t('Place ID')}
+          defaultValue={setting('General', 'StartupPlace')}
+          onBlur={(e) => void updateSetting('General', 'StartupPlace', e.target.value.replace(/\D/g, ''))}
+        />
+      )}
+    </SettingRow>
+  )
+}
+
 export function SettingsPage() {
   const { t, language, setTable } = useI18n()
   const { pageTab, boot, setting, updateSetting, flag, accounts } = useStore()
@@ -187,6 +220,7 @@ export function SettingsPage() {
               </SettingRow>
               <Toggle section="General" name="EnableMultiRbx" title="Multi Roblox" hint="Play several accounts at the same time. Works once every Roblox window is closed." />
               <MultiRobloxStatus />
+              <StartupLaunch />
               <Toggle section="General" name="RenameRobloxWindows" title="Name Roblox windows after their account" hint="Each Roblox window the app opens shows the account (and its alias) in its title, to tell them apart." />
               <Toggle section="General" name="KeepHistory" title="Keep a session history" hint="Games and servers joined, lost connections, rejoins and presence changes of your accounts, on the History page. Kept on this PC only." />
               <Toggle section="General" name="HideFromCaptures" title="Hide this app from screen captures" hint="Screenshots, recordings and screen sharing (OBS, Discord, the Snipping Tool) leave this window out. Roblox itself still shows." />

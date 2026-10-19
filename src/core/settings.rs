@@ -161,6 +161,8 @@ pub const ANTI_AFK_DEFAULTS: &[(&str, &str)] = &[
     ("WebhookOnAction", "false"),
     ("WebhookOnRejoin", "true"),
     ("WebhookOnError", "true"),
+    ("WebhookOnLaunchFail", "false"),
+    ("WebhookOnClosed", "false"),
 ];
 
 /// Theme colors (RAMTheme.ini, section "RobloxAccountManager"), only the ones the new interface uses

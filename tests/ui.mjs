@@ -500,6 +500,34 @@ async function main() {
       await click('No limit', '[role=menuitem]')
       await until(async () => !(await badge()), 'the limit did not go away')
     })
+    await test('tags and pinning, from the right click menu', async () => {
+      const fields = (name) => JSON.parse(fs.readFileSync(path.join(work, 'AccountData.json'), 'utf8')).find((a) => a.Username === name)?.Fields ?? {}
+      const row = (name) => evaluate(`[...document.querySelectorAll('[role=row]')].find((r) => r.innerText.includes('${name}'))?.innerText ?? ''`)
+      const firstOfGroup = () => evaluate(`[...document.querySelectorAll('[role=row]')].map((r) => r.innerText.split('\\n')[0]).filter((n) => n.startsWith('Grind'))[0]`)
+      // a new tag
+      await click('GrindBot_B', '[role=row]', 'right')
+      await openSub('Tags')
+      await click('New tag…', '[role=menuitem]')
+      await evaluate(`(() => { const i = document.querySelector('[role=dialog] input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, 'Trading'); i.dispatchEvent(new Event('input', { bubbles: true })) })()`)
+      await evaluate(`document.querySelector('[role=dialog] form').requestSubmit()`)
+      await until(async () => JSON.parse(fields('GrindBot_B').Tags ?? '[]').includes('Trading'), `tag not saved: ${fields('GrindBot_B').Tags}`)
+      await until(async () => (await row('GrindBot_B')).includes('Trading'), 'no tag on the row')
+      // the search finds accounts by tag
+      await evaluate(`(() => { const i = document.querySelector('input[placeholder="Search accounts..."]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, 'trading'); i.dispatchEvent(new Event('input', { bubbles: true })) })()`)
+      await until(async () => (await rows()) === (await row('GrindBot_B')), `the search by tag shows: ${await rows()}`)
+      await evaluate(`(() => { const i = document.querySelector('input[placeholder="Search accounts..."]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, ''); i.dispatchEvent(new Event('input', { bubbles: true })) })()`)
+      // pinned: first of its group
+      await menuItem('GrindBot_B', '[role=row]', 'Pin to the top')
+      await until(async () => fields('GrindBot_B').Pinned === 'true' && (await firstOfGroup()) === 'GrindBot_B', `not pinned first: ${await firstOfGroup()}`)
+      await shot('tags')
+      // and back
+      await menuItem('GrindBot_B', '[role=row]', 'Unpin')
+      await click('GrindBot_B', '[role=row]', 'right')
+      await openSub('Tags')
+      await click('Trading', '[role=menuitem]')
+      await until(async () => !fields('GrindBot_B').Tags && !fields('GrindBot_B').Pinned, `not taken away: ${JSON.stringify(fields('GrindBot_B'))}`)
+    })
+
     await test('rename a group from its header', async () => {
       await menuItem('FARM', 'button', 'Rename group…')
       await evaluate(`(() => { const i = document.querySelector('[role=dialog] input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(i, '3Grinders'); i.dispatchEvent(new Event('input', { bubbles: true })) })()`)
@@ -733,6 +761,17 @@ async function main() {
       await key('Escape')
     })
 
+    await test('Avatar has the inventories, Groups the accounts\' groups', async () => {
+      await click('Avatar', 'button')
+      await click('Inventory', '[role=tab]')
+      assert(await find('Load inventories', 'button'), 'no Inventory tab')
+      assert(await evaluate(`!!document.querySelector('[data-testid=account-picker]')`), 'no account picker')
+      await click('Groups', 'button')
+      assert((await text()).includes('The groups your accounts are in'), 'no Groups page')
+      assert(await find('Load groups', 'button') && await find('Join a group', 'button'), 'no Groups actions')
+      await key('Escape')
+    })
+
     await test('History shows the events by day, filters by account and clears', async () => {
       const events = () => evaluate(`[...document.querySelectorAll('[data-testid=history-event]')].map((e) => e.innerText.replace(/\\s+/g, ' ')).join(' | ')`)
       await click('History', 'button')
@@ -817,7 +856,7 @@ async function main() {
           if (code === 'de') await shot('main-de-900')
           await call('Emulation.clearDeviceMetricsOverride')
           await sleep(SETTLE)
-          for (const [button, selector] of [[tr('Settings'), 'button'], ['Anti-AFK', 'button'], [tr('Instances'), 'button'], [tr('Friends'), 'button'], [tr('Games'), 'button'], [tr('Avatar'), 'button'], [tr('History'), 'button'], [tr('Account Utilities'), 'button']]) {
+          for (const [button, selector] of [[tr('Settings'), 'button'], ['Anti-AFK', 'button'], [tr('Instances'), 'button'], [tr('Friends'), 'button'], [tr('Groups'), 'button'], [tr('Games'), 'button'], [tr('Avatar'), 'button'], [tr('History'), 'button'], [tr('Account Utilities'), 'button']]) {
             await click(button, selector)
             const tabs = await evaluate(`document.querySelectorAll('[role=tab]').length`)
             if (tabs) await eachTab((tab) => look(`${code} ${button} > ${tab}`))

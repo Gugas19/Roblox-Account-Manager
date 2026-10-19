@@ -5,6 +5,8 @@ mod account;
 mod auth;
 mod avatar;
 mod friends;
+mod inventory;
+pub use inventory::{Item, Membership};
 pub use friends::{FriendAction, Person, Visibility, VISIBILITY_FIELDS};
 mod games;
 pub use games::server_share_code;

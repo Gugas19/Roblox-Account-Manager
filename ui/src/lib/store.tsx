@@ -8,7 +8,7 @@ import { applyTheme } from './theme'
 import type { Account, Bootstrap, Settings, Theme } from './types'
 
 /** The pages of the navigation rail; Accounts is home */
-export type Page = 'accounts' | 'instances' | 'friends' | 'games' | 'avatar' | 'antiafk' | 'history' | 'settings'
+export type Page = 'accounts' | 'instances' | 'friends' | 'groups' | 'games' | 'avatar' | 'antiafk' | 'history' | 'settings'
 
 /** Windows over the page. 'settings', 'theme', 'utilities' and 'antiafk' were windows before the pages, they open
  *  their page (and tab) now, so every way of opening them still works */

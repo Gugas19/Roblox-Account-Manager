@@ -225,6 +225,8 @@ export function AntiAfkPage() {
               <Toggle section="AntiAFK" name="WebhookOnAction" title="Every round" />
               <Toggle section="AntiAFK" name="WebhookOnRejoin" title="An account disconnects or rejoins" />
               <Toggle section="AntiAFK" name="WebhookOnError" title="Something fails" />
+              <Toggle section="AntiAFK" name="WebhookOnLaunchFail" title="Joining a game fails" hint="An expired cookie too." />
+              <Toggle section="AntiAFK" name="WebhookOnClosed" title="An account's Roblox window closes" />
             </TabsContent>
 
             <TabsContent value="stats" className="grid gap-3">

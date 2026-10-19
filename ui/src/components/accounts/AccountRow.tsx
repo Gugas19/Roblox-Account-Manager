@@ -1,10 +1,12 @@
 /** One account: status dots, username, alias (double click to edit) and description */
 
+import { Pin } from 'lucide-react'
 import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useT } from '@/lib/i18n'
 import type { Account } from '@/lib/types'
+import { TagChips } from '@/components/accounts/Tags'
 
 const PRESENCE = [
   { color: 'bg-muted-foreground/40', label: 'Offline' },
@@ -84,7 +86,9 @@ export function AccountRow({ account, selected, hideUsername, showAging, showPre
             </Tooltip>
           )}
         </span>
-        <span className="truncate font-medium" style={account.color ? { color: account.color } : undefined}>{hideUsername ? '••••••••' : account.username}</span>
+        {account.pinned && <Pin className="size-3 shrink-0 text-muted-foreground" aria-label={t('Pinned')} />}
+        <span className="min-w-12 truncate font-medium" style={account.color ? { color: account.color } : undefined}>{hideUsername ? '••••••••' : account.username}</span>
+        <TagChips tags={account.tags} />
         {account.cpuLimit != null && <span className="shrink-0 rounded bg-muted px-1 text-[10px] text-muted-foreground tabular-nums" title={t('CPU limit')}>CPU {account.cpuLimit}%</span>}
       </div>
 

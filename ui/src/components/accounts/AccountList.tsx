@@ -17,9 +17,14 @@ import type { Account } from '@/lib/types'
 
 const COOKIE = /_\|WARNING:-DO-NOT-SHARE-THIS\./
 
+/** Pinned accounts on top, the others in their own order */
+function pinnedFirst(list: Account[]) {
+  return [...list.filter((a) => a.pinned), ...list.filter((a) => !a.pinned)]
+}
+
 function matches(a: Account, query: string) {
   const q = query.toLowerCase()
-  return [a.username, a.alias, a.description, a.groupTitle].some((v) => v.toLowerCase().includes(q))
+  return [a.username, a.alias, a.description, a.groupTitle, ...a.tags].some((v) => v.toLowerCase().includes(q))
 }
 
 export function AccountList({ searchRef }: { searchRef: React.RefObject<HTMLInputElement | null> }) {
@@ -66,12 +71,12 @@ export function AccountList({ searchRef }: { searchRef: React.RefObject<HTMLInpu
   const visible = useMemo(() => (query ? accounts.filter((a) => matches(a, query)) : accounts), [accounts, query])
 
   const groups = useMemo(() => {
-    if (!showGroups) return [{ key: '', title: '', color: null, items: visible }]
+    if (!showGroups) return [{ key: '', title: '', color: null, items: pinnedFirst(visible) }]
     const map = new Map<string, Account[]>()
     for (const a of visible) map.set(a.group, [...(map.get(a.group) ?? []), a])
     return [...map.entries()]
       .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
-      .map(([key, items]) => ({ key, title: items[0].groupTitle, color: items[0].groupColor, items }))
+      .map(([key, items]) => ({ key, title: items[0].groupTitle, color: items[0].groupColor, items: pinnedFirst(items) }))
   }, [visible, showGroups])
 
   const dragged = (e: React.DragEvent, a: Account) => {

@@ -62,7 +62,7 @@ the same time: they refuse to start while the other is open.
 
 ### A modern interface
 - Built with [shadcn/ui](https://ui.shadcn.com): dark by default, with more [themes](#themes) and colors of your own.
-- A **navigation rail** on the left: `Accounts`, `Instances`, `Friends`, `Games`, `Avatar`, `Anti-AFK`, `History` and `Settings`, each a page of its own (`Esc` goes back to the accounts).
+- A **navigation rail** on the left: `Accounts`, `Instances`, `Friends`, `Groups`, `Games`, `Avatar`, `Anti-AFK`, `History` and `Settings`, each a page of its own (`Esc` goes back to the accounts).
 - **Command palette** (`Ctrl+K`): find any account, action or page and run it from the keyboard.
 - Search (`Ctrl+F`), select all (`Ctrl+A`), join with `Enter` or a double click, remove with `Delete`.
 - **Undo** after removing accounts, and double click an alias to edit it in place.
@@ -377,6 +377,10 @@ The account needs *Who can invite me to private servers* set to Everyone in its 
 | Languages | English, Português (Portugal), Español, Français, Deutsch | Click the flag button in the top right |
 | Instances | Every Roblox open on this PC with its account, game and server: bring one to the front, close it, send the selected accounts to its server (a private one too), choose which ones Anti-AFK keeps active | The `Instances` page |
 | Friends | An account's friends and where they are (join one in a click), its friend requests (accept, decline), and who can see it online or join it | The `Friends` page |
+| Groups | The groups the accounts are in and their role; leave one with several accounts at once, join one through each account's browser | The `Groups` page |
+| Inventories | What the accounts own: all of it, what they all have, what only one has; by kind and searchable | `Avatar` > `Inventory` |
+| Tags and pins | Colored tags on accounts (several each, besides the group), found by the search; pinned accounts stay first in their group | Right click an account > `Tags` / `Pin to the top` |
+| Join on start | An account joins a game by itself when the app opens | `Settings` > `General` > `When the app starts` |
 | Session history | Games and servers joined, lost connections, rejoins and presence changes of each account, by day, filtered by account, exported as CSV (kept on this PC only, can be turned off) | The `History` page |
 | Roblox home | Open the Roblox app signed in as the account, without a game | The arrow next to `Join Server`, or right click an account |
 | Follow a player | The selected accounts join the server a player is in | The arrow next to `Join Server` > `Follow a player` |

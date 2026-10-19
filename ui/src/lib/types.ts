@@ -22,6 +22,10 @@ export interface Account {
   /** its own frame rate limit, applied when it launches */
   /** CPU limit of its Roblox window, percent of the PC */
   cpuLimit: number | null
+  /** its tags, several besides its group */
+  tags: string[]
+  /** pinned to the top of its group */
+  pinned: boolean
 }
 
 export type LoadState =
@@ -128,6 +132,29 @@ export interface AntiAfkStatus {
 }
 
 /** The auto updater (src/services/updater.rs) */
+/** Something an account owns (src/roblox/inventory.rs) */
+export interface InventoryItem {
+  id: number
+  name: string
+  kind: string
+}
+
+/** A group an account is in, with its role there */
+export interface GroupMembership {
+  id: number
+  name: string
+  members: number
+  role: string
+  rank: number
+}
+
+/** One account's list (items, groups), or why it couldn't be read */
+export interface Owned<T> {
+  account: string
+  list: T[]
+  error?: string | null
+}
+
 /** A friend (or a friend request) of an account: 0 offline, 1 online, 2 in a game, 3 in Studio */
 export interface Friend {
   id: number

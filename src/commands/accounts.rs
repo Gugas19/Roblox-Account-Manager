@@ -93,6 +93,49 @@ pub fn set_account_color(names: Vec<String>, color: Option<String>) -> R<()> {
     Ok(())
 }
 
+/// Adds or takes away a tag on the accounts (a tag: 1 to 24 characters)
+#[tauri::command]
+pub fn set_account_tag(names: Vec<String>, tag: String, on: bool) -> R<()> {
+    let tag = tag.trim().to_string();
+    if tag.is_empty() || tag.chars().count() > 24 {
+        return Err("A tag has 1 to 24 characters".into());
+    }
+    let app = app();
+    for n in &names {
+        app.update_account(n, |a| {
+            let mut tags = crate::app::tags_of(a);
+            tags.retain(|t| t != &tag);
+            if on {
+                tags.push(tag.clone());
+            }
+            if tags.is_empty() {
+                a.fields.shift_remove("Tags");
+            } else {
+                a.fields.insert("Tags".into(), serde_json::to_string(&tags).unwrap_or_default());
+            }
+        });
+    }
+    app.save_accounts(true);
+    Ok(())
+}
+
+/// Pins the accounts to the top of their group, or unpins them
+#[tauri::command]
+pub fn set_pinned(names: Vec<String>, on: bool) -> R<()> {
+    let app = app();
+    for n in &names {
+        app.update_account(n, |a| {
+            if on {
+                a.fields.insert("Pinned".into(), "true".into());
+            } else {
+                a.fields.shift_remove("Pinned");
+            }
+        });
+    }
+    app.save_accounts(true);
+    Ok(())
+}
+
 /// The color of a group, `None` takes it away
 #[tauri::command]
 pub fn set_group_color(group: String, color: Option<String>) -> R<()> {
