@@ -5,8 +5,8 @@
     pwsh -File tools\publish.ps1 -Notes notes.md
 
     Translations of the notes sit next to it as notes.<language>.md (notes.pt-PT.md, notes.es.md, notes.fr.md,
-    notes.de.md): they're attached to the release as notes.<language>.md, and the app shows the one in its language
-    before updating (English, the release text, otherwise).
+    notes.de.md): they're attached to the release together as notes.json ({ "pt-PT": "…", … }), and the app shows
+    the one in its language before updating (English, the release text, otherwise).
 
     1. Tags the current commit v<version> and pushes the tag: .github\workflows\release.yml builds the exes and the zip
        on GitHub, attests where they were built, and leaves a draft release (the updater doesn't see drafts).
@@ -66,7 +66,7 @@ Run "Download the draft" { gh release download $Tag --repo $Repo --dir $Dist --c
 
 # built by this repository's release workflow, nothing else: a file from anywhere else stops the publishing here
 Run "Check the attestations" {
-    foreach ($file in Get-ChildItem $Dist -File -Exclude *.md) {
+    foreach ($file in Get-ChildItem $Dist -File -Exclude *.md, *.json) {
         gh attestation verify $file.FullName --repo $Repo --signer-workflow "$Repo/.github/workflows/release.yml" --format json --jq '.[0].verificationResult.statement.subject[0].name' | Out-Null
         if ($LASTEXITCODE) { throw "$($file.Name) has no valid attestation" }
         Write-Host "  $($file.Name): built by GitHub from $Repo"
@@ -81,22 +81,23 @@ Run "Sign for the updater" {
 
 Run "Upload the signature" { gh release upload $Tag "$Zip.sig" --repo $Repo --clobber }
 
-# the notes in other languages, attached as notes.<language>.md
+# the notes in other languages, all in one notes.json
 $Translations = Get-ChildItem (Split-Path $Notes) -File -Filter "$([IO.Path]::GetFileNameWithoutExtension($Notes)).*.md" |
     Where-Object { $_.Name -match '\.([A-Za-z]{2}(-[A-Za-z]{2})?)\.md$' }
 if ($Translations) {
+    $All = [ordered]@{}
+    foreach ($t in $Translations) {
+        $Language = ([regex]::Match($t.Name, '\.([A-Za-z]{2}(-[A-Za-z]{2})?)\.md$')).Groups[1].Value
+        $All[$Language] = (Get-Content $t.FullName -Raw -Encoding utf8).Trim()
+    }
     $NotesDir = Join-Path $Dist "notes"
     New-Item -ItemType Directory -Force $NotesDir | Out-Null
-    $Files = foreach ($t in $Translations) {
-        $Language = ([regex]::Match($t.Name, '\.([A-Za-z]{2}(-[A-Za-z]{2})?)\.md$')).Groups[1].Value
-        $Copy = Join-Path $NotesDir "notes.$Language.md"
-        Copy-Item $t.FullName $Copy
-        $Copy
-    }
-    Run "Upload the translated notes ($($Translations.Count))" { gh release upload $Tag @Files --repo $Repo --clobber }
+    $Json = Join-Path $NotesDir "notes.json"
+    [IO.File]::WriteAllText($Json, ($All | ConvertTo-Json -Compress), [Text.UTF8Encoding]::new($false))
+    Run "Upload the translated notes ($($Translations.Count) languages)" { gh release upload $Tag $Json --repo $Repo --clobber }
 }
 
-$Hashes = (Get-ChildItem $Dist -File -Exclude *.sig, *.md | ForEach-Object { "| ``$($_.Name)`` | ``$((Get-FileHash $_.FullName -Algorithm SHA256).Hash)`` |" }) -join "`n"
+$Hashes = (Get-ChildItem $Dist -File -Exclude *.sig, *.md, *.json | ForEach-Object { "| ``$($_.Name)`` | ``$((Get-FileHash $_.FullName -Algorithm SHA256).Hash)`` |" }) -join "`n"
 $Verify = @"
 
 ## Download

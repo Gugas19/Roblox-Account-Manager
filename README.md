@@ -267,7 +267,7 @@ GitHub from that commit, attests where they were built, and leaves a draft (the 
 script then checks the attestations, signs the zip for the updater with the private key, which stays in
 `%USERPROFILE%\.roblox-account-manager\` and never goes to GitHub, uploads the `.sig` and publishes the release with
 the notes, how to verify the files and their SHA-256. Translations of the notes, saved next to it as `notes.pt-PT.md`,
-`notes.es.md`, `notes.fr.md` and `notes.de.md`, are attached to the release, and the app shows the one in its
+`notes.es.md`, `notes.fr.md` and `notes.de.md`, go in one `notes.json` on the release, and the app shows the one in its
 language. Installed apps only accept updates signed with that key.
 
 Every push is also built and unit tested on GitHub ([CI](.github/workflows/ci.yml)), without any secret.

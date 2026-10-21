@@ -3439,7 +3439,7 @@ dependencies = [
 
 [[package]]
 name = "roblox-account-manager"
-version = "4.1.33"
+version = "4.1.34"
 dependencies = [
  "anyhow",
  "argon2",

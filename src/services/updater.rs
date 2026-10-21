@@ -231,21 +231,33 @@ pub async fn notes(app: &App, recent: bool, language: &str) -> Result<Vec<Notes>
         list.truncate(RECENT_NOTES);
     }
     // the translations, all at once; a missing or failed one leaves the English text
-    let translated = futures_util::future::join_all(list.iter().map(|(_, url)| async move {
-        let url = url.as_ref()?;
-        let response = app.api.http.get(url).header("User-Agent", user_agent()).timeout(Duration::from_secs(15)).send().await.ok()?.error_for_status().ok()?;
+    let translated = futures_util::future::join_all(list.iter().map(|(_, source)| async move {
+        let source = source.as_ref()?;
+        let response = app.api.http.get(&source.url).header("User-Agent", user_agent()).timeout(Duration::from_secs(15)).send().await.ok()?.error_for_status().ok()?;
         let text = response.text().await.ok()?;
-        (text.len() < 64 * 1024).then(|| whats_new(&text))
+        if text.len() > 256 * 1024 {
+            return None;
+        }
+        let notes = if source.json { serde_json::from_str::<Value>(&text).ok()?[language].as_str()?.to_string() } else { text };
+        Some(whats_new(&notes))
     }))
     .await;
     Ok(list.into_iter().zip(translated).map(|((notes, _), text)| Notes { text: text.unwrap_or(notes.text), ..notes }).collect())
 }
 
+/// Where a release's notes in another language are: notes.json ({ language: text }, one file for them all), or
+/// notes.<language>.md (the releases from 4.1.25 to 4.1.33)
+#[derive(Debug, PartialEq)]
+struct Translation {
+    url: String,
+    json: bool,
+}
+
 /// Each newer version's English notes, and where its notes in `language` are when it has them
-fn notes_since(releases: &Value, current: Version, language: &str) -> Vec<(Notes, Option<String>)> {
-    let wanted = (language != "en" && !language.is_empty() && language.len() <= 10 && language.chars().all(|c| c.is_ascii_alphanumeric() || c == '-'))
-        .then(|| format!("notes.{language}.md"));
-    let mut list: Vec<(Version, (Notes, Option<String>))> = releases
+fn notes_since(releases: &Value, current: Version, language: &str) -> Vec<(Notes, Option<Translation>)> {
+    let wanted = language != "en" && !language.is_empty() && language.len() <= 10 && language.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
+    let one_file = format!("notes.{language}.md");
+    let mut list: Vec<(Version, (Notes, Option<Translation>))> = releases
         .as_array()
         .into_iter()
         .flatten()
@@ -253,9 +265,12 @@ fn notes_since(releases: &Value, current: Version, language: &str) -> Vec<(Notes
         .filter_map(|r| {
             let version = r["tag_name"].as_str().and_then(parse_version).filter(|v| *v > current)?;
             let date = r["published_at"].as_str().unwrap_or_default().chars().take(10).collect();
-            let translation = wanted.as_ref().and_then(|name| {
+            let asset = |name: &str| {
                 r["assets"].as_array()?.iter().find(|a| a["name"].as_str() == Some(name))?["browser_download_url"].as_str().filter(|u| u.starts_with("https://github.com/")).map(str::to_string)
-            });
+            };
+            let translation = wanted
+                .then(|| asset("notes.json").map(|url| Translation { url, json: true }).or_else(|| asset(&one_file).map(|url| Translation { url, json: false })))
+                .flatten();
             Some((version, (Notes { version: version_text(version), date, text: whats_new(r["body"].as_str().unwrap_or_default()) }, translation)))
         })
         .collect();
@@ -529,13 +544,25 @@ mod tests {
             { "name": "notes.pt-PT.md", "browser_download_url": "https://github.com/x/y/releases/download/v4.1.25/notes.pt-PT.md" },
             { "name": "notes.de.md", "browser_download_url": "https://evil.example/notes.de.md" },
         ] }]);
-        let url = |language: &str| notes_since(&releases, (4, 1, 24), language).remove(0).1;
+        let url = |language: &str| notes_since(&releases, (4, 1, 24), language).remove(0).1.map(|t| t.url);
         assert_eq!(url("pt-PT").as_deref(), Some("https://github.com/x/y/releases/download/v4.1.25/notes.pt-PT.md"));
         // English is the release text; no file in that language; only from GitHub; never a path
         assert_eq!(url("en"), None);
         assert_eq!(url("fr"), None);
         assert_eq!(url("de"), None);
         assert_eq!(url("../x"), None);
+    }
+
+    #[test]
+    fn notes_json_first_for_every_language() {
+        let releases = serde_json::json!([{ "tag_name": "v4.1.34", "draft": false, "prerelease": false, "body": "## What's new", "assets": [
+            { "name": "notes.json", "browser_download_url": "https://github.com/x/y/releases/download/v4.1.34/notes.json" },
+            { "name": "notes.de.md", "browser_download_url": "https://github.com/x/y/releases/download/v4.1.34/notes.de.md" },
+        ] }]);
+        let source = |language: &str| notes_since(&releases, (4, 1, 33), language).remove(0).1;
+        assert_eq!(source("fr"), Some(Translation { url: "https://github.com/x/y/releases/download/v4.1.34/notes.json".into(), json: true }));
+        assert_eq!(source("de").map(|t| t.json), Some(true));
+        assert_eq!(source("en"), None);
     }
 
     #[test]
