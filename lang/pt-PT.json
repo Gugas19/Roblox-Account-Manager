@@ -768,5 +768,9 @@
   "{0} leave {1}?": "{0} saem de {1}?",
   "{0} left {1}": "{0} saíram de {1}",
   "{0} members": "{0} membros",
-  "{0}'s Roblox closed": "O Roblox de {0} fechou"
+  "{0}'s Roblox closed": "O Roblox de {0} fechou",
+  "Roblox is limiting requests right now, try again in a minute": "O Roblox está a limitar os pedidos agora, tenta daqui a um minuto",
+  "Roblox refused it: the account's session may have expired": "O Roblox recusou: a sessão da conta pode ter expirado",
+  "{0} has no saved outfits": "{0} não tem roupas guardadas",
+  "Roblox didn't answer ({0})": "O Roblox não respondeu ({0})"
 }

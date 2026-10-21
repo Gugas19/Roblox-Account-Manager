@@ -65,6 +65,19 @@ impl Raw {
     pub fn json(&self) -> Option<Value> {
         serde_json::from_str(&self.body).ok()
     }
+
+    /// The answer when Roblox said yes, otherwise why not, in words (429: too many requests for now)
+    pub fn checked(self, what: &str) -> Result<Raw> {
+        match self.status {
+            200..=299 => Ok(self),
+            429 => bail!("Roblox is limiting requests right now, try again in a minute"),
+            401 | 403 => bail!("Roblox refused it: the account's session may have expired"),
+            status => {
+                log::warn!("Roblox answered {status} for {what}");
+                bail!("Roblox didn't answer ({status})")
+            }
+        }
+    }
 }
 
 fn cookie(token: &str) -> HeaderValue {

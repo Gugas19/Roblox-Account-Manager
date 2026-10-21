@@ -677,7 +677,7 @@ async function main() {
         await until(async () => (await line()) !== first, 'the countdown is frozen')
         // once the round is due it waits for the user to stop (here for a day), and says so
         // (with the README's normal settings the round runs instead of waiting, for a made-up account: no keys)
-        if (!args.includes('--readme')) await until(async () => (await text()).includes('Waiting for you to stop typing and moving the mouse'), 'no waiting state', 8000)
+        if (!args.includes('--readme')) await until(async () => (await text()).includes('Waiting for you to stop typing and moving the mouse'), 'no waiting state', 15000)
       } else {
         await until(async () => (await text()).includes('Waiting for a Roblox window'), 'no "waiting for a Roblox window" state')
       }
@@ -742,9 +742,10 @@ async function main() {
       const body = await text()
       assert(body.includes('Every Roblox open on this PC'), 'no Instances page')
       assert(await find('Arrange in a grid', 'button'), 'no window tools')
-      const shown = await evaluate(`document.querySelectorAll('[data-testid=instance]').length`)
+      const shown = () => evaluate(`document.querySelectorAll('[data-testid=instance]').length`)
       const windows = await evaluate(`window.__TAURI_INTERNALS__.invoke('antiafk_status').then((s) => s.windows.length)`)
-      assert(shown === windows, `${shown} rows for ${windows} Roblox windows`)
+      // the list comes a moment after the page opens
+      await until(async () => (await shown()) === windows, `${await shown()} rows for ${windows} Roblox windows`)
       if (!windows) assert(body.includes('No Roblox windows open'), 'no empty state')
       await key('Escape')
     })

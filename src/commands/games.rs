@@ -157,7 +157,12 @@ pub fn remove_favorite(index: usize) {
 pub async fn universe_id(place: String) -> R<i64> {
     let app = app();
     let (id, _) = parse_place(&place, "");
-    let details = app.api.place_details(&[id.ok_or("Invalid PlaceId provided")?], app.any_token().as_deref()).await.map_err(e)?;
+    let id = id.ok_or("Invalid PlaceId provided")?;
+    // the public route first: the place details route now wants a signed in account
+    if let Ok(Some(universe)) = app.api.universe_of(id).await {
+        return Ok(universe);
+    }
+    let details = app.api.place_details(&[id], app.any_token().as_deref()).await.map_err(e)?;
     details.first().and_then(|d| d["universeId"].as_i64()).ok_or_else(|| "Not found".into())
 }
 

@@ -22,6 +22,8 @@ export function OutfitsTab() {
   const [outfits, setOutfits] = useState<Outfit[]>([])
   const [missing, setMissing] = useState<MissingAsset[]>([])
   const [loading, setLoading] = useState(false)
+  // the player whose outfits are shown (none yet: the hint shows)
+  const [shown, setShown] = useState<string | null>(null)
   // one change at a time: wearing an outfit, or buying an item (never twice)
   const [busy, setBusy] = useState(false)
 
@@ -61,7 +63,7 @@ export function OutfitsTab() {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
-      <form className="flex gap-2" onSubmit={async (e) => { e.preventDefault(); setLoading(true); try { setOutfits(await api.outfits(username)) } catch (err) { notify.error(err) } finally { setLoading(false) } }}>
+      <form className="flex gap-2" onSubmit={async (e) => { e.preventDefault(); setLoading(true); try { setOutfits(await api.outfits(username)); setShown(username.trim()) } catch (err) { setOutfits([]); setShown(null); notify.error(err) } finally { setLoading(false) } }}>
         <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder={t('Username')} />
         <Button type="submit" disabled={!username.trim() || loading}>{t('View Outfits')}</Button>
         <Button type="button" variant="secondary" disabled={!selected[0] || busy} onClick={() => wear(() => dialogs.prompt({ title: 'Wear Avatar', label: 'Avatar JSON', multiline: true }))}>
@@ -95,7 +97,7 @@ export function OutfitsTab() {
                 </button>
               ))}
             </div>
-            {outfits.length === 0 && <p className="py-16 text-center text-sm text-muted-foreground">{t('Type a username to see their outfits, click one to wear it on the selected account.')}</p>}
+            {outfits.length === 0 && <p className="py-16 text-center text-sm text-muted-foreground" data-testid="outfits-empty">{shown ? t('{0} has no saved outfits', shown) : t('Type a username to see their outfits, click one to wear it on the selected account.')}</p>}
           </ScrollArea>
         )}
       </div>

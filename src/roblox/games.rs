@@ -5,9 +5,15 @@ use super::*;
 impl Api {
     // ---------- games & servers ----------
 
+    /// A game's name: the place's details, or (Roblox limiting those) its universe's
     pub async fn place_name(&self, place_id: i64) -> Result<Option<String>> {
         let r = self.send(self.request(Method::GET, &format!("https://economy.roblox.com/v2/assets/{place_id}/details"), None).header("Accept", "application/json")).await?;
-        Ok(r.json().filter(|_| r.status == 200).and_then(|v| v["Name"].as_str().map(str::to_string)))
+        if let Some(name) = r.json().filter(|_| r.status == 200).and_then(|v| v["Name"].as_str().map(str::to_string)) {
+            return Ok(Some(name));
+        }
+        let Some(universe) = self.universe_of(place_id).await.ok().flatten() else { return Ok(None) };
+        let r = self.get(&format!("https://games.roblox.com/v1/games?universeIds={universe}"), None).await?;
+        Ok(r.json().filter(|_| r.ok()).and_then(|v| v["data"][0]["name"].as_str().map(str::to_string)))
     }
 
     pub async fn asset_details(&self, asset_id: i64) -> Result<Value> {
@@ -84,9 +90,13 @@ impl Api {
 
     /// Searches games by keyword, or the default sort without one
     pub async fn search_games(&self, keyword: &str, page: i64) -> Result<Vec<Value>> {
+        // nothing typed: Roblox's own lists of games (Top Trending first, the next one for each next page); the old
+        // games list route is gone (404)
         if keyword.trim().is_empty() {
-            let r = self.get(&format!("https://games.roblox.com/v1/games/list?model.startRows={}&model.maxRows=50", page * 50), None).await?;
-            return Ok(r.json().and_then(|v| v["games"].as_array().cloned()).unwrap_or_default());
+            let r = self.get(&format!("https://apis.roblox.com/explore-api/v1/get-sorts?sessionId={}", rand::random::<u32>()), None).await?.checked("the games")?;
+            let sorts = r.json().and_then(|v| v["sorts"].as_array().cloned()).unwrap_or_default();
+            let lists: Vec<Value> = sorts.into_iter().filter(|s| s["contentType"].as_str() == Some("Games")).collect();
+            return Ok(lists.get(page.max(0) as usize).and_then(|s| s["games"].as_array().cloned()).unwrap_or_default());
         }
 
         // the omni search API the Roblox site uses
@@ -96,7 +106,7 @@ impl Api {
             rand::random::<u32>(),
             if page > 0 { page.to_string() } else { String::new() }
         );
-        let r = self.get(&url, None).await?;
+        let r = self.get(&url, None).await?.checked("the games")?;
         let mut games = Vec::new();
         if let Some(results) = r.json().and_then(|v| v["searchResults"].as_array().cloned()) {
             for group in results {
@@ -115,6 +125,12 @@ impl Api {
         let ids: Vec<String> = place_ids.iter().map(|i| i.to_string()).collect();
         let r = self.get(&format!("https://games.roblox.com/v1/games/multiget-place-details?placeIds={}", ids.join("&placeIds=")), token).await?;
         Ok(r.json().and_then(|v| v.as_array().cloned()).unwrap_or_default())
+    }
+
+    /// The game (universe) a place belongs to, without an account
+    pub async fn universe_of(&self, place_id: i64) -> Result<Option<i64>> {
+        let r = self.get(&format!("https://apis.roblox.com/universes/v1/places/{place_id}/universe"), None).await?.checked("the game")?;
+        Ok(r.json().and_then(|v| v["universeId"].as_i64()))
     }
 
     pub async fn universe_places(&self, universe_id: i64) -> Result<Vec<(i64, String)>> {

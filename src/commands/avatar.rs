@@ -5,8 +5,9 @@ use super::*;
 #[tauri::command]
 pub async fn outfits(username: String) -> R<Vec<Value>> {
     let app = app();
-    let user_id = app.api.user_id(username.trim(), app.any_token().as_deref()).await.map_err(e)?;
-    let list = app.api.outfits(user_id).await.map_err(e)?;
+    let token = app.any_token();
+    let user_id = app.api.user_id(username.trim(), token.as_deref()).await.map_err(e)?;
+    let list = app.api.outfits(user_id, token.as_deref()).await.map_err(|err| app.tr(&err.to_string()))?;
     let requests: Vec<(i64, &str, &str)> = list.iter().map(|(_, id)| (*id, "Outfit", "150x150")).collect();
     let icons: std::collections::HashMap<i64, String> = app.api.thumbnails(&requests).await.unwrap_or_default().into_iter().collect();
     Ok(list.into_iter().map(|(name, id)| json!({ "id": id, "name": name, "icon": icons.get(&id) })).collect())
@@ -14,7 +15,8 @@ pub async fn outfits(username: String) -> R<Vec<Value>> {
 
 #[tauri::command]
 pub async fn outfit_json(outfit_id: i64) -> R<String> {
-    let details = app().api.outfit_details(outfit_id).await.map_err(e)?;
+    let app = app();
+    let details = app.api.outfit_details(outfit_id, app.any_token().as_deref()).await.map_err(|err| app.tr(&err.to_string()))?;
     let assets: Vec<Value> = details["assets"].as_array().cloned().unwrap_or_default().iter().map(|a| json!({ "id": a["id"] })).collect();
     Ok(json!({ "playerAvatarType": details["playerAvatarType"], "scales": details["scale"], "bodyColors": details["bodyColors"], "assets": assets }).to_string())
 }
